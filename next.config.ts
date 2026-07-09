@@ -6,6 +6,8 @@ import type { NextConfig } from "next";
  */
 const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
+  // Note: script-src allows js.stripe.com only via the CSP in proxy.ts; no
+  // Stripe.js is loaded today (hosted Checkout via redirect).
   // SAMEORIGIN, not DENY: the letter preview iframes our own PDF route.
   { key: "X-Frame-Options", value: "SAMEORIGIN" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },

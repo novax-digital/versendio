@@ -1,7 +1,7 @@
 # ARCHITECTURE — E-Post-Mailer
 
 > Systemarchitektur. Grundsatzentscheidungen als ADRs in `docs/adr/` (dort jeweils Begründung + Alternativen).
-> Stand: Phase 1. ⛔ Checkpoint-Entscheidung offen: ADR-0008 (E-Post-Betriebsmodell).
+> **Stand: final (Phase 10).** Betriebsmodell entschieden: Eigenversender (ADR-0008).
 
 ## 1. Systemüberblick
 
@@ -130,7 +130,8 @@ erDiagram
         int file_size_bytes
         jsonb validation "Ergebnis je Prüfregel"
         enum address_zone_result "ok|warning|fail"
-        bool needs_cover_letter
+        bool needs_cover_letter "Systemempfehlung"
+        bool use_cover_letter "Nutzerwahl"
         jsonb editor_document "Blockmodell, versioniert"
         bool has_placeholders
         enum status "draft|ready"
@@ -185,6 +186,7 @@ erDiagram
         int total_vk_cents
         int total_ek_cents
         uuid batch_id
+        int provider_batch_id "int32 fuer API-Sammelabfragen"
     }
     send_job_items {
         uuid id PK
@@ -207,6 +209,8 @@ erDiagram
         timestamptz first_submit_attempt_at "60-min-Failsafe-Fenster"
         text frankier_id
         timestamptz refunded_at
+        timestamptz retried_at "Admin-Retry: exakt einmal"
+        uuid retry_of_item_id FK "Klon-Herkunft"
         timestamptz submitted_at
         timestamptz last_status_sync_at
     }
@@ -352,8 +356,36 @@ sequenceDiagram
 - **Rate Limiting** Postgres-basiert (`rate_limits`-Tabelle, Fixed Window) auf Auth-, Upload- und Versand-Endpunkten — Serverless-tauglich ohne Fremd-Service (ADR-0002).
 - **DSGVO-Lebenszyklus** (Löschung/Anonymisierung/Retention) vollständig definiert in ADR-0009 inkl. FK-`ON DELETE`-Matrix.
 
-## 6. Offene Punkte
+## 6. Datenbank-Funktionen (alle SECURITY DEFINER, `search_path` gepinnt, nur `service_role`)
 
-- ⛔ **ADR-0008:** Betriebsmodell-Entscheidung am Checkpoint (Empfehlung: Eigenversender).
-- **Phase-5-Verifikationsgates** gegen die Swagger-Spec (ADR-0005 §4): Sammel-Statusabfrage (Polling-Drosselung), Lookup per `custom1`/`batchID` (Crash-Recovery), UploadManagement-Routen, `Letter/Registered`-Statusroute, `costCenter`-Längenlimit.
+| Funktion | Zweck |
+|---|---|
+| `book_credit` | **Einziger Geld-Eintrittspunkt.** Row-Lock je Nutzer, kein Negativsaldo, append-only Ledger |
+| `confirm_send_job` | Job + Belastung + Items + Queue-Jobs in **einer** Transaktion; `client_token`-Idempotenz |
+| `cancel_pending_job_items` | Storno noch nicht eingelieferter Items inkl. Erstattung |
+| `admin_retry_item` | Retry: Claim (exakt einmal) + Klon + Belastung + Queue, atomar |
+| `anonymize_account` | DSGVO-Löschung: Erstattung, PII-Hard-Delete, Snapshot-Scrub, Profil-Anonymisierung |
+| `claim_jobs` / `reset_stuck_jobs` | Queue-Claim mit `FOR UPDATE SKIP LOCKED`; Lock-Recovery |
+| `check_rate_limit` | Fixed-Window-Drosselung (Postgres statt Fremd-Service) |
+| `check_ledger_integrity` | Abgleich `SUM(ledger)` vs. denormalisierter Saldo |
+| `admin_dashboard_stats` | KPI-Aggregation in SQL |
+| `set_default_sender_address` / `upsert_sender_address` | „genau eine Standardadresse" atomar |
+| `is_admin` / `is_service_request` | RLS- und Trigger-Helfer |
+
+## 7. Spaltenschutz für Einkaufspreise
+
+`ek_cents`, `total_ek_cents` und `pricing_snapshot` sind **nicht** durch RLS zu schützen (RLS filtert
+Zeilen, keine Spalten). Migration `…0003_ek_column_privacy.sql` entzieht der Rolle `authenticated`
+daher das Tabellen-`SELECT` und erteilt eine **explizite Spaltenliste ohne die EK-Felder**. Neue
+Spalten sind dadurch standardmäßig gesperrt und müssen bewusst freigegeben werden (siehe
+`retried_at`/`retry_of_item_id` in `…0004`).
+
+## 8. Erledigte Verifikationsgates
+
+- ✅ Swagger v2.6.1 geladen; Sammel-Statusabfrage (`Letter/Open`), Crash-Lookup (`Letter/Custom1`),
+  `CancelQueued`/`ReleaseQueued`, `Letter/Registered`, `costCenter`-Limit (8 Zeichen) bestätigt.
+- ✅ `addressLine1–5` tragen **keine** PLZ/Ort/Land (ASSUMPTIONS A-010).
+- ✅ CSP-Nonce gegen den Produktions-Build per HTTP verifiziert.
+- ⬜ Offen bis zur ersten Live-Umgebung: DB-abhängige QA-Punkte (`docs/QA_CHECKLIST.md`) und der
+  E-Post-Live-Testplan (`docs/EPOST_INTEGRATION.md` §4).
 - International (Zonen/Preise) strukturell vorbereitet, initial deaktiviert.

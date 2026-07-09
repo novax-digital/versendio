@@ -14,7 +14,8 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "seed:admin": "node --env-file=.env.local scripts/seed-admin.ts",
-    "seed:stripe": "node --env-file=.env.local scripts/seed-stripe.ts"
+    "seed:stripe": "node --env-file=.env.local scripts/seed-stripe.ts",
+    "seed:demo": "node --env-file=.env.local scripts/seed-demo.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",

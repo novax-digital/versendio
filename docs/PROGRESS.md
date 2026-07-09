@@ -16,7 +16,74 @@
 | 7 | Admin-Konsole | ✅ abgeschlossen |
 | 8 | Härtung (Security, DSGVO, UX) | ✅ abgeschlossen |
 | 9 | QA | ✅ abgeschlossen |
-| 10 | Übergabe | ⬜ offen |
+| 10 | Übergabe | ✅ abgeschlossen |
+
+---
+
+# Abschlussbericht
+
+**Alle 10 Phasen abgeschlossen.** Die Anwendung ist im Mock-Modus end-to-end nutzbar: Registrierung
+→ Brief (Upload oder Editor) → Kontakte/Leadlisten → Versand mit Kostenvorschau → Statusverfolgung
+→ Guthaben. Admin-Konsole, DSGVO-Funktionen und Stripe (Testmodus) sind vollständig.
+
+## Was gebaut wurde
+
+| Bereich | Umfang |
+|---|---|
+| **Datenbank** | 21 Tabellen, RLS auf allen; 13 SECURITY-DEFINER-Funktionen (Geld, Queue, Retry, DSGVO); Spalten-Privileg schützt Einkaufspreise; 7 Migrationen |
+| **PDF-Pipeline** | Ein gemeinsamer Validierungspfad (exakte A4-Box, Blatt-/Größenlimits, PDF/A-Heuristik, **echte Adresszonen-Analyse** via pdf.js); Block-Editor mit Serienbrief-Platzhaltern; Deckblatt-Generator; Schablone-V3-Geometrie zentral |
+| **Versand** | `LetterProvider`-Interface, voll funktionsfähiger MockProvider, `EpostProvider` strikt gegen Swagger v2.6.1; DB-Queue + 3 Cron-Worker; gedrosseltes Status-Polling; automatische Erstattung bei Status 99; Stornofrist über Queue-Hold |
+| **Geld** | Append-only Ledger, `book_credit` als einziger Eintrittspunkt (Row-Lock, kein Negativsaldo), disjunktes Idempotenz-Vokabular; EK/VK-Preistabelle mit Margen-Reporting |
+| **Stripe** | Testmodus komplett (Checkout, SEPA, Auto-Aufladung, Belege, Webhook mit Replay-Sicherheit), hinter Feature-Flag, Live-Keys code-seitig gesperrt |
+| **Admin** | KPIs inkl. Rohertrag, Nutzerverwaltung, Sendejob-Monitor mit atomarem Retry, Preisverwaltung, typisierte Einstellungen, Audit-Log |
+| **Sicherheit/DSGVO** | CSP mit Per-Request-Nonce (verifiziert), Postgres-Rate-Limiting, Datenexport, atomare Account-Anonymisierung, Retention-Cron |
+| **Tests** | 103 Unit-Tests, 3 Playwright-Suiten (22 Specs), QA-Checkliste mit 9 Abschnitten |
+
+## Qualitätsverlauf
+
+Jede Phase durchlief mindestens ein Review-Subagenten-Gate; **alle Findings wurden vor
+Phasenabschluss behoben**. Die schwerwiegendsten Funde, die es ohne Reviews in den Betrieb geschafft
+hätten:
+
+1. **EK-Preise waren über PostgREST lesbar** (RLS filtert Zeilen, nicht Spalten) → Spalten-Privileg.
+2. **Adresszeilen an die API enthielten PLZ/Ort/Land**, die zusätzlich als separate Felder gingen →
+   der Ort wäre auf jedem echten Brief doppelt gedruckt worden.
+3. **A4-Toleranz war 250× zu locker** → genau die Near-Miss-PDFs, die die Post mit W208 ablehnt,
+   wären als „versandbereit" durchgegangen.
+4. **Webhook-Retry-Falle:** ein transienter Fehler hätte eine bezahlte Aufladung dauerhaft
+   verschluckt (Stripe stoppt Retries nach HTTP 200).
+5. **Admin-Retry war mehrfach ausführbar** → Doppelbelastung und Doppelversand.
+6. **Cancel-vs-Submit-Race** → Brief hätte nach Erstattung trotzdem versendet werden können.
+7. **Gesperrte Admins behielten Konsolenzugriff.**
+8. **Leadlisten > 2.000 Empfänger wurden stillschweigend gekürzt** — bei voller Bezahlung.
+
+## Offene Punkte vor dem Go-live
+
+1. **DB-abhängige QA-Punkte einmal real ausführen** (`docs/QA_CHECKLIST.md`): Webhook-Replay,
+   EK-Spaltenverweigerung via PostgREST, DSGVO-Löschung, Retry-Einmaligkeit, Rate Limiting.
+   Ohne Supabase-Projekt auf der Entwicklungsmaschine nur per Code-Review verifiziert.
+2. **E-Post-Live-Testplan** durchlaufen (`docs/EPOST_INTEGRATION.md` §4), erst danach `MOCK_MODE=false`.
+3. **EK-Werte für Einschreiben-Zuschläge** aus dem DP-Verzeichnis nachtragen (Seed führt sie als
+   `NULL`; Admin zeigt „EK fehlt").
+4. **Rechtsseiten** (Impressum, Datenschutz, AGB, AVV) mit echten Inhalten füllen — Struktur steht.
+5. **Stripe live schalten** (`docs/STRIPE_ACTIVATION.md`), inkl. bewusstem Entfernen der Live-Key-Sperre.
+6. Muster-PDFs in `docs/reference/muster/` ablegen, falls für weitere Validierungstests gewünscht.
+
+## Offene Ideen (`docs/IDEAS.md`)
+
+I-001 Monats-Sammelabrechnung · I-002 Unicode-Font im PDF · I-003 gerasterte Vorschau mit exaktem
+Zonen-Overlay · I-004 reichere Editor-Bausteine (Bilder/Fußzeile) · I-005 Länder-Auswahlliste ·
+I-006 aufgeschlüsselte Kostenvorschau · I-007 Niedrig-Guthaben-Banner · I-008 Schrittanzeige im
+Import · I-009 fail-closed Rate-Limiter für Auth-Pfade.
+
+## Bewusste Abweichungen
+
+Dokumentiert in `docs/ASSUMPTIONS.md` (A-001 … A-012). Die wichtigsten: Eigenversender-Modell
+(Checkpoint-Entscheidung), Stornofrist über unsere Queue statt UploadManagement-Plugin (stundengenau
+statt tagesgenau), gesperrte Nutzer dürfen laut Spec einloggen (Durchsetzung auf den Aktionen),
+Bild-/Logo-Bausteine im Editor-UI vertagt (Datenmodell und Rendering vorhanden).
+
+---
 
 ## Phase 0 — Setup & Analyse
 
@@ -133,8 +200,17 @@
 - `.env` / `.env.local` mit echten Credentials (Supabase, E-Post `vendorID`/EKP, Stripe, Resend) → bis dahin Mock-Modus.
 - EK-Preise für Einschreiben-Zusatzleistungen und International nicht in der Preisliste → Seed mit TODO-Platzhaltern.
 
+## Phase 10 — Übergabe
+
+- [x] `README.md`: Schnellstart, Supabase-Setup (Projekt, Migrationen, Auth-Redirects, Admin-Seed), Vercel-Deployment (ENV, Cron, Domain), Projektstruktur, Sicherheits-Grundsätze
+- [x] `docs/EPOST_INTEGRATION.md`: wo Zugangsdaten eingetragen werden, implementierte Routen, verifizierte Feld-Constraints, **dreistufiger Testplan Mock → Live**, Betriebshinweise (Polling-Drosselung, kein Rückruf, Idempotenz)
+- [x] `docs/STRIPE_ACTIVATION.md`: Testmodus-Setup, Webhook-Events, Abnahmetest, Live-Schaltung (inkl. bewusstem Entfernen der Live-Key-Sperre)
+- [x] `docs/ARCHITECTURE.md` final: ER-Diagramm mit allen Migrationen synchronisiert, Funktionsübersicht, EK-Spaltenschutz, erledigte Verifikationsgates
+- [x] `.env.example` vollständig kommentiert; Abgleich Code ↔ Doku (keine undokumentierte Variable)
+- [x] Seeds: `seed:admin` (Auth-Admin-API), `seed:demo` (Absenderadresse, 5 Kontakte, Leadliste, Serienbrief, 50 € Startguthaben), `seed:stripe`
+- [x] Abschlussbericht (oben)
+
 ## Nächster Schritt
 
-Phase 10 — Übergabe: `README.md` (lokales Setup, Supabase, Vercel-Deployment), `.env.example` final, `docs/ARCHITECTURE.md` final, `docs/EPOST_INTEGRATION.md` (Mock → Live), `docs/STRIPE_ACTIVATION.md`, Seeds (Admin + Demo), Abschlussbericht.
-
-⚠️ **Vor Go-live zwingend:** Die DB-abhängigen QA-Checklistenpunkte müssen einmal gegen ein echtes Supabase-Projekt laufen (Webhook-Replay, RLS-/EK-Spaltenverweigerung via PostgREST, DSGVO-Löschung, Retry-Einmaligkeit, Rate Limiting) — sie sind hier mangels DB nur per Code-Review verifiziert.
+Projekt übergeben. Vor dem Go-live die sechs Punkte aus **„Offene Punkte vor dem Go-live"** im
+Abschlussbericht abarbeiten.
