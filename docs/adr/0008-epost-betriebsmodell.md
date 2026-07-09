@@ -1,6 +1,6 @@
 # ADR-0008: E-Post-Betriebsmodell — Eigenversender vs. Partner-Modell
 
-**Status:** ⛔ **vorgeschlagen — Checkpoint-Entscheidung** · **Datum:** 2026-07-09
+**Status:** ✅ **akzeptiert — Checkpoint-Entscheidung vom 2026-07-09: Eigenversender-Modell (b)** · **Datum:** 2026-07-09
 
 ## Kontext
 Die E-POSTBUSINESS API erlaubt zwei Betriebsweisen (Masterprompt 6.5): **(a) Partner-Modell** — jeder Kunde bringt eine eigene DP-Kundennummer (EKP) mit und aktiviert sie per SMS-TAN in unserer App; die Post rechnet direkt mit dem Kunden ab. **(b) Eigenversender-Modell** — ein zentraler Account (unsere EKP aus ENV), alle Sendungen laufen darüber; Zuordnung je Kunde über `costCenter` auf unserer DP-Monatsrechnung.
@@ -22,4 +22,4 @@ Die E-POSTBUSINESS API erlaubt zwei Betriebsweisen (Masterprompt 6.5): **(a) Par
 - Auswirkung auf Datenmodell/Onboarding/Abrechnung bei (b): kein Aktivierungsschritt im User-Onboarding; Abrechnung rein über unser Ledger; `epost_accounts` bleibt leer bis auf ggf. Testeinträge.
 
 ## Entscheidung
-Wird am Phase-1-Checkpoint vom Product Owner getroffen. Bis dahin wird (b) als Arbeitshypothese verwendet (beeinflusst Phase 2 nicht — Auth/Foundation sind modellneutral).
+**Am Phase-1-Checkpoint (2026-07-09) vom Product Owner bestätigt: Eigenversender-Modell (b).** Zentraler Account aus ENV (`EPOST_VENDOR_ID`, `EPOST_EKP`, `EPOST_PASSWORD`, `EPOST_SECRET`), `costCenter` je Kunde. Partner-Modell bleibt als additiv nachrüstbare Ausbaustufe dokumentiert (`epost_accounts`-Tabelle + Aktivierungs-Flow-Referenz in der Legacy-App).

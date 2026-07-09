@@ -7,8 +7,8 @@
 | Phase | Titel | Status |
 |---|---|---|
 | 0 | Setup & Analyse | ✅ abgeschlossen |
-| 1 | Architektur (⛔ Checkpoint) | ⏸ wartet auf Freigabe |
-| 2 | Foundation (Scaffold, Supabase, Auth) | ⬜ offen |
+| 1 | Architektur (⛔ Checkpoint) | ✅ abgeschlossen — **freigegeben 2026-07-09** |
+| 2 | Foundation (Scaffold, Supabase, Auth) | 🔄 in Arbeit |
 | 3 | Briefe (Upload, Editor, PDF-Pipeline) | ⬜ offen |
 | 4 | Kontakte & Leadlisten | ⬜ offen |
 | 5 | Versand-Pipeline (Queue, Provider, Polling) | ⬜ offen |
@@ -36,7 +36,7 @@
 - [x] `docs/ARCHITECTURE.md` mit ER-Diagramm (Mermaid), Versand-Sequenz, Storage-Layout
 - [x] Review `architecture-reviewer`: 1× CRITICAL + 3× HIGH + 7 weitere Findings → **alle eingearbeitet** (u. a. disjunktes Refund-Referenz-Vokabular, `on_hold_funds`-Semantik, Wizard-Idempotenz via `client_token`, ADR-0009 DSGVO, Postgres-Rate-Limiting, Doppelversand-Recovery-Härtung, exakte A4-Prüfung); Verifikations-Review: **APPROVE**
 - [x] Betriebsmodell-Entscheidungsvorlage: ADR-0008 (Empfehlung: **Eigenversender-Modell**)
-- [ ] ⛔ **CHECKPOINT: Freigabe durch Product Owner ausstehend** (Datenmodell + ADR-0008)
+- [x] ⛔ **CHECKPOINT bestanden (2026-07-09):** Datenmodell + Architektur freigegeben; Betriebsmodell-Entscheidung: **Eigenversender** (ADR-0008 akzeptiert). Ab hier autonom bis Phase 10.
 
 ## Fehlendes Material (nicht blockierend)
 
@@ -47,4 +47,4 @@
 
 ## Nächster Schritt
 
-⛔ Checkpoint-Freigabe abwarten (Datenmodell + ADR-0008 Betriebsmodell). Nach Freigabe: Phase 2 (Next.js-Scaffold, Supabase-Migrationen + RLS + Seeds, Auth komplett, App-Shell) — danach autonom bis Phase 10.
+Phase 2: Next.js-Scaffold, Supabase-Migrationen + RLS + Seeds, Auth komplett (Registrierung/Verifizierung/Login/Reset), Profil + Absenderadressen, App-Shell; Reviews (security-auditor, code-reviewer) + Playwright-E2E.
