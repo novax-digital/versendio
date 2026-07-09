@@ -10,7 +10,7 @@
 | 1 | Architektur (⛔ Checkpoint) | ✅ abgeschlossen — **freigegeben 2026-07-09** |
 | 2 | Foundation (Scaffold, Supabase, Auth) | ✅ abgeschlossen |
 | 3 | Briefe (Upload, Editor, PDF-Pipeline) | ✅ abgeschlossen |
-| 4 | Kontakte & Leadlisten | ⬜ offen |
+| 4 | Kontakte & Leadlisten | ✅ abgeschlossen |
 | 5 | Versand-Pipeline (Queue, Provider, Polling) | ⬜ offen |
 | 6 | Guthaben, Preise & Stripe-Vorbereitung | ⬜ offen |
 | 7 | Admin-Konsole | ⬜ offen |
@@ -62,6 +62,14 @@
 - [x] DoD: Build ✅ Lint ✅ Typecheck ✅ **44 Unit-Tests** ✅ (inkl. Render→Validate-Roundtrip, Zonen, Platzhalter, Adressblock, Blattzahl)
 - Muster-PDFs (`docs/reference/muster/`) weiterhin nicht vorhanden → eigene Fixtures im Test generiert (Masterprompt-konform)
 
+## Phase 4 — Kontakte & Leadlisten
+
+- [x] Kontakte-CRUD mit Suche (debounced, PostgREST-sicher bereinigt) + Pagination (50/Seite)
+- [x] **CSV/XLSX-Import**: Upload (10 MB / 10.000 Zeilen) → automatisches Header-Mapping (DE+EN-Aliasse, Legacy-erprobt) → Mapping-UI mit Vorschau → Zeilenvalidierung (PLZ je Land, Pflichtfelder) → Duplikaterkennung (intra-Datei + Bestand via `dedup_key`, owner-scoped) → Batch-Insert → Ergebnis mit Fehlerexport (CSV, formula-injection-sicher)
+- [x] Leadlisten: CRUD, Detail mit Empfängertabelle, Kontakt-Suche zum Hinzufügen, Entfernen; direkt aus Import erzeugbar (mit Kompensation bei Teilfehlern)
+- [x] Review `code-reviewer`: 1× HIGH (Dedup-Lookup-Fehler → stille Duplikate) + 4× MEDIUM (CSV-Injection, .or()-Suchsyntax, Import-Atomarität, Admin-Scope) → **alle behoben**; 2× LOW (Parser-Wahl vom Serverpfad, lower()-Hinweis) behoben/dokumentiert
+- [x] DoD: Build ✅ Lint ✅ Typecheck ✅ **59 Unit-Tests** ✅
+
 ## Fehlendes Material (nicht blockierend)
 
 - Original-PDFs (Preisliste, Schablone V3) liegen nur als Chat-Anhang vor → Inhalte transkribiert in `docs/reference/epost/`; Originale bitte bei Gelegenheit in `docs/reference/epost/` ablegen.
@@ -71,4 +79,4 @@
 
 ## Nächster Schritt
 
-Phase 4 — Kontakte & Leadlisten: CRUD + Adressbuch mit Suche, CSV/XLSX-Import (Upload → Spalten-Mapping-UI → Validierung → Fehlerexport → Duplikaterkennung), Leadlisten-Verwaltung.
+Phase 5 — Versand-Pipeline: Swagger-Spec per WebFetch laden (Verifikationsgates ADR-0005 §4), Preisberechnung, Versand-Assistent inkl. Probeversand, Job-Queue-Worker (`/api/cron/*`), MockProvider + EpostProvider, Status-Polling, Credit-Buchung/-Erstattung. Reviews: code-reviewer + security-auditor.

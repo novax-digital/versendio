@@ -3,7 +3,16 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { LayoutDashboard, FileText, Settings, Shield, Menu, Mail } from "lucide-react";
+import {
+  LayoutDashboard,
+  FileText,
+  Users,
+  ListChecks,
+  Settings,
+  Shield,
+  Menu,
+  Mail,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
@@ -13,6 +22,8 @@ import { de } from "@/lib/i18n/de";
 const items = [
   { href: "/app", label: de.nav.dashboard, icon: LayoutDashboard, exact: true },
   { href: "/app/briefe", label: de.nav.letters, icon: FileText, exact: false },
+  { href: "/app/kontakte", label: de.nav.contacts, icon: Users, exact: false },
+  { href: "/app/leadlisten", label: de.nav.leadLists, icon: ListChecks, exact: false },
   { href: "/app/einstellungen", label: de.nav.settings, icon: Settings, exact: false },
 ];
 
