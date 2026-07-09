@@ -1,14 +1,13 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { Upload, Users } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/server/auth-context";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { sanitizeSearchTerm } from "@/lib/shared/search-term";
 import { de } from "@/lib/i18n/de";
 import { ContactList, type Contact } from "./contact-list";
 import { SearchInput } from "./search-input";
+import { ButtonLink } from "@/components/ui-ext/button-link";
 
 export const metadata: Metadata = { title: de.contacts.title };
 
@@ -51,10 +50,10 @@ export default async function ContactsPage({
           <p className="text-muted-foreground text-sm">{de.contacts.subtitle}</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" render={<Link href="/app/kontakte/import" />}>
+          <ButtonLink href="/app/kontakte/import" variant="outline">
             <Upload className="size-4" aria-hidden />
             {de.contacts.importButton}
-          </Button>
+          </ButtonLink>
         </div>
       </div>
 

@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { AlertCircle, CheckCircle2, Copy, Download, Upload } from "lucide-react";
@@ -33,6 +32,7 @@ import {
 } from "@/components/ui/table";
 import { CONTACT_FIELDS, FIELD_LABELS_DE, type ContactField } from "@/lib/shared/import/mapping";
 import { de } from "@/lib/i18n/de";
+import { ButtonLink } from "@/components/ui-ext/button-link";
 
 type Analyzed = Extract<StartImportResult, { ok: true }>;
 type Committed = Extract<CommitImportResult, { ok: true }>;
@@ -287,11 +287,11 @@ function ResultStep({ result }: { result: Committed }) {
           </Button>
         ) : null}
         <div className="flex gap-2 pt-2">
-          <Button render={<Link href="/app/kontakte" />}>{de.contacts.toContacts}</Button>
+          <ButtonLink href="/app/kontakte">{de.contacts.toContacts}</ButtonLink>
           {result.listId ? (
-            <Button variant="outline" render={<Link href={`/app/leadlisten/${result.listId}`} />}>
+            <ButtonLink href={`/app/leadlisten/${result.listId}`} variant="outline">
               {de.contacts.toList}
-            </Button>
+            </ButtonLink>
           ) : null}
         </div>
       </CardContent>

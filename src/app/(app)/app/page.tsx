@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CheckCircle2, Circle, Mail, Wallet } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireProfile } from "@/lib/server/auth-context";
 import { createClient } from "@/lib/supabase/server";
 import { formatCents } from "@/lib/shared/money";
 import { de } from "@/lib/i18n/de";
+import { ButtonLink } from "@/components/ui-ext/button-link";
 
 export const metadata: Metadata = { title: de.dashboard.title };
 
@@ -154,9 +154,9 @@ export default async function DashboardPage() {
             <div className="text-muted-foreground py-8 text-center text-sm">
               <p>{de.dashboard.noJobs}</p>
               <p className="mt-1">{de.dashboard.noJobsCta}</p>
-              <Button className="mt-3" render={<Link href="/app/versand" />}>
+              <ButtonLink href="/app/versand" className="mt-3">
                 {de.sendJobs.newSend}
-              </Button>
+              </ButtonLink>
             </div>
           )}
         </CardContent>

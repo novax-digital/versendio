@@ -1,5 +1,8 @@
 import { z } from "zod";
 
+/** Hard cap of recipients per send job (applies to lead lists and selections). */
+export const MAX_RECIPIENTS_PER_JOB = 2000;
+
 export const sendOptionsSchema = z.object({
   isColor: z.boolean().default(false),
   isDuplex: z.boolean().default(true),
@@ -10,7 +13,7 @@ export const recipientSelectionSchema = z.discriminatedUnion("source", [
   z.object({ source: z.literal("lead_list"), leadListId: z.string().uuid() }),
   z.object({
     source: z.literal("contacts"),
-    contactIds: z.array(z.string().uuid()).min(1).max(2000),
+    contactIds: z.array(z.string().uuid()).min(1).max(MAX_RECIPIENTS_PER_JOB),
   }),
 ]);
 

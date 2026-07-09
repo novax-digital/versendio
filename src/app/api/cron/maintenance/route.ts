@@ -4,6 +4,7 @@ import { isAuthorizedCronRequest } from "@/lib/server/queue/cron-auth";
 import { serverEnv } from "@/lib/server/env";
 import { BUCKETS } from "@/lib/server/storage";
 import { writeAuditLog } from "@/lib/server/audit";
+import { enqueueJob } from "@/lib/server/queue/enqueue";
 
 export const maxDuration = 300;
 
@@ -80,28 +81,12 @@ export async function GET(request: Request) {
     .select("id")
     .eq("status", "on_hold_funds")
     .limit(200);
+  // enqueueJob is a no-op when a live submit job already exists (unique index).
   const heldIds = (heldItems ?? []).map((i) => i.id);
-  let heldRequeued = 0;
-  if (heldIds.length > 0) {
-    const { data: pendingJobs } = await admin
-      .from("job_queue")
-      .select("payload")
-      .eq("type", "submit_item")
-      .in("status", ["pending", "running"]);
-    const alreadyQueued = new Set(
-      (pendingJobs ?? []).map((j) => String((j.payload as { itemId?: string }).itemId ?? "")),
-    );
-    for (const itemId of heldIds) {
-      if (alreadyQueued.has(itemId)) continue;
-      await admin.from("job_queue").insert({
-        type: "submit_item",
-        payload: { itemId },
-        run_at: new Date().toISOString(),
-      });
-      heldRequeued++;
-    }
+  for (const itemId of heldIds) {
+    await enqueueJob("submit_item", { itemId });
   }
-  report.held_items_requeued = heldRequeued;
+  report.held_items_requeued = heldIds.length;
 
   // 5) Refund reconciliation: failed items whose refund booking was lost to a
   //    transient error (idempotent via the ledger reference index).

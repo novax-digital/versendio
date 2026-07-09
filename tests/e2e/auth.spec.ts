@@ -15,13 +15,6 @@ test.describe("public pages", () => {
     }
   });
 
-  test("app routes redirect to login when logged out", async ({ page }) => {
-    await page.goto("/app");
-    await expect(page).toHaveURL(/\/login/);
-    await page.goto("/admin");
-    await expect(page).toHaveURL(/\/login/);
-  });
-
   test("register form validates input client-roundtrip", async ({ page }) => {
     await page.goto("/registrieren");
     await page.getByLabel("Ihr Name").fill("Test");
@@ -35,6 +28,14 @@ test.describe("public pages", () => {
 
 test.describe("auth flows (requires Supabase)", () => {
   test.skip(!supabaseConfigured(), "Supabase env missing — configure .env.local to run");
+
+  // Needs a session check, so it needs a configured Supabase project.
+  test("app routes redirect to login when logged out", async ({ page }) => {
+    await page.goto("/app");
+    await expect(page).toHaveURL(/\/login/);
+    await page.goto("/admin");
+    await expect(page).toHaveURL(/\/login/);
+  });
 
   test("login → dashboard → logout", async ({ page }) => {
     const user = await createTestUser("e2e-login");

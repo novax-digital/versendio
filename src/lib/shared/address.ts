@@ -56,6 +56,27 @@ export function buildRecipientAddressLines(addr: RecipientAddress): string[] {
   return lines.slice(0, 6);
 }
 
+/**
+ * Address lines for the PROVIDER payload (`addressLine1–5`). Per Swagger
+ * v2.6.1 these carry only name/company, street and address extra —
+ * "Empfängerzeile 1 (z.B. Name,Firma)", "… (z.B. Strasse,Adresszusatz)".
+ * PLZ, Ort und Land werden in den separaten Feldern `zipCode`/`city`/`country`
+ * übergeben. Sie hier zu wiederholen würde die Ortsangabe doppelt drucken.
+ *
+ * Distinct from `buildRecipientAddressLines`, which builds the PRINTED block
+ * (cover letter / editor rendering) and therefore does include zip/city/country.
+ */
+export function buildProviderAddressLines(addr: RecipientAddress): string[] {
+  const lines: string[] = [];
+  const name = [addr.firstName?.trim(), addr.lastName?.trim()].filter(Boolean).join(" ");
+  if (addr.company?.trim()) lines.push(addr.company.trim());
+  if (name) lines.push(name);
+  if (addr.addressExtra?.trim()) lines.push(addr.addressExtra.trim());
+  lines.push(addr.street.trim());
+  // addressLine5 is DE-only; 4 lines cover every supported combination.
+  return lines.slice(0, 5);
+}
+
 /** Maps a recipient to the placeholder context for Serienbrief rendering. */
 export function toPlaceholderContext(addr: RecipientAddress): PlaceholderContext {
   return {

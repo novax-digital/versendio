@@ -206,10 +206,17 @@ async function storePaymentMethod(session: Stripe.Checkout.Session): Promise<voi
 
 async function handleAutoTopupFailure(userId: string): Promise<void> {
   const admin = createAdminClient();
-  await admin
+
+  // Clearing the in-flight flag is the idempotency token for this notification:
+  // only the first processing of the event (the one that actually clears a set
+  // flag) mails the user. A webhook replay finds it null and stays silent.
+  const { data: cleared } = await admin
     .from("billing_accounts")
     .update({ auto_topup_pending_at: null })
-    .eq("user_id", userId);
+    .eq("user_id", userId)
+    .not("auto_topup_pending_at", "is", null)
+    .select("user_id");
+  if (!cleared || cleared.length === 0) return;
 
   const { data: profile } = await admin
     .from("profiles")

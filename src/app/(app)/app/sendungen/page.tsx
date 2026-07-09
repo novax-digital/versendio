@@ -4,10 +4,10 @@ import { Send } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/server/auth-context";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatCents } from "@/lib/shared/money";
 import { de } from "@/lib/i18n/de";
+import { ButtonLink } from "@/components/ui-ext/button-link";
 
 export const metadata: Metadata = { title: de.sendJobs.title };
 
@@ -35,10 +35,10 @@ export default async function SendJobsPage() {
           <h1 className="text-2xl font-semibold">{de.sendJobs.title}</h1>
           <p className="text-muted-foreground text-sm">{de.sendJobs.subtitle}</p>
         </div>
-        <Button render={<Link href="/app/versand" />}>
+        <ButtonLink href="/app/versand">
           <Send className="size-4" aria-hidden />
           {de.sendJobs.newSend}
-        </Button>
+        </ButtonLink>
       </div>
 
       {!jobs || jobs.length === 0 ? (

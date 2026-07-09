@@ -15,7 +15,7 @@
 | 6 | Guthaben, Preise & Stripe-Vorbereitung | ✅ abgeschlossen |
 | 7 | Admin-Konsole | ✅ abgeschlossen |
 | 8 | Härtung (Security, DSGVO, UX) | ✅ abgeschlossen |
-| 9 | QA | ⬜ offen |
+| 9 | QA | ✅ abgeschlossen |
 | 10 | Übergabe | ⬜ offen |
 
 ## Phase 0 — Setup & Analyse
@@ -112,6 +112,20 @@
 - [x] Review `ux-reviewer` über alle Kernflüsse: 3× HIGH (**Sackgassen im Kernpfad**: kein Auflade-CTA bei Unterdeckung, kein „Brief versenden"-CTA, Onboarding-Schritt verlinkte auf sich selbst) + 5× MEDIUM + 6× LOW → **alle behoben**; „Versand" jetzt in der Hauptnavigation, AGB/Datenschutz-Hinweis bei Registrierung, klickbare Guthaben-Anzeige, Select-a11y; 5 größere Ideen → IDEAS I-005…I-008
 - [x] DoD: Build ✅ Lint ✅ Typecheck ✅ 74 Unit-Tests ✅
 
+## Phase 9 — QA
+
+- [x] **103 Unit-Tests** (15 Dateien): Preismatrix, Ledger-/Validierungssemantik, Schablonen-Geometrie, AES-GCM inkl. Tamper-Erkennung, CSP-Direktiven, PDF-Render→Validate-Roundtrip, Import/Dedup, Adress-Builder (Druck vs. Provider), Zeitzonen-Grenzen, Mail-Escaping
+- [x] Playwright: `auth.spec.ts` (öffentliche Seiten), `user-journey.spec.ts` (Registrierung → Editor-Brief mit Platzhalter → CSV-Import + Leadliste → Versand im Mock → Ledger-Prüfung → blocked-User), `admin-journey.spec.ts` (Guards, KPIs, Guthaben mit Pflichtkommentar, Audit, Sperren, Preis-/Settings-Validierung, gesperrter Admin)
+- [x] `docs/QA_CHECKLIST.md` (9 Abschnitte) + `qa-tester`-Durchlauf
+- [x] **QA-Findings behoben:**
+  - **F2 (kritisch, Zustellbarkeit):** `addressLine1–5` enthielten PLZ/Ort/Land, die zusätzlich als separate Felder gingen → beim echten Provider doppelte Ortsangabe. Getrennte Builder für Druck und Provider (A-010), Auslands-PLZ-Regel ergänzt, Tests dagegen
+  - **F1:** Leadliste > 2.000 Empfänger wurde stillschweigend gekürzt → harte Obergrenze mit Fehlermeldung (A-011)
+  - **F3:** Server startete ohne Supabase-Env gar nicht → öffentliche Seiten booten jetzt (verifiziert per HTTP: `/`, `/rechtliches/*`, `/registrieren` → 200; `/app` fail-closed), Playwright läuft
+  - **F4:** doppelte `submit_item`-Queue-Jobs möglich → partieller Unique-Index je Item; `enqueueJob` behandelt Konflikt als No-op
+  - **F5/F6:** doppelte Auto-Topup-Fehlermail bei Webhook-Replay; ein `client_token` für Probe- und Echtversand
+  - Zusätzlich gefunden und behoben: `"use server"`-Datei exportierte eine Konstante (Build-Bruch); Navigations-Buttons gaben `<a>` die Rolle `button` → `ButtonLink` (A-012)
+- [x] DoD: Build ✅ Lint ✅ Typecheck ✅ 103 Unit-Tests ✅ Playwright ✅ (3 passed, 19 skipped — DB-abhängig)
+
 ## Fehlendes Material (nicht blockierend)
 
 - Original-PDFs (Preisliste, Schablone V3) liegen nur als Chat-Anhang vor → Inhalte transkribiert in `docs/reference/epost/`; Originale bitte bei Gelegenheit in `docs/reference/epost/` ablegen.
@@ -121,4 +135,6 @@
 
 ## Nächster Schritt
 
-Phase 9 — QA: Unit-Tests für die restliche Kernlogik, Playwright-Suiten (komplette User-Journey Registrierung → Brief → Leadliste → Versand im Mock → Status; Admin-Journey), `docs/QA_CHECKLIST.md` + `qa-tester`-Durchlauf, alle Findings fixen.
+Phase 10 — Übergabe: `README.md` (lokales Setup, Supabase, Vercel-Deployment), `.env.example` final, `docs/ARCHITECTURE.md` final, `docs/EPOST_INTEGRATION.md` (Mock → Live), `docs/STRIPE_ACTIVATION.md`, Seeds (Admin + Demo), Abschlussbericht.
+
+⚠️ **Vor Go-live zwingend:** Die DB-abhängigen QA-Checklistenpunkte müssen einmal gegen ein echtes Supabase-Projekt laufen (Webhook-Replay, RLS-/EK-Spaltenverweigerung via PostgREST, DSGVO-Löschung, Retry-Einmaligkeit, Rate Limiting) — sie sind hier mangels DB nur per Code-Review verifiziert.

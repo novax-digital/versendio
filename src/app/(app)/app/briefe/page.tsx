@@ -1,12 +1,11 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { FileText, Plus } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/server/auth-context";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { de } from "@/lib/i18n/de";
 import { LetterRow } from "./letter-row";
+import { ButtonLink } from "@/components/ui-ext/button-link";
 
 export const metadata: Metadata = { title: de.letters.title };
 
@@ -25,10 +24,10 @@ export default async function LettersPage() {
           <h1 className="text-2xl font-semibold">{de.letters.title}</h1>
           <p className="text-muted-foreground text-sm">{de.letters.subtitle}</p>
         </div>
-        <Button render={<Link href="/app/briefe/neu" />}>
+        <ButtonLink href="/app/briefe/neu">
           <Plus className="size-4" aria-hidden />
           {de.letters.newLetter}
-        </Button>
+        </ButtonLink>
       </div>
 
       {!letters || letters.length === 0 ? (
@@ -37,9 +36,9 @@ export default async function LettersPage() {
             <FileText className="size-8" aria-hidden />
             <p className="text-foreground font-medium">{de.letters.empty}</p>
             <p>{de.letters.emptyCta}</p>
-            <Button className="mt-2" render={<Link href="/app/briefe/neu" />}>
+            <ButtonLink href="/app/briefe/neu" className="mt-2">
               {de.letters.newLetter}
-            </Button>
+            </ButtonLink>
           </CardContent>
         </Card>
       ) : (

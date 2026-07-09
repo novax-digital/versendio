@@ -361,6 +361,8 @@ export const de = {
     confirming: "Sendung wird angelegt …",
     letterNotReady: "Der gewählte Brief ist nicht versandbereit.",
     noRecipients: "Es wurden keine gültigen Empfänger gefunden.",
+    tooManyRecipients: (max: number) =>
+      `Eine Sendung kann höchstens ${max.toLocaleString("de-DE")} Empfänger umfassen. Bitte teilen Sie die Liste auf.`,
     noSenderAddress: "Bitte legen Sie zuerst eine Absenderadresse an.",
     pricingUnavailable: "Die Preisberechnung ist derzeit nicht verfügbar. Bitte versuchen Sie es später erneut.",
     jobCreated: "Ihre Sendung wurde angelegt und wird verarbeitet.",

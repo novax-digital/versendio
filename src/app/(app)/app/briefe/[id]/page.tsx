@@ -1,16 +1,15 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Send } from "lucide-react";
 import { requireProfile } from "@/lib/server/auth-context";
 import { createClient } from "@/lib/supabase/server";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LetterPreview } from "@/components/letters/letter-preview";
 import { ValidationReport } from "@/components/letters/validation-report";
 import type { PdfValidation } from "@/lib/shared/validation-result";
 import { de } from "@/lib/i18n/de";
 import { LetterActions } from "./letter-actions";
+import { ButtonLink } from "@/components/ui-ext/button-link";
 
 export const metadata: Metadata = { title: de.letters.title };
 
@@ -42,10 +41,10 @@ export default async function LetterDetailPage({ params }: { params: Promise<{ i
         </div>
         <div className="flex gap-2">
           {letter.status === "ready" ? (
-            <Button render={<Link href={`/app/versand?brief=${letter.id}`} />}>
+            <ButtonLink href={`/app/versand?brief=${letter.id}`}>
               <Send className="size-4" aria-hidden />
               {de.letters.sendLetter}
-            </Button>
+            </ButtonLink>
           ) : null}
           <LetterActions letterId={letter.id} />
         </div>

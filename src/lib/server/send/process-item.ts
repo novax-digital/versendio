@@ -7,7 +7,12 @@ import { prependCoverLetter } from "@/lib/server/pdf/cover-letter";
 import { validateLetterPdf } from "@/lib/server/pdf/validate";
 import { isSubmittable } from "@/lib/shared/validation-result";
 import { letterDocumentSchema } from "@/lib/shared/letter-document";
-import { buildRecipientAddressLines, toPlaceholderContext, type RecipientAddress } from "@/lib/shared/address";
+import {
+  buildRecipientAddressLines,
+  buildProviderAddressLines,
+  toPlaceholderContext,
+  type RecipientAddress,
+} from "@/lib/shared/address";
 import { calculateLetterPrice, type PricingRow } from "@/lib/shared/pricing";
 import { sheetsFromPages } from "@/lib/shared/sheets";
 import { BUCKETS } from "@/lib/server/storage";
@@ -244,7 +249,9 @@ export async function processSubmitItem(itemId: string): Promise<ProcessResult> 
     isColor: job.is_color,
     isDuplex: job.is_duplex,
     registered: job.registered,
-    addressLines,
+    // Provider lines exclude zip/city/country — those go in the discrete
+    // fields below; repeating them would print the locality twice.
+    addressLines: buildProviderAddressLines(recipient),
     zipCode: recipient.zip,
     city: recipient.city,
     country: recipient.country ?? "DE",

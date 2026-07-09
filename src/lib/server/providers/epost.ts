@@ -126,12 +126,16 @@ export class EpostProvider implements LetterProvider {
         testFlag: input.isTest,
         testShowRestrictedArea: input.isTest ? (input.testShowRestrictedArea ?? true) : false,
         coverLetter: false,
+        // Name/company, street, address extra only — NOT zip/city/country
+        // (Swagger: "Empfängerzeile … (z.B. Name,Firma / Strasse,Adresszusatz)").
         addressLine1: line1 ?? "",
         addressLine2: line2 ?? null,
         addressLine3: line3 ?? null,
         addressLine4: line4 ?? null,
-        addressLine5: line5 ?? null,
-        zipCode: input.zipCode,
+        // addressLine5 is documented as DE-only.
+        addressLine5: country === "DE" ? (line5 ?? null) : null,
+        // Foreign destinations without postal codes must send three blanks.
+        zipCode: input.zipCode.trim() === "" ? "   " : input.zipCode,
         city: input.city,
         // Domestic letters must omit the country (mismatch → W203).
         country: country === "DE" ? null : countryNameOrThrow(country),

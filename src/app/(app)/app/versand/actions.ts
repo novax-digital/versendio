@@ -7,7 +7,11 @@ import { checkRateLimit, clientIp } from "@/lib/server/rate-limit";
 import { loadPricingRows, loadDiscountPercent } from "@/lib/server/pricing/load";
 import { calculateLetterPrice, PricingError } from "@/lib/shared/pricing";
 import { isMockMode } from "@/lib/server/env";
-import { quoteRequestSchema, confirmRequestSchema } from "@/lib/shared/schemas/send";
+import {
+  quoteRequestSchema,
+  confirmRequestSchema,
+  MAX_RECIPIENTS_PER_JOB,
+} from "@/lib/shared/schemas/send";
 import type { RecipientAddress } from "@/lib/shared/address";
 import { de } from "@/lib/i18n/de";
 
@@ -26,30 +30,49 @@ export type QuoteResult =
 
 type RecipientRow = RecipientAddress & { contactId: string | null };
 
+class TooManyRecipientsError extends Error {}
+
+/**
+ * Loads the selected recipients. A lead list larger than the cap is rejected
+ * loudly — silently truncating would charge the user for a partial mailing
+ * they believe went out in full.
+ */
 async function loadRecipients(
   selection: { source: "lead_list"; leadListId: string } | { source: "contacts"; contactIds: string[] },
 ): Promise<RecipientRow[]> {
   const supabase = await createClient();
 
   if (selection.source === "lead_list") {
-    const { data } = await supabase
+    const { data, count } = await supabase
       .from("lead_list_entries")
       .select(
         "contacts(id, salutation, first_name, last_name, company, street, address_extra, zip, city, country)",
+        { count: "exact" },
       )
       .eq("list_id", selection.leadListId)
-      .limit(2000);
+      .limit(MAX_RECIPIENTS_PER_JOB + 1);
+
+    if ((count ?? 0) > MAX_RECIPIENTS_PER_JOB) {
+      throw new TooManyRecipientsError();
+    }
     return (data ?? [])
       .map((e) => e.contacts as unknown as ContactRow | null)
       .filter((c): c is ContactRow => !!c)
       .map(toRecipient);
   }
 
+  if (selection.contactIds.length > MAX_RECIPIENTS_PER_JOB) {
+    throw new TooManyRecipientsError();
+  }
   const { data } = await supabase
     .from("contacts")
     .select("id, salutation, first_name, last_name, company, street, address_extra, zip, city, country")
     .in("id", selection.contactIds);
   return (data ?? []).map((c) => toRecipient(c as ContactRow));
+}
+
+function tooManyRecipients(err: unknown): boolean {
+  return err instanceof TooManyRecipientsError;
 }
 
 type ContactRow = {
@@ -109,7 +132,15 @@ export async function quoteSendJobAction(_prev: unknown, input: unknown): Promis
     return { ok: false, error: de.send.letterNotReady };
   }
 
-  const recipients = await loadRecipients(parsed.data.recipients);
+  let recipients;
+  try {
+    recipients = await loadRecipients(parsed.data.recipients);
+  } catch (err) {
+    if (tooManyRecipients(err)) {
+      return { ok: false, error: de.send.tooManyRecipients(MAX_RECIPIENTS_PER_JOB) };
+    }
+    throw err;
+  }
   if (recipients.length === 0) return { ok: false, error: de.send.noRecipients };
 
   const sheets = Math.max(1, letter.sheet_count ?? 1);
@@ -182,7 +213,15 @@ export async function confirmSendJobAction(_prev: unknown, input: unknown): Prom
   const { data: sender } = await senderQuery.maybeSingle();
   if (!sender) return { ok: false, error: de.send.noSenderAddress };
 
-  const recipients = await loadRecipients(parsed.data.recipients);
+  let recipients;
+  try {
+    recipients = await loadRecipients(parsed.data.recipients);
+  } catch (err) {
+    if (tooManyRecipients(err)) {
+      return { ok: false, error: de.send.tooManyRecipients(MAX_RECIPIENTS_PER_JOB) };
+    }
+    throw err;
+  }
   if (recipients.length === 0) return { ok: false, error: de.send.noRecipients };
 
   const sheets = Math.max(1, letter.sheet_count ?? 1);

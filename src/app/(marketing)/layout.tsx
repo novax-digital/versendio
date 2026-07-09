@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Mail } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { de } from "@/lib/i18n/de";
+import { ButtonLink } from "@/components/ui-ext/button-link";
 
 const legalLinks = [
   { href: "/rechtliches/impressum", label: de.legal.imprint },
@@ -20,10 +20,10 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
             {de.common.appName}
           </Link>
           <nav className="flex items-center gap-2">
-            <Button variant="ghost" render={<Link href="/login" />}>
+            <ButtonLink href="/login" variant="ghost">
               {de.nav.login}
-            </Button>
-            <Button render={<Link href="/registrieren" />}>{de.nav.register}</Button>
+            </ButtonLink>
+            <ButtonLink href="/registrieren">{de.nav.register}</ButtonLink>
           </nav>
         </div>
       </header>

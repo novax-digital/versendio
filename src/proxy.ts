@@ -28,9 +28,20 @@ export async function proxy(request: NextRequest) {
   const nextOptions = { request: { headers: requestHeaders } };
   let response = NextResponse.next(nextOptions);
 
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  // Without Supabase configuration there is no session to refresh or gate on.
+  // Public pages must still render (and E2E specs must still boot the server);
+  // protected pages fail closed via requireProfile() in their layouts.
+  if (!supabaseUrl || !supabaseKey) {
+    response.headers.set("Content-Security-Policy", csp);
+    return response;
+  }
+
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    supabaseUrl,
+    supabaseKey,
     {
       cookies: {
         getAll() {

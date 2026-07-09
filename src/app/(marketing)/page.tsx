@@ -1,8 +1,7 @@
-import Link from "next/link";
 import { FileCheck, Users, Route } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { de } from "@/lib/i18n/de";
+import { ButtonLink } from "@/components/ui-ext/button-link";
 
 const features = [
   { icon: FileCheck, title: de.marketing.featurePdfTitle, text: de.marketing.featurePdfText },
@@ -34,12 +33,12 @@ export default async function MarketingPage({
           {de.marketing.heroSubtitle}
         </p>
         <div className="flex justify-center gap-3">
-          <Button size="lg" render={<Link href="/registrieren" />}>
+          <ButtonLink href="/registrieren" size="lg">
             {de.marketing.ctaRegister}
-          </Button>
-          <Button size="lg" variant="outline" render={<Link href="/login" />}>
+          </ButtonLink>
+          <ButtonLink href="/login" size="lg" variant="outline">
             {de.marketing.ctaLogin}
-          </Button>
+          </ButtonLink>
         </div>
       </section>
 

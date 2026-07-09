@@ -1,15 +1,14 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/server/auth-context";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCents } from "@/lib/shared/money";
 import { de } from "@/lib/i18n/de";
 import { JobItems } from "./job-items";
 import { CancelJobButton } from "./cancel-job-button";
+import { ButtonLink } from "@/components/ui-ext/button-link";
 
 export const metadata: Metadata = { title: de.sendJobs.title };
 
@@ -114,13 +113,10 @@ export default async function SendJobDetailPage({
         <div className="space-y-2 rounded-md bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-200">
           <p>{de.sendJobs.retryInfo}</p>
           {job.letter_id ? (
-            <Button
-              variant="outline"
-              size="sm"
-              render={<Link href={`/app/versand?brief=${job.letter_id}`} />}
-            >
+            <ButtonLink href={`/app/versand?brief=${job.letter_id}`} variant="outline"
+              size="sm">
               {de.letters.sendLetter}
-            </Button>
+            </ButtonLink>
           ) : null}
         </div>
       ) : null}

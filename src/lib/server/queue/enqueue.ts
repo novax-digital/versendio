@@ -9,7 +9,15 @@ export type QueueJobType =
   | "auto_topup"
   | "release_queued";
 
-/** Inserts a queue job (service-role only table, ADR-0004). */
+/**
+ * Inserts a queue job (service-role only table, ADR-0004).
+ *
+ * `submit_item` carries a partial unique index on the item id for live jobs:
+ * several call sites (top-up webhook, admin credit booking, maintenance sweep)
+ * may try to release the same held item, and a duplicate row could be claimed
+ * by a second concurrent worker. A unique violation therefore means "already
+ * queued" and is a no-op, not an error.
+ */
 export async function enqueueJob(
   type: QueueJobType,
   payload: Record<string, unknown>,
@@ -22,6 +30,7 @@ export async function enqueueJob(
     run_at: (runAt ?? new Date()).toISOString(),
   });
   if (error) {
+    if (error.code === "23505") return; // already queued
     console.error("enqueue_failed", { type, error: error.message });
   }
 }

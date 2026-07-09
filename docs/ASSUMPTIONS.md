@@ -14,6 +14,19 @@ Preisliste staffelt nach Blatt (Standard inkl. 1 Blatt / Kompakt inkl. 4 / Groß
 ## A-005 — `old_app/src/styles.css` durch Tooling verändert
 `shadcn init` hat beim Setup versehentlich die CSS-Datei der Legacy-App als Ziel erkannt und deren Farbwerte auf das Neutral-Theme überschrieben (Original-Brandfarben nicht wiederherstellbar). Folgenlos: `old_app/` wird hier nie gebaut und ist gitignored; alle relevanten Legacy-Erkenntnisse sind in `docs/LEGACY_FINDINGS.md` gesichert. `components.json` wurde auf `src/app/globals.css` korrigiert.
 
+## A-010 — Zwei getrennte Adress-Builder (Druck vs. Provider)
+Der QA-Durchlauf deckte auf, dass `addressLine1–5` der E-POST-API laut Swagger v2.6.1 **nur** Name/Firma, Straße und Adresszusatz tragen („Empfängerzeile 1 (z. B. Name,Firma)"); PLZ, Ort und Land werden ausschließlich über die separaten Felder `zipCode`/`city`/`country` übergeben. Beides zusammen hätte auf dem echten Brief die Ortsangabe doppelt gedruckt.
+Daher zwei Funktionen in `src/lib/shared/address.ts`:
+- `buildRecipientAddressLines()` → **gedruckter** Adressblock (Deckblatt, Editor-Rendering): inkl. PLZ/Ort-Zeile und Ländername.
+- `buildProviderAddressLines()` → **API-Payload**: ohne PLZ/Ort/Land, max. 5 Zeilen; `addressLine5` nur bei DE.
+Zusätzlich aus der Spec übernommen: Auslandsempfänger ohne Postleitzahl erhalten drei Leerzeichen im Feld `zipCode`. Unit-Tests sichern beide Varianten gegeneinander ab.
+
+## A-011 — Maximal 2.000 Empfänger je Sendung
+Eine Leadliste kann bis zu 10.000 Kontakte enthalten, ein Sendejob wurde jedoch stillschweigend auf 2.000 gekürzt (QA-Finding F1: Nutzer zahlt für 2.000 und glaubt, die ganze Liste sei versendet). Statt der Kürzung gilt nun eine harte, in `MAX_RECIPIENTS_PER_JOB` zentral definierte Obergrenze mit klarer Fehlermeldung („Bitte teilen Sie die Liste auf."). Größere Mailings über mehrere Jobs sind bewusst gewollt — sie halten Jobsumme, Kostenvorschau und Queue-Batching überschaubar.
+
+## A-012 — Navigations-Buttons sind Links, keine Buttons
+`Button render={<Link/>}` ließ Base UI dem `<a>` die Rolle `button` geben — Screenreader hätten Navigation als Schaltfläche angesagt. Alle Navigations-Schaltflächen nutzen daher `ButtonLink` (`src/components/ui-ext/button-link.tsx`): echtes `<a>` mit Button-Styling über `buttonVariants`.
+
 ## A-008 — Stornofrist über Queue-Hold statt UploadManagement-Plugin
 Die Swagger-Spec (v2.6.1) zeigt: das UploadManagement-Plugin arbeitet nur **tagesgenau** (dueDate/dueDays/dueDayofWeek als Stichtag). Der Masterprompt wünscht eine Verzögerung „um einige Stunden". Umsetzung daher: `scheduled_release_at` hält die `submit_item`-Jobs in **unserer Queue** (`run_at` = Freigabezeitpunkt) — bis dahin ist Storno kostenlos (Job-Abbruch + `job_cancel_rest`-Refund, PDFs haben unser System nie verlassen) und Vorziehen trivial (`run_at = now()`). Stundengenau, keine Plugin-Abhängigkeit. `cancelQueued`/`releaseQueued` sind im Provider trotzdem implementiert (Interface-Vollständigkeit, spätere Plugin-Nutzung möglich).
 

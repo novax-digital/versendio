@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -23,6 +22,7 @@ import {
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { formatCents } from "@/lib/shared/money";
 import { de } from "@/lib/i18n/de";
+import { ButtonLink } from "@/components/ui-ext/button-link";
 
 type LetterOption = {
   id: string;
@@ -74,7 +74,12 @@ export function SendWizard({
   const [registered, setRegistered] = useState<Registered>("none");
   const [delayHours, setDelayHours] = useState<number>(0);
   const [quote, setQuote] = useState<QuoteResult | null>(null);
-  const [clientToken] = useState(() => crypto.randomUUID());
+  // Separate idempotency tokens: a test run and a real send are different jobs,
+  // and reusing one token would make the second silently return the first job.
+  const [clientTokens] = useState(() => ({
+    real: crypto.randomUUID(),
+    test: crypto.randomUUID(),
+  }));
   const [pending, startTransition] = useTransition();
 
   const selectedLetter = letters.find((l) => l.id === letterId) ?? null;
@@ -123,7 +128,7 @@ export function SendWizard({
         letterId,
         recipients: recipientSelection,
         options: { isColor, isDuplex, registered },
-        clientToken,
+        clientToken: isTest ? clientTokens.test : clientTokens.real,
         isTest,
         scheduledReleaseAt,
       });
@@ -175,7 +180,7 @@ export function SendWizard({
             {letters.length === 0 ? (
               <div className="text-muted-foreground space-y-3 py-6 text-center text-sm">
                 <p>{de.send.noLetters}</p>
-                <Button render={<Link href="/app/briefe/neu" />}>{de.letters.newLetter}</Button>
+                <ButtonLink href="/app/briefe/neu">{de.letters.newLetter}</ButtonLink>
               </div>
             ) : (
               <RadioGroup
@@ -233,9 +238,9 @@ export function SendWizard({
               leadLists.length === 0 ? (
                 <div className="space-y-2">
                   <p className="text-muted-foreground text-sm">{de.send.noLists}</p>
-                  <Button variant="outline" size="sm" render={<Link href="/app/kontakte/import" />}>
+                  <ButtonLink href="/app/kontakte/import" variant="outline" size="sm">
                     {de.send.noListsCta}
-                  </Button>
+                  </ButtonLink>
                 </div>
               ) : (
                 <Select value={leadListId ?? undefined} onValueChange={setLeadListId}>
@@ -456,13 +461,10 @@ function ConfirmStep({
       {!hasSender ? (
         <div className="bg-destructive/10 text-destructive space-y-2 rounded-md p-3 text-sm">
           <p>{de.send.noSenderAddress}</p>
-          <Button
-            variant="outline"
-            size="sm"
-            render={<Link href="/app/einstellungen/absenderadressen" />}
-          >
+          <ButtonLink href="/app/einstellungen/absenderadressen" variant="outline"
+            size="sm">
             {de.send.createSenderAddress}
-          </Button>
+          </ButtonLink>
         </div>
       ) : null}
       {mockMode ? (
@@ -525,9 +527,9 @@ function ConfirmStep({
             {de.send.insufficientFunds}{" "}
             {de.send.missingAmount(formatCents(quote.totalCents - quote.balanceCents))}
           </p>
-          <Button size="sm" render={<Link href="/app/guthaben" />}>
+          <ButtonLink href="/app/guthaben" size="sm">
             {de.send.topUpCta}
-          </Button>
+          </ButtonLink>
         </div>
       ) : null}
 
