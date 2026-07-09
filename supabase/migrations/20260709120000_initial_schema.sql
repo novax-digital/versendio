@@ -345,7 +345,8 @@ create table public.letters (
   file_size_bytes integer,
   validation jsonb,
   address_zone_result public.zone_result,
-  needs_cover_letter boolean not null default false,
+  needs_cover_letter boolean not null default false, -- system recommendation
+  use_cover_letter boolean not null default false, -- user choice (prepend at send)
   editor_document jsonb,
   has_placeholders boolean not null default false,
   status public.letter_status not null default 'draft',

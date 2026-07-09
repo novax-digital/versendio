@@ -9,7 +9,7 @@
 | 0 | Setup & Analyse | ✅ abgeschlossen |
 | 1 | Architektur (⛔ Checkpoint) | ✅ abgeschlossen — **freigegeben 2026-07-09** |
 | 2 | Foundation (Scaffold, Supabase, Auth) | ✅ abgeschlossen |
-| 3 | Briefe (Upload, Editor, PDF-Pipeline) | ⬜ offen |
+| 3 | Briefe (Upload, Editor, PDF-Pipeline) | ✅ abgeschlossen |
 | 4 | Kontakte & Leadlisten | ⬜ offen |
 | 5 | Versand-Pipeline (Queue, Provider, Polling) | ⬜ offen |
 | 6 | Guthaben, Preise & Stripe-Vorbereitung | ⬜ offen |
@@ -49,6 +49,19 @@
 - [x] Reviews: `security-auditor` (2× HIGH, 6× MEDIUM) + `code-reviewer` (4× MEDIUM) → **alle blockierenden + sinnvollen Findings behoben** (email-Spalten-Schutz + unique + seed via Auth-API gegen Admin-Eskalation; APP_URL-Pflicht in Prod gegen Host-Header-Injection; Open-Redirect-Backslash; Rate-Limit-IP + Doppel-Counter; atomare Default-Adress-RPCs; Passwort-Re-Auth; Admin-Guard doppelt; i18n-Zentralisierung). Bewusste Abweichung dokumentiert: A-006 (blocked users dürfen laut Spec einloggen)
 - [x] DoD: Build ✅, Lint ✅, Typecheck ✅, 24 Unit-Tests ✅; Playwright-Specs vorhanden (auth/public), Supabase-abhängige Specs skippen ohne `.env.local`
 
+## Phase 3 — Briefe
+
+- [x] **Ein gemeinsamer Validierungspfad** (`validateLetterPdf`, ADR-0006): exakte A4-Prüfung (Toleranz 0,003 pt — W208-fest), 94-Blatt-/188-Seiten-Limit, 20-MB-Limit, PDF/A-Heuristik (Warnung), verschlüsselte PDFs
+- [x] **Echte Adresszonen-Analyse** (pdfjs, Textpositionen): DVF-Sperrzone = harter Fehler, druckfreie Ränder (links/oben/rechts/unten), leere Empfängerzone → Deckblatt-Empfehlung
+- [x] PDF-Upload: Dropzone, Validierungsbericht je Regel, Storage (`letters`-Bucket), Deckblatt-Toggle (hält `sheet_count` synchron)
+- [x] **Block-Editor**: Betreff/Text/Abstand-Bausteine, Verschieben/Löschen, Platzhalter-Einfügung an Caret-Position (Betreff + Text), Absenderadresse-Auswahl, Vorlagen (speichern/laden); Bild-/Logo-Rendering + Asset-Upload serverseitig vorhanden, UI-Ausbau in IDEAS I-004 (A-007)
+- [x] Serverseitiges Rendering (pdf-lib) mit Schablone-V3-Geometrie; **Editor-Briefe laufen durch denselben Validierungspfad** (Proberendering beim Speichern)
+- [x] Serienbrief-Platzhalter (`{{anrede}}` …) inkl. Unbekannt-Warnung; Auflösung pro Empfänger vorbereitet für Phase 5
+- [x] Vorschau: PDF-iframe + einblendbares Schablonen-Zonen-Overlay; Deckblatt-Generator
+- [x] Review `code-reviewer`: 1× HIGH (A4-Toleranz) + 4× MEDIUM + 6× LOW → **alle behoben** (A4 exakt, Editor-Validierung, Deckblatt-Blattzahl, blocked-Guard verdrahtet, Ränder komplett, Toggle-Revert, Caret-Fix, Umlaut-Regex, Source-Guard, Encrypted-Branch, Duplex-Seitenlimit)
+- [x] DoD: Build ✅ Lint ✅ Typecheck ✅ **44 Unit-Tests** ✅ (inkl. Render→Validate-Roundtrip, Zonen, Platzhalter, Adressblock, Blattzahl)
+- Muster-PDFs (`docs/reference/muster/`) weiterhin nicht vorhanden → eigene Fixtures im Test generiert (Masterprompt-konform)
+
 ## Fehlendes Material (nicht blockierend)
 
 - Original-PDFs (Preisliste, Schablone V3) liegen nur als Chat-Anhang vor → Inhalte transkribiert in `docs/reference/epost/`; Originale bitte bei Gelegenheit in `docs/reference/epost/` ablegen.
@@ -58,4 +71,4 @@
 
 ## Nächster Schritt
 
-Phase 3 — Briefe: PDF-Upload + Validierung (A4, Seitenzahl, Adresszonen gemäß Schablone V3) + Vorschau + Deckblatt-Option; Block-Editor + serverseitige PDF-Generierung + Vorlagen + Platzhalter (Serienbrief). Ein gemeinsamer Validierungspfad (ADR-0006).
+Phase 4 — Kontakte & Leadlisten: CRUD + Adressbuch mit Suche, CSV/XLSX-Import (Upload → Spalten-Mapping-UI → Validierung → Fehlerexport → Duplikaterkennung), Leadlisten-Verwaltung.

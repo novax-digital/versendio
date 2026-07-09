@@ -14,6 +14,9 @@ Preisliste staffelt nach Blatt (Standard inkl. 1 Blatt / Kompakt inkl. 4 / Groß
 ## A-005 — `old_app/src/styles.css` durch Tooling verändert
 `shadcn init` hat beim Setup versehentlich die CSS-Datei der Legacy-App als Ziel erkannt und deren Farbwerte auf das Neutral-Theme überschrieben (Original-Brandfarben nicht wiederherstellbar). Folgenlos: `old_app/` wird hier nie gebaut und ist gitignored; alle relevanten Legacy-Erkenntnisse sind in `docs/LEGACY_FINDINGS.md` gesichert. `components.json` wurde auf `src/app/globals.css` korrigiert.
 
+## A-007 — Editor Phase 3: Bild-/Logo-Bausteine im Datenmodell und Renderer, UI teilweise vertagt
+Der Masterprompt §6.2 nennt für den Editor Briefkopf/Logo, Bild-Blöcke, Anlagenvermerk und Fußzeile. Umgesetzt in Phase 3: Datenmodell (`image`-Block, `logoStoragePath`) und **serverseitiges Rendering** dieser Elemente sowie der Asset-Upload (`uploadAssetAction`, `assets`-Bucket) sind vollständig vorhanden. Die **Editor-UI** exponiert vorerst Betreff-, Text- und Abstands-Bausteine; das Hinzufügen von Bild-/Logo-Bausteinen über die Oberfläche und dedizierte Anlagen-/Fußzeilen-Bausteine folgen als Ausbau (IDEAS I-004). Damit ist der Serienbrief-Kernfluss (Text + Platzhalter → validiertes A4-PDF) end-to-end nutzbar; keine stillschweigende Streichung, nur UI-Priorisierung.
+
 ## A-006 — Gesperrte Nutzer dürfen einloggen (Spec vor Security-Finding)
 Das Phase-2-Security-Review empfahl, gesperrte Nutzer (`status=blocked`) hart auszusperren. MASTERPROMPT §6.1 verlangt jedoch ausdrücklich: „Gesperrte Nutzer können sich einloggen, aber nichts versenden — mit klarem Hinweis.“ Umsetzung daher: Login und App-Zugang bleiben offen, ein Banner weist auf die Sperre hin; die **Durchsetzung liegt auf den sensiblen Aktionen** (Upload, Versand, Aufladung) via `blockedActionError()` in `src/lib/server/auth-context.ts`. Diese Aktionen entstehen ab Phase 3/5 — der Guard ist bereitgestellt und wird dort verdrahtet.
 

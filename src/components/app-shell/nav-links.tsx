@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { LayoutDashboard, Settings, Shield, Menu, Mail } from "lucide-react";
+import { LayoutDashboard, FileText, Settings, Shield, Menu, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
@@ -12,6 +12,7 @@ import { de } from "@/lib/i18n/de";
 // Nav items are added per phase as their routes ship — no dead links.
 const items = [
   { href: "/app", label: de.nav.dashboard, icon: LayoutDashboard, exact: true },
+  { href: "/app/briefe", label: de.nav.letters, icon: FileText, exact: false },
   { href: "/app/einstellungen", label: de.nav.settings, icon: Settings, exact: false },
 ];
 
