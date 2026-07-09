@@ -51,7 +51,7 @@ export default async function LegalPage({ params }: { params: Promise<{ slug: st
       <h1 className="text-3xl font-semibold">{page.title}</h1>
       <p className="text-muted-foreground">{page.intro}</p>
       <div className="text-muted-foreground rounded-md border border-dashed p-6 text-sm">
-        {de.admin.placeholder}
+        {de.legal.placeholder}
       </div>
     </div>
   );

@@ -13,7 +13,7 @@
 | 4 | Kontakte & Leadlisten | ✅ abgeschlossen |
 | 5 | Versand-Pipeline (Queue, Provider, Polling) | ✅ abgeschlossen |
 | 6 | Guthaben, Preise & Stripe-Vorbereitung | ✅ abgeschlossen |
-| 7 | Admin-Konsole | ⬜ offen |
+| 7 | Admin-Konsole | ✅ abgeschlossen |
 | 8 | Härtung (Security, DSGVO, UX) | ⬜ offen |
 | 9 | QA | ⬜ offen |
 | 10 | Übergabe | ⬜ offen |
@@ -93,6 +93,17 @@
 - [x] DoD: Build ✅ Lint ✅ Typecheck ✅ 71 Tests ✅
 - Hinweis: EK/VK-**Preisverwaltungs-UI** (Margen-Anzeige, Aufladebeträge konfigurieren) liegt in Phase 7 (Admin-Konsole), wo alle Admin-Flächen entstehen — keine Streichung, nur Bündelung.
 
+## Phase 7 — Admin-Konsole
+
+- [x] Dashboard: KPIs (Nutzer, Briefe heute/Monat, Aufladungen, **Rohertrag Σ VK−EK**, Fehlerquote, Queue) — in SQL aggregiert, Tagesgrenzen in **Europe/Berlin**; Ledger-Integritätsalarm; Systemstatus (Mock/Live, Provider-Health, Stripe)
+- [x] Nutzerverwaltung: Liste mit Suche + Pagination, Detail (Guthaben, Briefe, Transaktionen), Aktionen: Guthaben buchen (**Pflicht-Kommentar**, im Audit hinterlegt), Preisstufe, Sperren/Entsperren (Selbst-Sperre verhindert), Passwort-Reset
+- [x] Sendejob-Monitor: Statusfilter, Fehlerdetails, **atomarer Retry** (`admin_retry_item`-RPC: Claim + Klon + Belastung + Queue in einer Transaktion; exakt einmal ausführbar)
+- [x] Preisverwaltung: EK/VK je Option, Margen-Anzeige (absolut + %), **Verkauf unter EK nur mit ausdrücklicher Bestätigung**, Aktiv-Schalter
+- [x] Einstellungen: `app_settings` mit **Key-Allowlist + typisierten Wert-Schemas** (Tippfehler/falsche Typen können Worker nicht mehr brechen); Feature-Flags einsehbar
+- [x] Audit-Log-Ansicht; **alle 7 Admin-Mutationen auditiert**
+- [x] Review (kombiniert): 2× HIGH (Retry doppelt ausführbar → Doppelbelastung+Doppelversand; Retry nicht atomar → Belastung ohne Versand) + 1× MEDIUM Autorisierung (**gesperrter Admin behielt Konsolenzugriff**) + 4 weitere → **alle behoben**
+- [x] DoD: Build ✅ Lint ✅ Typecheck ✅ **74 Unit-Tests** ✅ (inkl. Zeitzonen-Grenzen)
+
 ## Fehlendes Material (nicht blockierend)
 
 - Original-PDFs (Preisliste, Schablone V3) liegen nur als Chat-Anhang vor → Inhalte transkribiert in `docs/reference/epost/`; Originale bitte bei Gelegenheit in `docs/reference/epost/` ablegen.
@@ -102,4 +113,6 @@
 
 ## Nächster Schritt
 
-Phase 7 — Admin-Konsole: Dashboard-KPIs (inkl. Rohertrag Σ VK−EK), Nutzerverwaltung (Suche/Detail/Aktionen: Preisstufe, Guthaben buchen mit Pflicht-Kommentar, Sperren, Reset, Löschen), Sendejob-Monitor mit Retry, **Preisverwaltung EK/VK mit Margen-Anzeige**, Einstellungen/Flags, Audit-Log.
+Phase 8 — Härtung: `security-auditor` über die **gesamte** App; DSGVO-Features (Datenexport JSON, Account-Löschung nach ADR-0009, Retention-Cron bereits vorhanden); Performance-Check; Accessibility-Basics; `ux-reviewer` über alle Kernflüsse.
+
+Offen aus §6.7: Admin-Aktion „Account löschen" wird in Phase 8 zusammen mit dem DSGVO-Löschablauf (ADR-0009) implementiert — dort entsteht die gemeinsame Löschfunktion.

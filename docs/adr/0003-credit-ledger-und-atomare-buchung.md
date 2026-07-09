@@ -18,6 +18,7 @@ Guthaben ist echtes Geld. Anforderungen: unveränderliches Ledger, kein Negativs
    - `item_failed` (refund, ref = send_job_item.id) — Erstattung bei Status 99 / endgültigem Einlieferungsfehler,
    - `item_canceled` (refund, ref = send_job_item.id) — Storno aus dem Sammelkorb,
    - `job_cancel_rest` (refund, ref = send_job.id) — Resterstattung nicht eingelieferter Items bei Job-Abbruch,
+   - `item_retry` (spend, ref = **neues** send_job_item.id) — Admin-Retry eines fehlgeschlagenen Items. Der Retry **klont** das Item in eine neue Zeile; ein Reset der alten Zeile würde am Unique-Index kollidieren (ihre `item_failed`-Erstattung existiert bereits) und einen erneuten Fehlschlag unerstattbar machen,
    - `stripe_event` (topup, ref = event_id).
    Ein Item kann so korrekt **sowohl** eine Render-Anpassung **als auch** später eine Fehler-Erstattung erhalten (verschiedene reference_types). `admin_adjust` ist vom Index ausgenommen. Unit-Test-Pflicht: „Item heruntergebucht → danach Status 99“ ergibt zwei unabhängige Ledger-Zeilen.
 4. **Buchungszeitpunkte:**

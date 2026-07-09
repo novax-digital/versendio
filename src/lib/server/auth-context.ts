@@ -45,10 +45,15 @@ export async function requireProfile(): Promise<Profile> {
   return profile;
 }
 
-/** Requires the admin role (defense in depth on top of RLS). */
+/**
+ * Requires the admin role AND an active account (defense in depth on top of
+ * RLS). Blocking an admin must actually revoke console access — otherwise a
+ * compromised admin account cannot be contained. Mirrors `is_admin()` in SQL,
+ * which also requires status = 'active'.
+ */
 export async function requireAdmin(): Promise<Profile> {
   const profile = await requireProfile();
-  if (profile.role !== "admin") redirect("/app");
+  if (profile.role !== "admin" || profile.status !== "active") redirect("/app");
   return profile;
 }
 
