@@ -7,7 +7,7 @@
 | Phase | Titel | Status |
 |---|---|---|
 | 0 | Setup & Analyse | ✅ abgeschlossen |
-| 1 | Architektur (⛔ Checkpoint) | 🔄 in Arbeit |
+| 1 | Architektur (⛔ Checkpoint) | ⏸ wartet auf Freigabe |
 | 2 | Foundation (Scaffold, Supabase, Auth) | ⬜ offen |
 | 3 | Briefe (Upload, Editor, PDF-Pipeline) | ⬜ offen |
 | 4 | Kontakte & Leadlisten | ⬜ offen |
@@ -30,6 +30,14 @@
 - [x] `CLAUDE.md`
 - [x] Initial-Commit
 
+## Phase 1 — Architektur
+
+- [x] ADRs 0001–0009 in `docs/adr/` (Stack/Struktur, Datenmodell+RLS, Credit-Ledger, Job-Queue, Provider-Adapter, PDF-Pipeline, Preismodell, Betriebsmodell ⛔, DSGVO-Lebenszyklus)
+- [x] `docs/ARCHITECTURE.md` mit ER-Diagramm (Mermaid), Versand-Sequenz, Storage-Layout
+- [x] Review `architecture-reviewer`: 1× CRITICAL + 3× HIGH + 7 weitere Findings → **alle eingearbeitet** (u. a. disjunktes Refund-Referenz-Vokabular, `on_hold_funds`-Semantik, Wizard-Idempotenz via `client_token`, ADR-0009 DSGVO, Postgres-Rate-Limiting, Doppelversand-Recovery-Härtung, exakte A4-Prüfung); Verifikations-Review: **APPROVE**
+- [x] Betriebsmodell-Entscheidungsvorlage: ADR-0008 (Empfehlung: **Eigenversender-Modell**)
+- [ ] ⛔ **CHECKPOINT: Freigabe durch Product Owner ausstehend** (Datenmodell + ADR-0008)
+
 ## Fehlendes Material (nicht blockierend)
 
 - Original-PDFs (Preisliste, Schablone V3) liegen nur als Chat-Anhang vor → Inhalte transkribiert in `docs/reference/epost/`; Originale bitte bei Gelegenheit in `docs/reference/epost/` ablegen.
@@ -39,4 +47,4 @@
 
 ## Nächster Schritt
 
-Phase 1: ADRs + Datenmodell + ER-Diagramm in `docs/ARCHITECTURE.md`, Review durch `architecture-reviewer`, dann ⛔ Checkpoint (Freigabe Datenmodell + E-Post-Betriebsmodell).
+⛔ Checkpoint-Freigabe abwarten (Datenmodell + ADR-0008 Betriebsmodell). Nach Freigabe: Phase 2 (Next.js-Scaffold, Supabase-Migrationen + RLS + Seeds, Auth komplett, App-Shell) — danach autonom bis Phase 10.
