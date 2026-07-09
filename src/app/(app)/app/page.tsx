@@ -42,7 +42,7 @@ export default async function DashboardPage() {
 
   const setupSteps = [
     { label: de.dashboard.setupSenderAddress, done: (senderAddressCount ?? 0) > 0, href: "/app/einstellungen/absenderadressen" },
-    { label: de.dashboard.setupCredit, done: profile.credit_balance_cents > 0, href: "/app/einstellungen" },
+    { label: de.dashboard.setupCredit, done: profile.credit_balance_cents > 0, href: "/app/guthaben" },
     { label: de.dashboard.setupLetter, done: (sentCount ?? 0) + (inProgressCount ?? 0) > 0, href: "/app" },
   ];
   const showSetup = setupSteps.some((s) => !s.done);

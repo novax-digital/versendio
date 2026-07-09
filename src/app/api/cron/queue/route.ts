@@ -41,7 +41,7 @@ export async function GET(request: Request) {
 
   const batchSize = await getNumberSetting("queue_batch_size", 10);
   const { data: jobs, error } = await admin.rpc("claim_jobs", {
-    p_types: ["submit_item", "send_email", "cleanup_storage"],
+    p_types: ["submit_item", "send_email", "cleanup_storage", "auto_topup"],
     p_limit: batchSize,
     p_worker_id: workerId,
   });
@@ -103,6 +103,14 @@ async function processJob(job: QueueJob): Promise<"done" | "retry"> {
       if (path && bucket) {
         const admin = createAdminClient();
         await admin.storage.from(bucket).remove([path]);
+      }
+      return "done";
+    }
+    case "auto_topup": {
+      const userId = String(job.payload.userId ?? "");
+      if (userId) {
+        const { processAutoTopup } = await import("@/lib/server/billing/auto-topup");
+        await processAutoTopup(userId);
       }
       return "done";
     }

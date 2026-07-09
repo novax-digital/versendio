@@ -390,6 +390,53 @@ export const de = {
     statusLabel: "Status",
     createdLabel: "Erstellt",
   },
+  credits: {
+    title: "Guthaben",
+    subtitle: "Ihr Prepaid-Guthaben für den Briefversand.",
+    currentBalance: "Aktuelles Guthaben",
+    topupTitle: "Guthaben aufladen",
+    topupHint: "Sicher bezahlen per Karte oder SEPA-Lastschrift über Stripe.",
+    customAmount: "Eigener Betrag (€)",
+    topupButton: "Zur Bezahlung",
+    stripeDisabled:
+      "Die Online-Aufladung ist derzeit nicht verfügbar. Bitte kontaktieren Sie uns – wir buchen Ihr Guthaben manuell.",
+    betaHint:
+      "Beta-Betrieb: Guthaben wird derzeit manuell durch unser Team gebucht. Kontaktieren Sie uns für eine Aufladung.",
+    belowMinimum: (min: number) =>
+      `Der Mindestbetrag für Aufladungen beträgt ${(min / 100).toFixed(2).replace(".", ",")} €.`,
+    aboveMaximum: (max: number) =>
+      `Der Höchstbetrag für Aufladungen beträgt ${(max / 100).toFixed(2).replace(".", ",")} €.`,
+    billingAddressRequired:
+      "Bitte vervollständigen Sie zuerst Ihre Rechnungsadresse im Profil, bevor Sie Guthaben aufladen.",
+    topupSuccess:
+      "Vielen Dank! Ihre Zahlung wird verarbeitet – das Guthaben wird in Kürze gutgeschrieben.",
+    topupCanceled: "Die Zahlung wurde abgebrochen.",
+    setupSuccess: "Ihre Zahlungsmethode wurde hinterlegt.",
+    setupCanceled: "Das Hinterlegen der Zahlungsmethode wurde abgebrochen.",
+    autoTopupTitle: "Automatische Aufladung",
+    autoTopupHint:
+      "Fällt Ihr Guthaben unter den Schwellwert, laden wir automatisch den gewählten Betrag von Ihrer hinterlegten Zahlungsmethode nach.",
+    autoTopupEnable: "Automatische Aufladung aktivieren",
+    threshold: "Schwellwert (€)",
+    autoAmount: "Aufladebetrag (€)",
+    savePaymentMethod: "Zahlungsmethode hinterlegen",
+    paymentMethodSaved: "Zahlungsmethode hinterlegt",
+    noPaymentMethod: "Bitte hinterlegen Sie zuerst eine Zahlungsmethode.",
+    autoTopupSaved: "Die Einstellungen wurden gespeichert.",
+    transactionsTitle: "Transaktionen",
+    transactionsEmpty: "Noch keine Transaktionen vorhanden.",
+    txType: {
+      topup: "Aufladung",
+      spend: "Versand",
+      refund: "Erstattung",
+      admin_adjust: "Korrektur",
+    } as Record<string, string>,
+    receipt: "Beleg",
+    date: "Datum",
+    amount: "Betrag",
+    balanceAfter: "Guthaben danach",
+    typeLabel: "Art",
+  },
   validation: {
     fieldRequired: "Dieses Feld ist erforderlich.",
     zipRequired: "PLZ erforderlich",

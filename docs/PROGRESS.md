@@ -12,7 +12,7 @@
 | 3 | Briefe (Upload, Editor, PDF-Pipeline) | ✅ abgeschlossen |
 | 4 | Kontakte & Leadlisten | ✅ abgeschlossen |
 | 5 | Versand-Pipeline (Queue, Provider, Polling) | ✅ abgeschlossen |
-| 6 | Guthaben, Preise & Stripe-Vorbereitung | ⬜ offen |
+| 6 | Guthaben, Preise & Stripe-Vorbereitung | ✅ abgeschlossen |
 | 7 | Admin-Konsole | ⬜ offen |
 | 8 | Härtung (Security, DSGVO, UX) | ⬜ offen |
 | 9 | QA | ⬜ offen |
@@ -82,6 +82,17 @@
 - [x] Reviews: `security-auditor` (1× HIGH: **EK-Leck über RLS-Spalten → Spalten-Grants-Migration**; 2× LOW) + `code-reviewer` (1× CRITICAL EK, 2× HIGH: on_hold_funds-Undercharge, Cancel-vs-Submit-Race; 3× MEDIUM: Refund-Verlust, hängende Jobs, Dead-Job-Stranding; 4× LOW) → **alle behoben**
 - [x] DoD: Build ✅ Lint ✅ Typecheck ✅ **71 Unit-Tests** ✅ (Pricing-Matrix, AES-GCM-Roundtrip/Tamper, PDF-Pipeline)
 
+## Phase 6 — Guthaben & Stripe-Vorbereitung
+
+- [x] Guthaben-Seite: Saldo, Transaktionsübersicht (own-scoped) mit Belegdownload, Aufladung
+- [x] **Stripe-Testmodus hinter `FEATURE_STRIPE`**: Checkout (Karte + SEPA), Beträge aus Admin-Settings (min/max/Presets), Rechnungsadresse-Pflicht, Invoice-Erstellung; **Live-Key-Hard-Guard** (sk_live wird verweigert)
+- [x] Webhook `/api/webhooks/stripe`: Signaturprüfung, **Gutschrift nur via Webhook** (`stripe_event`-Referenz, idempotent), Replay-sicher (nur `processed` ist terminal — fehlgeschlagene Events werden bei Stripe-Retry erneut verarbeitet), Receipt best-effort (blockiert nie die Buchung), **Held-Item-Release nach Topup**
+- [x] Auto-Aufladung: SetupIntent-Checkout, off-session PaymentIntent bei Unterschreitung, **atomarer In-flight-Claim** (kein Doppel-Charge), SCA-Fehler → Mail + Flag-Reset; Trigger nach Versand-Bestätigung via Queue
+- [x] `npm run seed:stripe` (idempotent, verweigert Live-Keys); Beta-Hinweis wenn Flag aus (Admin bucht manuell)
+- [x] Review (kombiniert code+security): 1× CRITICAL (Webhook-Retry-Falle) + 2× HIGH (Receipt-Gate, Auto-Topup-Race) + 3× weitere → **alle behoben**
+- [x] DoD: Build ✅ Lint ✅ Typecheck ✅ 71 Tests ✅
+- Hinweis: EK/VK-**Preisverwaltungs-UI** (Margen-Anzeige, Aufladebeträge konfigurieren) liegt in Phase 7 (Admin-Konsole), wo alle Admin-Flächen entstehen — keine Streichung, nur Bündelung.
+
 ## Fehlendes Material (nicht blockierend)
 
 - Original-PDFs (Preisliste, Schablone V3) liegen nur als Chat-Anhang vor → Inhalte transkribiert in `docs/reference/epost/`; Originale bitte bei Gelegenheit in `docs/reference/epost/` ablegen.
@@ -91,4 +102,4 @@
 
 ## Nächster Schritt
 
-Phase 6 — Guthaben, Preisverwaltung & Stripe-Vorbereitung: Transaktionsübersicht + Aufladeseite, Stripe-Testmodus hinter `FEATURE_STRIPE` (Checkout, SEPA, Webhook-Handler mit Idempotenz, Auto-Aufladung, Belege), Held-Item-Re-Enqueue bei Topup, Seed-Skript Stripe-Produkte.
+Phase 7 — Admin-Konsole: Dashboard-KPIs (inkl. Rohertrag Σ VK−EK), Nutzerverwaltung (Suche/Detail/Aktionen: Preisstufe, Guthaben buchen mit Pflicht-Kommentar, Sperren, Reset, Löschen), Sendejob-Monitor mit Retry, **Preisverwaltung EK/VK mit Margen-Anzeige**, Einstellungen/Flags, Audit-Log.

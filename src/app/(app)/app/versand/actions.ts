@@ -252,6 +252,12 @@ export async function confirmSendJobAction(_prev: unknown, input: unknown): Prom
     return { ok: false, error: de.common.genericError };
   }
 
+  // The debit may have pushed the balance under the auto-top-up threshold.
+  if (!parsed.data.isTest) {
+    const { enqueueJob } = await import("@/lib/server/queue/enqueue");
+    await enqueueJob("auto_topup", { userId: profile.id });
+  }
+
   return { ok: true, jobId: jobId as string };
 }
 
