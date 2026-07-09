@@ -8,7 +8,7 @@
 |---|---|---|
 | 0 | Setup & Analyse | ✅ abgeschlossen |
 | 1 | Architektur (⛔ Checkpoint) | ✅ abgeschlossen — **freigegeben 2026-07-09** |
-| 2 | Foundation (Scaffold, Supabase, Auth) | 🔄 in Arbeit |
+| 2 | Foundation (Scaffold, Supabase, Auth) | ✅ abgeschlossen |
 | 3 | Briefe (Upload, Editor, PDF-Pipeline) | ⬜ offen |
 | 4 | Kontakte & Leadlisten | ⬜ offen |
 | 5 | Versand-Pipeline (Queue, Provider, Polling) | ⬜ offen |
@@ -38,6 +38,17 @@
 - [x] Betriebsmodell-Entscheidungsvorlage: ADR-0008 (Empfehlung: **Eigenversender-Modell**)
 - [x] ⛔ **CHECKPOINT bestanden (2026-07-09):** Datenmodell + Architektur freigegeben; Betriebsmodell-Entscheidung: **Eigenversender** (ADR-0008 akzeptiert). Ab hier autonom bis Phase 10.
 
+## Phase 2 — Foundation
+
+- [x] Next.js 16 (App Router, React 19, TS strict), Tailwind v4 + shadcn/ui, Prettier, Vitest, Playwright
+- [x] Supabase-Migrationen: 21 Tabellen mit RLS auf **allen**; `book_credit` (Row-Lock, append-only-Ledger, Idempotenz-Index), `claim_jobs` (SKIP LOCKED), `check_rate_limit`, atomare Sender-Adress-RPCs; Storage-Buckets mit Per-User-Policies
+- [x] Seeds: Default-Plan, Preistabelle mit **echten EK-Werten** (Preisliste 2025) + VK-Vorschlag, App-Settings; `npm run seed:admin` (via Auth-Admin-API)
+- [x] Auth komplett: Registrierung (Double-Opt-in), Login, Logout, Passwort vergessen/zurücksetzen/ändern (mit Re-Auth), Verify-Callback; enumeration-sicher, rate-limited
+- [x] Profil + Rechnungsadresse, Absenderadressen-CRUD (auto Absenderzeile), App-Shell (Nav, Nutzermenü, Mock-Badge, Blocked-Banner), Dashboard
+- [x] Marketing-Startseite, Rechtsseiten-Platzhalter, `.env.example`, Mail-/Audit-Setup
+- [x] Reviews: `security-auditor` (2× HIGH, 6× MEDIUM) + `code-reviewer` (4× MEDIUM) → **alle blockierenden + sinnvollen Findings behoben** (email-Spalten-Schutz + unique + seed via Auth-API gegen Admin-Eskalation; APP_URL-Pflicht in Prod gegen Host-Header-Injection; Open-Redirect-Backslash; Rate-Limit-IP + Doppel-Counter; atomare Default-Adress-RPCs; Passwort-Re-Auth; Admin-Guard doppelt; i18n-Zentralisierung). Bewusste Abweichung dokumentiert: A-006 (blocked users dürfen laut Spec einloggen)
+- [x] DoD: Build ✅, Lint ✅, Typecheck ✅, 24 Unit-Tests ✅; Playwright-Specs vorhanden (auth/public), Supabase-abhängige Specs skippen ohne `.env.local`
+
 ## Fehlendes Material (nicht blockierend)
 
 - Original-PDFs (Preisliste, Schablone V3) liegen nur als Chat-Anhang vor → Inhalte transkribiert in `docs/reference/epost/`; Originale bitte bei Gelegenheit in `docs/reference/epost/` ablegen.
@@ -47,4 +58,4 @@
 
 ## Nächster Schritt
 
-Phase 2: Next.js-Scaffold, Supabase-Migrationen + RLS + Seeds, Auth komplett (Registrierung/Verifizierung/Login/Reset), Profil + Absenderadressen, App-Shell; Reviews (security-auditor, code-reviewer) + Playwright-E2E.
+Phase 3 — Briefe: PDF-Upload + Validierung (A4, Seitenzahl, Adresszonen gemäß Schablone V3) + Vorschau + Deckblatt-Option; Block-Editor + serverseitige PDF-Generierung + Vorlagen + Platzhalter (Serienbrief). Ein gemeinsamer Validierungspfad (ADR-0006).
