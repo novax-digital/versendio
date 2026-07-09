@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+
+# Next.js
+.next/
+out/
+next-env.d.ts
+
+# Build artifacts
+dist/
+build/
+*.tsbuildinfo
+
+# Environment — never commit secrets
+.env
+.env.local
+.env.*.local
+
+# Legacy codebase (reference only, contains its own .env with secrets)
+old_app/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Test artifacts
+coverage/
+playwright-report/
+test-results/
+
+# Vercel
+.vercel/
+
+# Logs
+*.log
+npm-debug.log*
