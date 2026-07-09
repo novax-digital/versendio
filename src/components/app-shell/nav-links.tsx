@@ -8,6 +8,7 @@ import {
   FileText,
   Users,
   ListChecks,
+  Send,
   Settings,
   Shield,
   Menu,
@@ -24,6 +25,7 @@ const items = [
   { href: "/app/briefe", label: de.nav.letters, icon: FileText, exact: false },
   { href: "/app/kontakte", label: de.nav.contacts, icon: Users, exact: false },
   { href: "/app/leadlisten", label: de.nav.leadLists, icon: ListChecks, exact: false },
+  { href: "/app/sendungen", label: de.nav.sendJobs, icon: Send, exact: false },
   { href: "/app/einstellungen", label: de.nav.settings, icon: Settings, exact: false },
 ];
 

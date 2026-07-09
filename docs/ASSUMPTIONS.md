@@ -14,6 +14,17 @@ Preisliste staffelt nach Blatt (Standard inkl. 1 Blatt / Kompakt inkl. 4 / Groß
 ## A-005 — `old_app/src/styles.css` durch Tooling verändert
 `shadcn init` hat beim Setup versehentlich die CSS-Datei der Legacy-App als Ziel erkannt und deren Farbwerte auf das Neutral-Theme überschrieben (Original-Brandfarben nicht wiederherstellbar). Folgenlos: `old_app/` wird hier nie gebaut und ist gitignored; alle relevanten Legacy-Erkenntnisse sind in `docs/LEGACY_FINDINGS.md` gesichert. `components.json` wurde auf `src/app/globals.css` korrigiert.
 
+## A-008 — Stornofrist über Queue-Hold statt UploadManagement-Plugin
+Die Swagger-Spec (v2.6.1) zeigt: das UploadManagement-Plugin arbeitet nur **tagesgenau** (dueDate/dueDays/dueDayofWeek als Stichtag). Der Masterprompt wünscht eine Verzögerung „um einige Stunden". Umsetzung daher: `scheduled_release_at` hält die `submit_item`-Jobs in **unserer Queue** (`run_at` = Freigabezeitpunkt) — bis dahin ist Storno kostenlos (Job-Abbruch + `job_cancel_rest`-Refund, PDFs haben unser System nie verlassen) und Vorziehen trivial (`run_at = now()`). Stundengenau, keine Plugin-Abhängigkeit. `cancelQueued`/`releaseQueued` sind im Provider trotzdem implementiert (Interface-Vollständigkeit, spätere Plugin-Nutzung möglich).
+
+## A-009 — Verifizierte API-Constraints (Swagger v2.6.1, geladen 2026-07-09)
+- `costCenter`: max. 8 Zeichen, nur [0-9a-zA-Z] → `profiles.cost_center` = 8 Hex-Zeichen der User-ID.
+- `batchID`: int32 → `send_jobs.provider_batch_id` (Zufalls-31-Bit je Job); unsere `batch_id` (uuid) bleibt interne Gruppierung.
+- `registeredLetter`-Werte: `'Einwurf Einschreiben'` | `'Einschreiben'` | `'Einschreiben Rückschein'`.
+- `country`: deutscher Ländername in GROSSBUCHSTABEN (z. B. ÖSTERREICH), **weglassen bei Inland** — deckt sich mit `buildRecipientAddressLines`.
+- `fileName`: 5–200 Zeichen, eindeutig, keine Sonderzeichen.
+- Crash-Recovery-Lookup existiert: `GET /api/Letter/Custom1` + `GET /api/Letter/Batch`; Sammelabfragen: `GET /api/Letter/Open`, `POST /api/Letter/StatusQuery`, `GET /api/Letter/Date`.
+
 ## A-007 — Editor Phase 3: Bild-/Logo-Bausteine im Datenmodell und Renderer, UI teilweise vertagt
 Der Masterprompt §6.2 nennt für den Editor Briefkopf/Logo, Bild-Blöcke, Anlagenvermerk und Fußzeile. Umgesetzt in Phase 3: Datenmodell (`image`-Block, `logoStoragePath`) und **serverseitiges Rendering** dieser Elemente sowie der Asset-Upload (`uploadAssetAction`, `assets`-Bucket) sind vollständig vorhanden. Die **Editor-UI** exponiert vorerst Betreff-, Text- und Abstands-Bausteine; das Hinzufügen von Bild-/Logo-Bausteinen über die Oberfläche und dedizierte Anlagen-/Fußzeilen-Bausteine folgen als Ausbau (IDEAS I-004). Damit ist der Serienbrief-Kernfluss (Text + Platzhalter → validiertes A4-PDF) end-to-end nutzbar; keine stillschweigende Streichung, nur UI-Priorisierung.
 

@@ -11,7 +11,7 @@
 | 2 | Foundation (Scaffold, Supabase, Auth) | ✅ abgeschlossen |
 | 3 | Briefe (Upload, Editor, PDF-Pipeline) | ✅ abgeschlossen |
 | 4 | Kontakte & Leadlisten | ✅ abgeschlossen |
-| 5 | Versand-Pipeline (Queue, Provider, Polling) | ⬜ offen |
+| 5 | Versand-Pipeline (Queue, Provider, Polling) | ✅ abgeschlossen |
 | 6 | Guthaben, Preise & Stripe-Vorbereitung | ⬜ offen |
 | 7 | Admin-Konsole | ⬜ offen |
 | 8 | Härtung (Security, DSGVO, UX) | ⬜ offen |
@@ -70,6 +70,18 @@
 - [x] Review `code-reviewer`: 1× HIGH (Dedup-Lookup-Fehler → stille Duplikate) + 4× MEDIUM (CSV-Injection, .or()-Suchsyntax, Import-Atomarität, Admin-Scope) → **alle behoben**; 2× LOW (Parser-Wahl vom Serverpfad, lower()-Hinweis) behoben/dokumentiert
 - [x] DoD: Build ✅ Lint ✅ Typecheck ✅ **59 Unit-Tests** ✅
 
+## Phase 5 — Versand-Pipeline
+
+- [x] **Swagger v2.6.1 geladen & verifiziert** (alle ADR-0005-Gates ✓): `Letter/Open`/`StatusQuery`/`Date` (Sammelabfragen), `Letter/Custom1`+`Batch` (Crash-Recovery), `CancelQueued`/`ReleaseQueued`, `Letter/Registered`; Constraints in A-009 (costCenter ≤8 alphanum, batchID int32, registeredLetter-Werte, Ländernamen DE-GROSS)
+- [x] Preisberechnung als pure Function (Stufen nach Blatt, Rabatt auf VK, half-up) — eine Preiswahrheit für Vorschau & Buchung
+- [x] `LetterProvider`: **MockProvider** (zustandslos, Statusmodell 1→2→3→4/99 zeitversetzt, deterministischer FAIL-Marker) + **EpostProvider** (strikt nach Spec; Token verschlüsselt in DB gecacht, 401-Retry, E324=Duplikat-Erfolg, W203-Ländernamen, unsupported-Country fail-fast)
+- [x] Atomare RPCs: `confirm_send_job` (Job+Spend+Items+Queue in einer Transaktion, client_token-Idempotenz inkl. Concurrency-Catch), `cancel_pending_job_items`, `check_ledger_integrity`
+- [x] Worker: `/api/cron/queue` (CAS-Claim gegen Cancel-Race, Zeitbudget, Backoff 1/5/15 im 55-min-Failsafe-Fenster, Dead-Job→`resolveDeadSubmit` mit Reconciliation+Refund), `/api/cron/status-sync` (1 Bulk-Call + budgetierte Einzelabfragen, Refund bei 99, BZE-Events, Test-final-bei-2), `/api/cron/maintenance` (Retention, Held-Item-Requeue, **Refund-Nachbuchungs-Sweep**, Ledger-Check); `vercel.json`-Crons
+- [x] Stornofrist als Queue-Hold (A-008): stundengenau, kostenloser Storno vor Einlieferung
+- [x] Versand-Wizard (4 Schritte, Kostenvorschau **nur VK**, Probeversand kostenlos, client_token) + Sendungen-Seiten (Liste, Detail, Zeitleiste, Storno mit Erstattung)
+- [x] Reviews: `security-auditor` (1× HIGH: **EK-Leck über RLS-Spalten → Spalten-Grants-Migration**; 2× LOW) + `code-reviewer` (1× CRITICAL EK, 2× HIGH: on_hold_funds-Undercharge, Cancel-vs-Submit-Race; 3× MEDIUM: Refund-Verlust, hängende Jobs, Dead-Job-Stranding; 4× LOW) → **alle behoben**
+- [x] DoD: Build ✅ Lint ✅ Typecheck ✅ **71 Unit-Tests** ✅ (Pricing-Matrix, AES-GCM-Roundtrip/Tamper, PDF-Pipeline)
+
 ## Fehlendes Material (nicht blockierend)
 
 - Original-PDFs (Preisliste, Schablone V3) liegen nur als Chat-Anhang vor → Inhalte transkribiert in `docs/reference/epost/`; Originale bitte bei Gelegenheit in `docs/reference/epost/` ablegen.
@@ -79,4 +91,4 @@
 
 ## Nächster Schritt
 
-Phase 5 — Versand-Pipeline: Swagger-Spec per WebFetch laden (Verifikationsgates ADR-0005 §4), Preisberechnung, Versand-Assistent inkl. Probeversand, Job-Queue-Worker (`/api/cron/*`), MockProvider + EpostProvider, Status-Polling, Credit-Buchung/-Erstattung. Reviews: code-reviewer + security-auditor.
+Phase 6 — Guthaben, Preisverwaltung & Stripe-Vorbereitung: Transaktionsübersicht + Aufladeseite, Stripe-Testmodus hinter `FEATURE_STRIPE` (Checkout, SEPA, Webhook-Handler mit Idempotenz, Auto-Aufladung, Belege), Held-Item-Re-Enqueue bei Topup, Seed-Skript Stripe-Produkte.

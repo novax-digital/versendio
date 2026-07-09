@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CheckCircle2, Circle, Mail, Wallet } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireProfile } from "@/lib/server/auth-context";
 import { createClient } from "@/lib/supabase/server";
@@ -13,7 +14,7 @@ export default async function DashboardPage() {
   const profile = await requireProfile();
   const supabase = await createClient();
 
-  const [{ count: senderAddressCount }, { count: sentCount }, { count: inProgressCount }] =
+  const [{ count: senderAddressCount }, { count: sentCount }, { count: inProgressCount }, { data: recentJobs }] =
     await Promise.all([
       supabase.from("sender_addresses").select("id", { count: "exact", head: true }),
       supabase
@@ -32,6 +33,11 @@ export default async function DashboardPage() {
           "checked",
           "print_center",
         ]),
+      supabase
+        .from("send_jobs")
+        .select("id, status, created_at, letters(title)")
+        .order("created_at", { ascending: false })
+        .limit(5),
     ]);
 
   const setupSteps = [
@@ -121,10 +127,34 @@ export default async function DashboardPage() {
           <CardTitle className="text-base">{de.dashboard.recentJobs}</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-muted-foreground py-8 text-center text-sm">
-            <p>{de.dashboard.noJobs}</p>
-            <p className="mt-1">{de.dashboard.noJobsCta}</p>
-          </div>
+          {recentJobs && recentJobs.length > 0 ? (
+            <ul className="divide-y">
+              {recentJobs.map((job) => {
+                const letter = job.letters as unknown as { title: string } | null;
+                return (
+                  <li key={job.id}>
+                    <Link
+                      href={`/app/sendungen/${job.id}`}
+                      className="hover:bg-muted/50 -mx-2 flex items-center justify-between gap-2 rounded px-2 py-2 text-sm"
+                    >
+                      <span className="truncate">{letter?.title ?? "–"}</span>
+                      <span className="text-muted-foreground shrink-0 text-xs">
+                        {de.sendJobs.jobStatus[job.status] ?? job.status}
+                      </span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <div className="text-muted-foreground py-8 text-center text-sm">
+              <p>{de.dashboard.noJobs}</p>
+              <p className="mt-1">{de.dashboard.noJobsCta}</p>
+              <Button className="mt-3" render={<Link href="/app/versand" />}>
+                {de.sendJobs.newSend}
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

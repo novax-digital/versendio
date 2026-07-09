@@ -91,7 +91,9 @@ create table public.profiles (
   deleted_at timestamptz,
   plan_id uuid references public.plans (id) on delete restrict,
   credit_balance_cents integer not null default 0 check (credit_balance_cents >= 0),
-  cost_center text generated always as ('ep-' || left(replace(id::text, '-', ''), 10)) stored,
+  -- costCenter for DP invoice grouping: API allows max 8 chars, [0-9a-zA-Z]
+  -- only (verified against Swagger v2.6.1) — 8 hex chars of the user id.
+  cost_center text generated always as (left(replace(id::text, '-', ''), 8)) stored,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -450,6 +452,9 @@ create table public.send_jobs (
   total_vk_cents integer not null default 0,
   total_ek_cents integer not null default 0,
   batch_id uuid not null default gen_random_uuid(),
+  -- Provider batch id: the E-Post API expects an int32 batchID for grouped
+  -- status queries (Swagger v2.6.1). Random 31-bit value per job.
+  provider_batch_id integer not null default (floor(random() * 2147483646) + 1)::integer,
   completed_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
