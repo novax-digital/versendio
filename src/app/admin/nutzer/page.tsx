@@ -111,7 +111,7 @@ export default async function AdminUsersPage({
       )}
 
       {totalPages > 1 ? (
-        <nav className="flex items-center justify-center gap-2 text-sm" aria-label="Seiten">
+        <nav className="flex items-center justify-center gap-2 text-sm" aria-label={de.common.pages}>
           {page > 1 ? (
             <Link
               className="underline underline-offset-4"

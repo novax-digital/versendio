@@ -10,9 +10,22 @@ const features = [
   { icon: Route, title: de.marketing.featureTrackingTitle, text: de.marketing.featureTrackingText },
 ];
 
-export default function MarketingPage() {
+export default async function MarketingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ konto?: string }>;
+}) {
+  const { konto } = await searchParams;
   return (
     <div className="mx-auto max-w-5xl space-y-16 px-4 py-16">
+      {konto === "geloescht" ? (
+        <p
+          role="status"
+          className="mx-auto max-w-2xl rounded-md bg-emerald-50 p-4 text-center text-sm text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200"
+        >
+          {de.profile.accountDeleted}
+        </p>
+      ) : null}
       <section className="mx-auto max-w-3xl space-y-6 text-center">
         <h1 className="text-4xl font-semibold text-balance sm:text-5xl">
           {de.marketing.heroTitle}

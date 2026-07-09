@@ -51,11 +51,13 @@ export function SendWizard({
   leadLists,
   senderAddresses,
   preselectedLetterId,
+  mockMode,
 }: {
   letters: LetterOption[];
   leadLists: LeadListOption[];
   senderAddresses: SenderOption[];
   preselectedLetterId: string | null;
+  mockMode: boolean;
 }) {
   const router = useRouter();
   const [step, setStep] = useState(0);
@@ -195,7 +197,9 @@ export function SendWizard({
                         {letter.sheet_count ? ` · ${letter.sheet_count} ${de.letters.sheetCount}` : ""}
                       </span>
                     </span>
-                    {letter.has_placeholders ? <Badge variant="secondary">Serienbrief</Badge> : null}
+                    {letter.has_placeholders ? (
+                      <Badge variant="secondary">{de.letters.serialLetterBadge}</Badge>
+                    ) : null}
                   </Label>
                 ))}
               </RadioGroup>
@@ -227,7 +231,12 @@ export function SendWizard({
 
             {recipientSource === "lead_list" ? (
               leadLists.length === 0 ? (
-                <p className="text-muted-foreground text-sm">{de.send.noLists}</p>
+                <div className="space-y-2">
+                  <p className="text-muted-foreground text-sm">{de.send.noLists}</p>
+                  <Button variant="outline" size="sm" render={<Link href="/app/kontakte/import" />}>
+                    {de.send.noListsCta}
+                  </Button>
+                </div>
               ) : (
                 <Select value={leadListId ?? undefined} onValueChange={setLeadListId}>
                   <SelectTrigger className="w-full">
@@ -270,9 +279,9 @@ export function SendWizard({
               <Switch id="opt-duplex" checked={isDuplex} onCheckedChange={setIsDuplex} />
             </div>
             <div className="space-y-1.5">
-              <Label>{de.send.registeredLabel}</Label>
+              <Label htmlFor="opt-registered">{de.send.registeredLabel}</Label>
               <Select value={registered} onValueChange={(v) => setRegistered(v as Registered)}>
-                <SelectTrigger className="w-full">
+                <SelectTrigger id="opt-registered" className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -284,10 +293,10 @@ export function SendWizard({
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label>{de.send.scheduleLabel}</Label>
+              <Label htmlFor="opt-schedule">{de.send.scheduleLabel}</Label>
               <p className="text-muted-foreground text-xs">{de.send.scheduleHint}</p>
               <Select value={String(delayHours)} onValueChange={(v) => setDelayHours(Number(v))}>
-                <SelectTrigger className="w-full">
+                <SelectTrigger id="opt-schedule" className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -308,6 +317,7 @@ export function SendWizard({
           pending={pending}
           hasSender={senderAddresses.length > 0}
           hasPlaceholders={selectedLetter?.has_placeholders ?? false}
+          mockMode={mockMode}
           onConfirm={() => confirm(false)}
           onTest={() => confirm(true)}
         />
@@ -418,6 +428,7 @@ function ConfirmStep({
   pending,
   hasSender,
   hasPlaceholders,
+  mockMode,
   onConfirm,
   onTest,
 }: {
@@ -425,6 +436,7 @@ function ConfirmStep({
   pending: boolean;
   hasSender: boolean;
   hasPlaceholders: boolean;
+  mockMode: boolean;
   onConfirm: () => void;
   onTest: () => void;
 }) {
@@ -442,8 +454,20 @@ function ConfirmStep({
   return (
     <div className="space-y-4">
       {!hasSender ? (
-        <p className="bg-destructive/10 text-destructive rounded-md p-3 text-sm">
-          {de.send.noSenderAddress}
+        <div className="bg-destructive/10 text-destructive space-y-2 rounded-md p-3 text-sm">
+          <p>{de.send.noSenderAddress}</p>
+          <Button
+            variant="outline"
+            size="sm"
+            render={<Link href="/app/einstellungen/absenderadressen" />}
+          >
+            {de.send.createSenderAddress}
+          </Button>
+        </div>
+      ) : null}
+      {mockMode ? (
+        <p className="rounded-md bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-200">
+          {de.send.mockNotice}
         </p>
       ) : null}
       {hasPlaceholders ? (
@@ -496,9 +520,15 @@ function ConfirmStep({
       </Card>
 
       {!quote.sufficient ? (
-        <p className="bg-destructive/10 text-destructive rounded-md p-3 text-sm">
-          {de.send.insufficientFunds}
-        </p>
+        <div className="bg-destructive/10 text-destructive space-y-2 rounded-md p-3 text-sm">
+          <p>
+            {de.send.insufficientFunds}{" "}
+            {de.send.missingAmount(formatCents(quote.totalCents - quote.balanceCents))}
+          </p>
+          <Button size="sm" render={<Link href="/app/guthaben" />}>
+            {de.send.topUpCta}
+          </Button>
+        </div>
       ) : null}
 
       <div className="rounded-md border p-4">

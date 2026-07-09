@@ -3,14 +3,26 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Ban, KeyRound, ShieldCheck, Wallet } from "lucide-react";
+import { Ban, KeyRound, ShieldCheck, Trash2, Wallet } from "lucide-react";
 import {
   adjustCreditsAction,
   setUserStatusAction,
   setUserPlanAction,
   sendPasswordResetAction,
+  deleteUserAction,
 } from "../../actions";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -99,6 +111,21 @@ export function UserActions({
     run(() => sendPasswordResetAction(null, fd), de.admin.passwordResetSent);
   };
 
+  const deleteUser = () => {
+    const fd = new FormData();
+    fd.set("userId", userId);
+    startTransition(async () => {
+      const result = await deleteUserAction(null, fd);
+      if (result.ok) {
+        const note = de.admin.openProviderItems(result.data?.openProviderItems ?? 0);
+        toast.success(`${de.admin.userDeleted}${note ? ` ${note}` : ""}`);
+        router.push("/admin/nutzer");
+      } else {
+        toast.error(result.error);
+      }
+    });
+  };
+
   return (
     <div className="grid gap-4 md:grid-cols-2">
       <Card>
@@ -173,6 +200,32 @@ export function UserActions({
               <KeyRound className="size-4" aria-hidden />
               {de.admin.passwordReset}
             </Button>
+            <AlertDialog>
+              <AlertDialogTrigger
+                render={
+                  <Button
+                    variant="outline"
+                    className="text-destructive"
+                    disabled={pending || isSelf || status === "deleted"}
+                  />
+                }
+              >
+                <Trash2 className="size-4" aria-hidden />
+                {de.admin.deleteUser}
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>{de.admin.deleteUser}</AlertDialogTitle>
+                  <AlertDialogDescription>{de.admin.deleteUserConfirm}</AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>{de.common.cancel}</AlertDialogCancel>
+                  <AlertDialogAction onClick={deleteUser} disabled={pending}>
+                    {de.common.delete}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
           {isSelf ? (
             <p className="text-muted-foreground text-xs">{de.admin.cannotBlockSelf}</p>

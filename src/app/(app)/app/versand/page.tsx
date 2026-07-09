@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/server/auth-context";
+import { isMockMode } from "@/lib/server/env";
 import { de } from "@/lib/i18n/de";
 import { SendWizard } from "./send-wizard";
 
@@ -42,6 +43,7 @@ export default async function SendPage({
       }))}
       senderAddresses={senderAddresses ?? []}
       preselectedLetterId={brief ?? null}
+      mockMode={isMockMode()}
     />
   );
 }

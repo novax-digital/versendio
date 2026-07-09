@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripe } from "@/lib/server/stripe";
 import { serverEnv } from "@/lib/server/env";
 import { enqueueJob } from "@/lib/server/queue/enqueue";
-import { sendMail } from "@/lib/server/mail";
+import { sendMail, escapeHtml } from "@/lib/server/mail";
 
 export const maxDuration = 60;
 
@@ -219,7 +219,9 @@ async function handleAutoTopupFailure(userId: string): Promise<void> {
   if (!profile?.email) return;
 
   const appName = serverEnv().APP_NAME;
-  const greeting = profile.display_name ? `Guten Tag ${profile.display_name},` : "Guten Tag,";
+  const greeting = profile.display_name
+    ? `Guten Tag ${escapeHtml(profile.display_name)},`
+    : "Guten Tag,";
   await sendMail({
     to: profile.email,
     subject: `Automatische Aufladung fehlgeschlagen – ${appName}`,

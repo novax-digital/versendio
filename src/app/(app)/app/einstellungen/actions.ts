@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/server/auth-context";
+import { checkRateLimit, clientIp } from "@/lib/server/rate-limit";
 import { type ActionResult, fieldErrorsFromZod } from "@/lib/server/action-result";
 import { profileSchema, senderAddressSchema } from "@/lib/shared/schemas/profile";
 import { changePasswordSchema } from "@/lib/shared/schemas/auth";
@@ -46,6 +47,14 @@ export async function changePasswordAction(
   formData: FormData,
 ): Promise<ActionResult> {
   const profile = await requireProfile();
+
+  // Throttle the re-auth below: without this, a hijacked session could
+  // brute-force the current password through repeated change attempts.
+  const ip = await clientIp();
+  if (!(await checkRateLimit("login", `pwchange:${profile.id}:${ip}`))) {
+    return { ok: false, error: de.common.rateLimited };
+  }
+
   const parsed = changePasswordSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) {
     return { ok: false, error: "", fieldErrors: fieldErrorsFromZod(parsed.error.issues) };

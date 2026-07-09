@@ -349,7 +349,7 @@ export function LetterEditor({
             <LetterPreview letterId={savedId} version={previewVersion} />
           ) : (
             <div className="bg-muted text-muted-foreground flex aspect-[210/297] max-w-md items-center justify-center rounded-md border p-6 text-center text-sm">
-              {de.letters.previewLoading} — {de.common.save}
+              {de.letters.previewAfterSave}
             </div>
           )}
         </div>

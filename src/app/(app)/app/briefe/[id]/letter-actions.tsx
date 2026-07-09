@@ -96,7 +96,7 @@ function CoverToggle({
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
           {de.letters.coverLetter}
-          {recommended ? <Badge variant="secondary">Empfohlen</Badge> : null}
+          {recommended ? <Badge variant="secondary">{de.letters.recommendedBadge}</Badge> : null}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">

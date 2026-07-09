@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/server/auth-context";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCents } from "@/lib/shared/money";
 import { de } from "@/lib/i18n/de";
@@ -24,7 +26,7 @@ export default async function SendJobDetailPage({
     supabase
       .from("send_jobs")
       .select(
-        "id, status, is_test, is_color, is_duplex, registered, total_items, total_vk_cents, scheduled_release_at, created_at, completed_at, letters(title)",
+        "id, letter_id, status, is_test, is_color, is_duplex, registered, total_items, total_vk_cents, scheduled_release_at, created_at, completed_at, letters(title)",
       )
       .eq("id", id)
       .single(),
@@ -109,9 +111,18 @@ export default async function SendJobDetailPage({
       </div>
 
       {hasFailures ? (
-        <p className="rounded-md bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-200">
-          {de.sendJobs.retryInfo}
-        </p>
+        <div className="space-y-2 rounded-md bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-200">
+          <p>{de.sendJobs.retryInfo}</p>
+          {job.letter_id ? (
+            <Button
+              variant="outline"
+              size="sm"
+              render={<Link href={`/app/versand?brief=${job.letter_id}`} />}
+            >
+              {de.letters.sendLetter}
+            </Button>
+          ) : null}
+        </div>
       ) : null}
 
       <JobItems items={items ?? []} />

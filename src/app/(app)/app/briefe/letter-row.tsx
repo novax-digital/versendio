@@ -32,7 +32,9 @@ export function LetterRow({ letter }: { letter: LetterListItem }) {
             {letter.page_count ? ` · ${letter.page_count} ${de.letters.pageCount}` : ""}
           </p>
         </div>
-        {letter.has_placeholders ? <Badge variant="secondary">Serienbrief</Badge> : null}
+        {letter.has_placeholders ? (
+          <Badge variant="secondary">{de.letters.serialLetterBadge}</Badge>
+        ) : null}
         <Badge variant={letter.status === "ready" ? "outline" : "secondary"}>
           {letter.status === "ready" ? de.letters.statusReady : de.letters.statusDraft}
         </Badge>

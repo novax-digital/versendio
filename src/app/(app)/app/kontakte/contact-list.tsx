@@ -101,7 +101,7 @@ export function ContactList({
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
+                <TableHead>{de.common.name}</TableHead>
                 <TableHead>{de.auth.company}</TableHead>
                 <TableHead>{de.profile.city}</TableHead>
                 <TableHead className="w-24 text-right">{de.common.actions}</TableHead>
@@ -142,7 +142,7 @@ export function ContactList({
       )}
 
       {totalPages > 1 ? (
-        <nav className="flex items-center justify-center gap-2 text-sm" aria-label="Seiten">
+        <nav className="flex items-center justify-center gap-2 text-sm" aria-label={de.common.pages}>
           {page > 1 ? (
             <Link
               className="underline underline-offset-4"

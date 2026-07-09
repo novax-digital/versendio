@@ -26,6 +26,7 @@ export function ResetPasswordForm() {
         type="password"
         autoComplete="new-password"
         required
+        hint={de.auth.passwordHint}
         error={fieldErrors?.password}
       />
       <FormField

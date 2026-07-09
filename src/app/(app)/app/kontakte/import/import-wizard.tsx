@@ -156,7 +156,7 @@ function MappingStep({
               <TableBody>
                 {analyzed.headers.map((header, index) => (
                   <TableRow key={index}>
-                    <TableCell className="font-medium">{header || `Spalte ${index + 1}`}</TableCell>
+                    <TableCell className="font-medium">{header || de.common.column(index + 1)}</TableCell>
                     <TableCell>
                       <Select
                         value={mapping[index] ?? "ignore"}

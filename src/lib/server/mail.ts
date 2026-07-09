@@ -10,6 +10,19 @@ export type MailMessage = {
 };
 
 /**
+ * Escapes user-supplied values before interpolation into mail HTML.
+ * Display names are user-controlled and must never reach a raw HTML context.
+ */
+export function escapeHtml(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+/**
  * Transactional mail with graceful degradation: Resend when configured,
  * otherwise structured console log (dev/mock). SMTP fallback can be added
  * behind SMTP_URL without touching call sites.

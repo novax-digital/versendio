@@ -1,16 +1,32 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { buildCsp } from "@/lib/shared/csp";
 
 const PROTECTED_PREFIXES = ["/app", "/admin"];
 const AUTH_PAGES = ["/login", "/registrieren", "/passwort-vergessen"];
 
 /**
- * Refreshes the Supabase session cookie on every request and gates the
- * app/admin areas on authentication. Role checks (admin) happen in the
- * layouts on top of RLS — the proxy only guarantees a session.
+ * Refreshes the Supabase session cookie on every request, gates the app/admin
+ * areas on authentication, and emits a per-request CSP nonce. Role checks
+ * (admin) happen in the layouts on top of RLS — the proxy only guarantees a
+ * session.
  */
 export async function proxy(request: NextRequest) {
-  let response = NextResponse.next({ request });
+  const nonce = crypto.randomUUID().replaceAll("-", "");
+  const csp = buildCsp(
+    nonce,
+    process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
+    process.env.NODE_ENV !== "production",
+  );
+
+  // Next.js reads the nonce from the CSP *request* header and stamps it onto
+  // its own script tags; `x-nonce` lets our components read it if needed.
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-nonce", nonce);
+  requestHeaders.set("Content-Security-Policy", csp);
+
+  const nextOptions = { request: { headers: requestHeaders } };
+  let response = NextResponse.next(nextOptions);
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -22,7 +38,7 @@ export async function proxy(request: NextRequest) {
         },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-          response = NextResponse.next({ request });
+          response = NextResponse.next(nextOptions);
           cookiesToSet.forEach(({ name, value, options }) =>
             response.cookies.set(name, value, options),
           );
@@ -37,16 +53,20 @@ export async function proxy(request: NextRequest) {
 
   const path = request.nextUrl.pathname;
 
+  const withCsp = (res: NextResponse) => {
+    res.headers.set("Content-Security-Policy", csp);
+    return res;
+  };
+
   if (!user && PROTECTED_PREFIXES.some((p) => path === p || path.startsWith(`${p}/`))) {
-    const loginUrl = new URL("/login", request.url);
-    return NextResponse.redirect(loginUrl);
+    return withCsp(NextResponse.redirect(new URL("/login", request.url)));
   }
 
   if (user && AUTH_PAGES.includes(path)) {
-    return NextResponse.redirect(new URL("/app", request.url));
+    return withCsp(NextResponse.redirect(new URL("/app", request.url)));
   }
 
-  return response;
+  return withCsp(response);
 }
 
 export const config = {

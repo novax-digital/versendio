@@ -1,6 +1,6 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { sendMail } from "@/lib/server/mail";
+import { sendMail, escapeHtml } from "@/lib/server/mail";
 import { serverEnv } from "@/lib/server/env";
 
 type EmailTemplate = "job_completed" | "job_completed_with_errors" | "items_on_hold" | "welcome";
@@ -51,7 +51,8 @@ export async function processSendEmail(payload: {
     return;
   }
 
-  const greeting = profile.display_name ? `Guten Tag ${profile.display_name},` : "Guten Tag,";
+  const safeName = profile.display_name ? escapeHtml(profile.display_name) : null;
+  const greeting = safeName ? `Guten Tag ${safeName},` : "Guten Tag,";
   const linkHtml = jobLink
     ? `<p><a href="${jobLink}">Zur Sendung</a></p>`
     : "";

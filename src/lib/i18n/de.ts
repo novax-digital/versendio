@@ -16,6 +16,9 @@ export const de = {
     loading: "Wird geladen …",
     saving: "Wird gespeichert …",
     search: "Suchen",
+    name: "Name",
+    pages: "Seiten",
+    column: (n: number) => `Spalte ${n}`,
     actions: "Aktionen",
     optional: "optional",
     required: "Pflichtfeld",
@@ -64,6 +67,9 @@ export const de = {
       "Vielen Dank für Ihre Registrierung! Bitte bestätigen Sie Ihre E-Mail-Adresse über den Link, den wir Ihnen gesendet haben.",
     passwordMismatch: "Die Passwörter stimmen nicht überein.",
     passwordTooShort: "Das Passwort muss mindestens 8 Zeichen lang sein.",
+    passwordHint: "Mindestens 8 Zeichen.",
+    consentPrefix: "Mit der Registrierung akzeptieren Sie unsere",
+    consentAnd: "und die",
     emailInvalid: "Bitte geben Sie eine gültige E-Mail-Adresse ein.",
     emailAlreadyRegistered:
       "Für diese E-Mail-Adresse besteht bereits ein Konto. Nutzen Sie die Anmeldung oder die Passwort-vergessen-Funktion.",
@@ -109,8 +115,12 @@ export const de = {
     deleteAccount: "Konto löschen",
     deleteAccountWarning:
       "Ihr Konto wird dauerhaft gelöscht. Ihre Briefe, Kontakte und Vorlagen werden entfernt; Abrechnungsdaten bewahren wir gesetzeskonform anonymisiert auf. Diese Aktion kann nicht rückgängig gemacht werden.",
+    accountTab: "Konto",
     deleteAccountConfirmLabel: "Zum Bestätigen geben Sie bitte LÖSCHEN ein",
+    deleteAccountConfirmMismatch: "Bitte geben Sie exakt LÖSCHEN ein.",
     deleteAccountButton: "Konto endgültig löschen",
+    accountDeleted:
+      "Ihr Konto wurde gelöscht. Ihre persönlichen Daten wurden entfernt; Abrechnungsdaten bewahren wir anonymisiert auf.",
     dataExport: "Datenexport",
     dataExportHint: "Laden Sie alle zu Ihrem Konto gespeicherten Daten als JSON-Datei herunter.",
     dataExportButton: "Daten exportieren",
@@ -154,7 +164,7 @@ export const de = {
     setupHints: "Erste Schritte",
     setupSenderAddress: "Absenderadresse anlegen",
     setupCredit: "Guthaben aufladen",
-    setupLetter: "Ersten Brief erstellen",
+    setupLetter: "Ersten Brief erstellen und versenden",
   },
   letters: {
     title: "Briefe",
@@ -220,6 +230,10 @@ export const de = {
     templates: "Vorlagen",
     useTemplate: "Vorlage verwenden",
     unknownPlaceholderWarning: "Unbekannter Platzhalter – wird beim Versand leer bleiben:",
+    sendLetter: "Brief versenden",
+    serialLetterBadge: "Serienbrief",
+    recommendedBadge: "Empfohlen",
+    previewAfterSave: "Speichern Sie den Brief, um die Vorschau zu sehen.",
   },
   contacts: {
     title: "Kontakte",
@@ -333,7 +347,12 @@ export const de = {
     insufficientFunds:
       "Ihr Guthaben reicht für diese Sendung nicht aus. Bitte laden Sie zuerst Guthaben auf.",
     insufficientFundsShort: "Guthaben reicht nicht aus",
+    missingAmount: (amount: string) => `Es fehlen noch ${amount}.`,
     topUpCta: "Guthaben aufladen",
+    createSenderAddress: "Absenderadresse anlegen",
+    noListsCta: "Kontakte importieren",
+    mockNotice:
+      "Testmodus: Es wird kein echter Brief versendet und kein Guthaben belastet.",
     testSend: "Probeversand (kostenlos)",
     testSendHint:
       "Der Brief wird bis zur Prüfung verarbeitet, aber nicht gedruckt oder versendet. Sie sehen, ob alle Anforderungen erfüllt sind – kostenlos.",
@@ -385,7 +404,7 @@ export const de = {
     recipient: "Empfänger",
     refunded: "Erstattet",
     retryInfo:
-      "Fehlgeschlagene Briefe wurden automatisch erstattet. Sie können den Versand mit korrigierten Daten erneut starten.",
+      "Fehlgeschlagene Briefe wurden automatisch erstattet. Sie können den Versand über den Versand-Assistenten erneut starten.",
     totalLabel: "Gesamtbetrag",
     statusLabel: "Status",
     createdLabel: "Erstellt",
@@ -483,6 +502,15 @@ export const de = {
     planChanged: "Die Preisstufe wurde geändert.",
     passwordReset: "Passwort-Reset auslösen",
     passwordResetSent: "Eine E-Mail zum Zurücksetzen wurde versendet.",
+    deleteUser: "Konto löschen (DSGVO)",
+    deleteUserConfirm:
+      "Das Konto wird gelöscht: persönliche Daten, Briefe und Kontakte werden entfernt, noch nicht eingelieferte Briefe erstattet. Abrechnungsdaten bleiben anonymisiert erhalten. Diese Aktion kann nicht rückgängig gemacht werden.",
+    userDeleted: "Das Konto wurde gelöscht und anonymisiert.",
+    cannotDeleteSelf: "Löschen Sie Ihr eigenes Konto über die Kontoeinstellungen.",
+    openProviderItems: (n: number) =>
+      n > 0
+        ? `Hinweis: ${n} bereits eingelieferte Brief(e) können nicht zurückgerufen werden.`
+        : "",
     jobMonitor: "Sendejob-Monitor",
     filterStatus: "Status filtern",
     allStatuses: "Alle Status",

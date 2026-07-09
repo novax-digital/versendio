@@ -181,6 +181,26 @@ export async function sendPasswordResetAction(
   return { ok: true };
 }
 
+export async function deleteUserAction(
+  _prev: unknown,
+  formData: FormData,
+): Promise<ActionResult<{ openProviderItems: number }>> {
+  const actor = await requireAdmin();
+  const parsed = z.object({ userId: z.string().uuid() }).safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { ok: false, error: de.common.genericError };
+  if (parsed.data.userId === actor.id) {
+    return { ok: false, error: de.admin.cannotDeleteSelf };
+  }
+
+  const { deleteAccount } = await import("@/lib/server/gdpr/delete-account");
+  const result = await deleteAccount(parsed.data.userId, actor.id);
+  if (!result.ok) return { ok: false, error: de.common.genericError };
+
+  // anonymize_account already writes the audit entry (inside its transaction).
+  revalidatePath("/admin/nutzer");
+  return { ok: true, data: { openProviderItems: result.openProviderItems } };
+}
+
 // --- pricing -----------------------------------------------------------------
 
 const pricingSchema = z.object({

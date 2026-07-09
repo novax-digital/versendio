@@ -9,6 +9,7 @@ const tabs = [
   { href: "/app/einstellungen", label: de.profile.title, exact: true },
   { href: "/app/einstellungen/absenderadressen", label: de.senderAddresses.title, exact: false },
   { href: "/app/einstellungen/sicherheit", label: de.profile.security, exact: false },
+  { href: "/app/einstellungen/konto", label: de.profile.accountTab, exact: false },
 ];
 
 export function SettingsNav() {

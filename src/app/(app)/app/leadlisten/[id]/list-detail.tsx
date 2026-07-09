@@ -77,7 +77,7 @@ export function ListDetail({ listId, entries }: { listId: string; entries: ListE
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
+                <TableHead>{de.common.name}</TableHead>
                 <TableHead>{de.auth.company}</TableHead>
                 <TableHead>{de.profile.city}</TableHead>
                 <TableHead className="w-16 text-right">{de.common.actions}</TableHead>

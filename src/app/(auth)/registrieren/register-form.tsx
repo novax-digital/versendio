@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState } from "react";
 import { registerAction } from "../actions";
 import { FormField } from "@/components/forms/form-field";
@@ -51,6 +52,7 @@ export function RegisterForm() {
         type="password"
         autoComplete="new-password"
         required
+        hint={de.auth.passwordHint}
         error={fieldErrors?.password}
       />
       <FormField
@@ -69,6 +71,17 @@ export function RegisterForm() {
       <Button type="submit" className="w-full" disabled={pending}>
         {pending ? de.common.loading : de.auth.registerButton}
       </Button>
+      <p className="text-muted-foreground text-xs">
+        {de.auth.consentPrefix}{" "}
+        <Link href="/rechtliches/agb" className="underline underline-offset-4">
+          {de.legal.terms}
+        </Link>{" "}
+        {de.auth.consentAnd}{" "}
+        <Link href="/rechtliches/datenschutz" className="underline underline-offset-4">
+          {de.legal.privacy}
+        </Link>
+        .
+      </p>
     </form>
   );
 }

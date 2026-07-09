@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import { Upload } from "lucide-react";
 import { uploadLetterAction } from "../actions";
 import { FormField } from "@/components/forms/form-field";
@@ -17,6 +18,7 @@ export function UploadForm() {
 
   useEffect(() => {
     if (state?.ok) {
+      toast.success(de.letters.uploaded);
       router.push(`/app/briefe/${state.letterId}`);
     }
   }, [state, router]);

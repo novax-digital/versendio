@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { LogOut, Wallet } from "lucide-react";
 import { logoutAction } from "@/app/(auth)/actions";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -32,10 +33,14 @@ export function UserMenu({
 
   return (
     <div className="flex items-center gap-3">
-      <span className="text-muted-foreground hidden items-center gap-1.5 text-sm sm:flex">
+      <Link
+        href="/app/guthaben"
+        className="text-muted-foreground hover:text-foreground hidden items-center gap-1.5 text-sm transition-colors sm:flex"
+        aria-label={`${de.dashboard.creditBalance}: ${formatCents(balanceCents)}`}
+      >
         <Wallet className="size-4" aria-hidden />
         {formatCents(balanceCents)}
-      </span>
+      </Link>
       <DropdownMenu>
         <DropdownMenuTrigger
           render={

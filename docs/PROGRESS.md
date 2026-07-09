@@ -14,7 +14,7 @@
 | 5 | Versand-Pipeline (Queue, Provider, Polling) | ✅ abgeschlossen |
 | 6 | Guthaben, Preise & Stripe-Vorbereitung | ✅ abgeschlossen |
 | 7 | Admin-Konsole | ✅ abgeschlossen |
-| 8 | Härtung (Security, DSGVO, UX) | ⬜ offen |
+| 8 | Härtung (Security, DSGVO, UX) | ✅ abgeschlossen |
 | 9 | QA | ⬜ offen |
 | 10 | Übergabe | ⬜ offen |
 
@@ -104,6 +104,14 @@
 - [x] Review (kombiniert): 2× HIGH (Retry doppelt ausführbar → Doppelbelastung+Doppelversand; Retry nicht atomar → Belastung ohne Versand) + 1× MEDIUM Autorisierung (**gesperrter Admin behielt Konsolenzugriff**) + 4 weitere → **alle behoben**
 - [x] DoD: Build ✅ Lint ✅ Typecheck ✅ **74 Unit-Tests** ✅ (inkl. Zeitzonen-Grenzen)
 
+## Phase 8 — Härtung
+
+- [x] **DSGVO**: Datenexport (JSON, Art. 20) im Konto-Tab; Account-Löschung nach ADR-0009 als atomare RPC (`anonymize_account`: Erstattung offener Items, Hard-Delete aller PII-Tabellen, Snapshot-/Fehlertext-/Status-Detail-Scrub, Profil-Anonymisierung als Anker) + Storage-Wipe + Stripe-Customer + auth.users; Selbstlöschung mit Re-Auth und Tippbestätigung, Admin-Löschaktion mit Hinweis auf nicht rückrufbare Sendungen
+- [x] **Security-Header** inkl. **CSP mit Per-Request-Nonce + `strict-dynamic`** (kein `'unsafe-inline'`) — gegen den Production-Build per HTTP verifiziert: alle 23 Script-Tags tragen die Nonce des Response-Headers; HSTS, X-Frame-Options (SAMEORIGIN wegen PDF-iframe), Referrer-/Permissions-Policy
+- [x] Review `security-auditor` über die **gesamte App**: **APPROVE**, keine CRITICAL/HIGH. Verifiziert: RLS auf allen 21 Tabellen, EK-Spalten-Privileg auch nach späteren Migrationen intakt, alle SECURITY-DEFINER-Funktionen mit `search_path` + korrekten Grants, Webhook-Idempotenz, IDOR/Open-Redirect/Cron-Secret. 2× MEDIUM + 4× LOW → behoben (Rate-Limit auf Passwort-Re-Auth, CSP-Nonce, HTML-Escaping in Mails, DSGVO-Restfelder); Fail-open-Ratelimit als I-009 dokumentiert
+- [x] Review `ux-reviewer` über alle Kernflüsse: 3× HIGH (**Sackgassen im Kernpfad**: kein Auflade-CTA bei Unterdeckung, kein „Brief versenden"-CTA, Onboarding-Schritt verlinkte auf sich selbst) + 5× MEDIUM + 6× LOW → **alle behoben**; „Versand" jetzt in der Hauptnavigation, AGB/Datenschutz-Hinweis bei Registrierung, klickbare Guthaben-Anzeige, Select-a11y; 5 größere Ideen → IDEAS I-005…I-008
+- [x] DoD: Build ✅ Lint ✅ Typecheck ✅ 74 Unit-Tests ✅
+
 ## Fehlendes Material (nicht blockierend)
 
 - Original-PDFs (Preisliste, Schablone V3) liegen nur als Chat-Anhang vor → Inhalte transkribiert in `docs/reference/epost/`; Originale bitte bei Gelegenheit in `docs/reference/epost/` ablegen.
@@ -113,6 +121,4 @@
 
 ## Nächster Schritt
 
-Phase 8 — Härtung: `security-auditor` über die **gesamte** App; DSGVO-Features (Datenexport JSON, Account-Löschung nach ADR-0009, Retention-Cron bereits vorhanden); Performance-Check; Accessibility-Basics; `ux-reviewer` über alle Kernflüsse.
-
-Offen aus §6.7: Admin-Aktion „Account löschen" wird in Phase 8 zusammen mit dem DSGVO-Löschablauf (ADR-0009) implementiert — dort entsteht die gemeinsame Löschfunktion.
+Phase 9 — QA: Unit-Tests für die restliche Kernlogik, Playwright-Suiten (komplette User-Journey Registrierung → Brief → Leadliste → Versand im Mock → Status; Admin-Journey), `docs/QA_CHECKLIST.md` + `qa-tester`-Durchlauf, alle Findings fixen.
