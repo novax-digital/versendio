@@ -14,9 +14,9 @@ import {
   Settings,
   Shield,
   Menu,
-  Mail,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Logo } from "@/components/brand/logo";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { de } from "@/lib/i18n/de";
@@ -82,9 +82,8 @@ export function MobileNav({ isAdmin }: { isAdmin: boolean }) {
       </SheetTrigger>
       <SheetContent side="left" className="w-64 p-0">
         <SheetHeader className="border-b px-4 py-3">
-          <SheetTitle className="flex items-center gap-2 text-base">
-            <Mail className="size-5" aria-hidden />
-            {de.common.appName}
+          <SheetTitle className="flex items-center">
+            <Logo className="h-6" />
           </SheetTitle>
         </SheetHeader>
         <nav className="space-y-1 p-2" aria-label={de.admin.navMain}>

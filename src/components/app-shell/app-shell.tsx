@@ -1,5 +1,6 @@
-import { Mail } from "lucide-react";
+import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
+import { Logo } from "@/components/brand/logo";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { de } from "@/lib/i18n/de";
 import type { Profile } from "@/lib/server/auth-context";
@@ -18,9 +19,10 @@ export function AppShell({
   return (
     <div className="flex min-h-svh">
       <aside className="bg-sidebar text-sidebar-foreground border-sidebar-border hidden w-60 shrink-0 flex-col border-r md:flex">
-        <div className="flex h-14 items-center gap-2 px-4 font-semibold">
-          <Mail className="size-5" aria-hidden />
-          {de.common.appName}
+        <div className="flex h-14 items-center px-4">
+          <Link href="/app" className="flex items-center">
+            <Logo className="h-6" />
+          </Link>
         </div>
         <nav className="flex-1 space-y-1 px-2 py-2" aria-label={de.admin.navMain}>
           <NavLinks isAdmin={profile.role === "admin"} />
@@ -42,7 +44,9 @@ export function AppShell({
         <header className="bg-background flex h-14 items-center justify-between gap-2 border-b px-4">
           <div className="flex items-center gap-2">
             <MobileNav isAdmin={profile.role === "admin"} />
-            <span className="font-semibold md:hidden">{de.common.appName}</span>
+            <Link href="/app" className="flex items-center md:hidden">
+              <Logo className="h-5" />
+            </Link>
             {mockMode ? (
               <Badge variant="outline" className="border-amber-500 text-amber-600 md:hidden">
                 {de.common.mockBadge}

@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { Mail } from "lucide-react";
 import { de } from "@/lib/i18n/de";
+import { Logo } from "@/components/brand/logo";
 import { ButtonLink } from "@/components/ui-ext/button-link";
 
 const legalLinks = [
@@ -15,9 +15,8 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
     <div className="flex min-h-svh flex-col">
       <header className="border-b">
         <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-4">
-          <Link href="/" className="flex items-center gap-2 font-semibold">
-            <Mail className="size-5" aria-hidden />
-            {de.common.appName}
+          <Link href="/" className="flex items-center">
+            <Logo className="h-7" />
           </Link>
           <nav className="flex items-center gap-2">
             <ButtonLink href="/login" variant="ghost">
