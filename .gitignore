@@ -37,3 +37,4 @@ test-results/
 # Logs
 *.log
 npm-debug.log*
+supabase/.temp/
