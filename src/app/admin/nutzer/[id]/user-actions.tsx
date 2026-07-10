@@ -173,7 +173,13 @@ export function UserActions({
             <Label>{de.admin.plan}</Label>
             <Select value={planId ?? undefined} onValueChange={changePlan} disabled={pending}>
               <SelectTrigger className="w-full">
-                <SelectValue placeholder={de.admin.plan} />
+                <SelectValue placeholder={de.admin.plan}>
+                  {(() => {
+                    const plan = plans.find((p) => p.id === planId);
+                    if (!plan) return undefined;
+                    return `${plan.name}${plan.discount_percent > 0 ? ` (−${plan.discount_percent} %)` : ""}`;
+                  })()}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {plans.map((plan) => (

@@ -163,7 +163,12 @@ function MappingStep({
                         onValueChange={(v) => assign(index, v as ContactField | "ignore")}
                       >
                         <SelectTrigger className="w-52">
-                          <SelectValue />
+                          <SelectValue>
+                            {(() => {
+                              const field = mapping[index];
+                              return field ? FIELD_LABELS_DE[field] : de.contacts.mappingIgnore;
+                            })()}
+                          </SelectValue>
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="ignore">{de.contacts.mappingIgnore}</SelectItem>

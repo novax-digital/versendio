@@ -245,7 +245,12 @@ export function SendWizard({
               ) : (
                 <Select value={leadListId ?? undefined} onValueChange={setLeadListId}>
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder={de.send.fromLeadList} />
+                    <SelectValue placeholder={de.send.fromLeadList}>
+                      {(() => {
+                        const list = leadLists.find((l) => l.id === leadListId);
+                        return list ? `${list.name} (${de.leadLists.entries(list.count)})` : undefined;
+                      })()}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {leadLists.map((list) => (
@@ -287,7 +292,16 @@ export function SendWizard({
               <Label htmlFor="opt-registered">{de.send.registeredLabel}</Label>
               <Select value={registered} onValueChange={(v) => setRegistered(v as Registered)}>
                 <SelectTrigger id="opt-registered" className="w-full">
-                  <SelectValue />
+                  <SelectValue>
+                    {
+                      {
+                        none: de.send.registeredNone,
+                        einwurf: de.send.registeredEinwurf,
+                        einschreiben: de.send.registeredEinschreiben,
+                        rueckschein: de.send.registeredRueckschein,
+                      }[registered]
+                    }
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">{de.send.registeredNone}</SelectItem>
@@ -302,7 +316,9 @@ export function SendWizard({
               <p className="text-muted-foreground text-xs">{de.send.scheduleHint}</p>
               <Select value={String(delayHours)} onValueChange={(v) => setDelayHours(Number(v))}>
                 <SelectTrigger id="opt-schedule" className="w-full">
-                  <SelectValue />
+                  <SelectValue>
+                    {delayHours === 0 ? de.send.scheduleNone : de.send.scheduleHours(delayHours)}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="0">{de.send.scheduleNone}</SelectItem>
