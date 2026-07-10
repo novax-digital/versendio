@@ -5,7 +5,9 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * Design system: shadcn/ui theme (Tailwind v4, oklch).
+ * Design system: shadcn/ui theme (Tailwind v4) mapped to the Versendio
+ * brandbook v1.0 (docs/reference — Kurierblau, Tinte, Himmel-Tint palette;
+ * Poppins for headings, Inter for interface).
  * @theme inline maps CSS custom properties to Tailwind utilities;
  * :root / .dark hold the actual values.
  */
@@ -26,6 +28,7 @@
   --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
+  --color-primary-hover: var(--primary-hover);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
@@ -34,6 +37,12 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  /* Tinte — brand constant for permanently dark surfaces, mode-independent */
+  --color-ink: #101828;
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -51,80 +60,94 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
-  --font-heading: var(--font-sans);
-  --font-sans: var(--font-sans);
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-heading: var(--font-poppins), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, monospace;
 }
 
 :root {
   --radius: 0.625rem;
-  /* Deutsche Post inspired: warm yellow primary, deep red accent, clean neutrals */
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.984 0.003 247.858);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
+  /* Versendio brandbook: Papier, Tinte, Kurierblau, Tiefblau, Himmel-Tint,
+   * Grau, Hellgrau + Status Erfolg/Warnung/Fehler */
+  --background: #ffffff;
+  --foreground: #101828;
+  --card: #ffffff;
+  --card-foreground: #101828;
+  --popover: #ffffff;
+  --popover-foreground: #101828;
+  --primary: #2c4be8;
+  --primary-hover: #1c33af;
+  --primary-foreground: #ffffff;
+  --secondary: #eef1fe;
+  --secondary-foreground: #101828;
+  --muted: #eef1fe;
+  --muted-foreground: #64748b;
+  --accent: #eef1fe;
+  --accent-foreground: #101828;
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+  --success: #0e9f6e;
+  --success-foreground: #ffffff;
+  --warning: #d97706;
+  --warning-foreground: #ffffff;
+  --border: #e2e8f0;
+  --input: #e2e8f0;
+  --ring: #2c4be8;
+  --chart-1: #2c4be8;
+  --chart-2: #0e9f6e;
+  --chart-3: #d97706;
+  --chart-4: #1c33af;
+  --chart-5: #64748b;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #101828;
+  --sidebar-primary: #2c4be8;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #eef1fe;
+  --sidebar-accent-foreground: #1c33af;
+  --sidebar-border: #e2e8f0;
+  --sidebar-ring: #2c4be8;
 }
 
+/* Dark mode is not covered by the brandbook — derived from Tinte (#101828)
+ * as base surface with a lightened Kurierblau for sufficient contrast. */
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --destructive-foreground: oklch(0.984 0.003 247.858);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --background: #101828;
+  --foreground: #f1f5f9;
+  --card: #1b2539;
+  --card-foreground: #f1f5f9;
+  --popover: #1b2539;
+  --popover-foreground: #f1f5f9;
+  --primary: #7c93f7;
+  --primary-hover: #94a7f9;
+  --primary-foreground: #101828;
+  --secondary: #232e4a;
+  --secondary-foreground: #e2e8f0;
+  --muted: #1e2942;
+  --muted-foreground: #94a3b8;
+  --accent: #232e4a;
+  --accent-foreground: #eef1fe;
+  --destructive: #f87171;
+  --destructive-foreground: #101828;
+  --success: #34d399;
+  --success-foreground: #101828;
+  --warning: #fbbf24;
+  --warning-foreground: #101828;
+  --border: rgb(255 255 255 / 10%);
+  --input: rgb(255 255 255 / 15%);
+  --ring: #7c93f7;
+  --chart-1: #7c93f7;
+  --chart-2: #34d399;
+  --chart-3: #fbbf24;
+  --chart-4: #a5b4fc;
+  --chart-5: #94a3b8;
+  --sidebar: #0c1322;
+  --sidebar-foreground: #f1f5f9;
+  --sidebar-primary: #7c93f7;
+  --sidebar-primary-foreground: #101828;
+  --sidebar-accent: #1e2942;
+  --sidebar-accent-foreground: #eef1fe;
+  --sidebar-border: rgb(255 255 255 / 10%);
+  --sidebar-ring: #7c93f7;
 }
 
 @layer base {
@@ -140,5 +163,13 @@
   }
   html {
     @apply font-sans;
+  }
+
+  /* Brandbook: headings in Poppins (Medium/SemiBold), never all-caps. */
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply font-heading;
   }
 }

@@ -31,7 +31,7 @@ export function AppShell({
           <div className="px-4 pb-4">
             <Tooltip>
               <TooltipTrigger
-                render={<Badge variant="outline" className="border-amber-500 text-amber-600" />}
+                render={<Badge variant="outline" className="border-warning text-warning" />}
               >
                 {de.common.mockBadge}
               </TooltipTrigger>
@@ -48,7 +48,7 @@ export function AppShell({
               <Logo className="h-5" />
             </Link>
             {mockMode ? (
-              <Badge variant="outline" className="border-amber-500 text-amber-600 md:hidden">
+              <Badge variant="outline" className="border-warning text-warning md:hidden">
                 {de.common.mockBadge}
               </Badge>
             ) : null}

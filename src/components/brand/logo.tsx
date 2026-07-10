@@ -15,7 +15,7 @@ export function Logo({ onDark = false, className }: { onDark?: boolean; classNam
   if (onDark) {
     return (
       <Image
-        src="/versendio-logo-dark.svg"
+        src="/brand/versendio-logo-dark.svg"
         alt={de.common.appName}
         width={WIDTH}
         height={HEIGHT}
@@ -26,14 +26,14 @@ export function Logo({ onDark = false, className }: { onDark?: boolean; classNam
   return (
     <>
       <Image
-        src="/versendio-logo.svg"
+        src="/brand/versendio-logo.svg"
         alt={de.common.appName}
         width={WIDTH}
         height={HEIGHT}
         className={cn("h-6 w-auto dark:hidden", className)}
       />
       <Image
-        src="/versendio-logo-dark.svg"
+        src="/brand/versendio-logo-dark.svg"
         alt={de.common.appName}
         width={WIDTH}
         height={HEIGHT}

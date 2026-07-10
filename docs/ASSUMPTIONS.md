@@ -49,3 +49,6 @@ Das Phase-2-Security-Review empfahl, gesperrte Nutzer (`status=blocked`) hart au
 
 ## A-004 — Schablone V3: Sicherheitsabstand im Editor-Rendering
 Die Schablone warnt davor, Zonen bis zum Rand auszureizen (Brief kann im Umschlag verrutschen). Unser Editor-Rendering setzt Adress-/Absenderzeilen mit ≥ 2 mm Innenabstand zur Zonengrenze.
+
+## A-008 — Brandbook v1.0 umgesetzt; Dark Mode abgeleitet
+Das Versendio-Brandbook (Juli 2026) definiert Farben (Kurierblau #2C4BE8, Tiefblau #1C33AF, Tinte #101828, Himmel-Tint #EEF1FE, Status Erfolg/Warnung/Fehler), Typografie (Poppins für Überschriften, Inter für UI) und die Asset-Ablage unter `public/brand/`. Umgesetzt als shadcn-Token in `globals.css` (inkl. neuer Tokens `primary-hover`, `success`, `warning`, `ink`). Das Brandbook definiert **keinen Dark Mode** — die `.dark`-Palette ist abgeleitet (Tinte als Grundfläche, aufgehelltes Kurierblau für Kontrast) und bei Bedarf per Brandbook-Update zu ersetzen. Exakte Pixel-Größen der Typo-Hierarchie (H1 28/H2 20/Body 15) wurden als Richtwerte behandelt, nicht hart erzwungen.
