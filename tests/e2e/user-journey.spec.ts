@@ -98,7 +98,7 @@ test.describe("user journey", () => {
   test("the send debited the balance and left a ledger entry", async ({ page }) => {
     await login(page, user);
     await page.goto("/app/guthaben");
-    await expect(page.getByText("Versand")).toBeVisible(); // spend transaction
+    await expect(page.getByText("Versand", { exact: true })).toBeVisible(); // spend transaction
     // 50 € minus at least one letter
     const balance = await page.getByText(/€/).first().textContent();
     expect(balance).toBeTruthy();

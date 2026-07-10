@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { requireProfile } from "@/lib/server/auth-context";
+import { serverEnv } from "@/lib/server/env";
+import { getJsonSetting } from "@/lib/server/settings";
 import { createClient } from "@/lib/supabase/server";
-import { letterDocumentSchema } from "@/lib/shared/letter-document";
+import { safeParseLetterDocument } from "@/lib/shared/letter-document";
 import { de } from "@/lib/i18n/de";
 import { LetterEditor } from "../letter-editor";
 
@@ -27,7 +29,7 @@ export default async function EditEditorLetterPage({
 
   if (!letter || letter.source !== "editor") notFound();
 
-  const parsed = letterDocumentSchema.safeParse(letter.editor_document);
+  const parsed = safeParseLetterDocument(letter.editor_document);
   if (!parsed.success) notFound();
 
   return (
@@ -37,6 +39,8 @@ export default async function EditEditorLetterPage({
       initialDocument={parsed.data}
       senderAddresses={senderAddresses ?? []}
       templates={[]}
+      aiMock={!serverEnv().ANTHROPIC_API_KEY}
+      aiEnabled={serverEnv().FEATURE_AI_DRAFTS && (await getJsonSetting<boolean>("ai_drafts_enabled", true))}
     />
   );
 }

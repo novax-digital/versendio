@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { requireProfile } from "@/lib/server/auth-context";
+import { serverEnv } from "@/lib/server/env";
+import { getJsonSetting } from "@/lib/server/settings";
 import { createClient } from "@/lib/supabase/server";
 import { emptyLetterDocument } from "@/lib/shared/letter-document";
 import { de } from "@/lib/i18n/de";
@@ -32,6 +34,8 @@ export default async function NewEditorLetterPage() {
       initialDocument={doc}
       senderAddresses={addresses}
       templates={templates ?? []}
+      aiMock={!serverEnv().ANTHROPIC_API_KEY}
+      aiEnabled={serverEnv().FEATURE_AI_DRAFTS && (await getJsonSetting<boolean>("ai_drafts_enabled", true))}
     />
   );
 }

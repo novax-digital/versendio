@@ -5,7 +5,7 @@ import { downloadObject, BUCKETS } from "@/lib/server/storage";
 import { renderEditorLetter } from "@/lib/server/pdf/render-editor";
 import { prependCoverLetter } from "@/lib/server/pdf/cover-letter";
 import { sampleRecipient } from "@/lib/server/pdf/sample-recipient";
-import { letterDocumentSchema } from "@/lib/shared/letter-document";
+import { parseLetterDocument } from "@/lib/shared/letter-document";
 
 /**
  * Renders a preview PDF for a letter (RLS-scoped). Editor letters are rendered
@@ -33,13 +33,15 @@ export async function GET(_request: Request, ctx: { params: Promise<{ id: string
     let bytes: Uint8Array | null = null;
 
     if (letter.source === "editor") {
-      const doc = letterDocumentSchema.parse(letter.editor_document);
+      const doc = parseLetterDocument(letter.editor_document);
       const senderLine = await resolveSenderLine(supabase, profile.id, doc.senderAddressId);
       bytes = await renderEditorLetter({
         document: doc,
         senderLine,
         recipient,
         loadImage: async (path) => {
+          // Ownership boundary — see uploadAssetAction (paths are <userId>/…).
+          if (!path.startsWith(`${profile.id}/`)) return null;
           const imgBytes = await downloadObject(BUCKETS.assets, path);
           if (!imgBytes) return null;
           const mime = path.toLowerCase().endsWith(".png") ? "image/png" : "image/jpeg";

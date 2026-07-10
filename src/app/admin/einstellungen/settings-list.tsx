@@ -21,6 +21,8 @@ const LABELS: Record<string, string> = {
   status_sync_max_queries_per_run: "Max. Einzelabfragen je Sync-Lauf",
   mock_fail_percent: "Mock: Fehlerquote (%)",
   mock_status_step_minutes: "Mock: Statuswechsel alle X Minuten",
+  ai_drafts_enabled: "KI-Entwürfe aktiviert",
+  ai_daily_draft_limit: "KI-Entwürfe: Tageslimit je Nutzer (0 = aus)",
 };
 
 export function SettingsList({ settings }: { settings: Setting[] }) {

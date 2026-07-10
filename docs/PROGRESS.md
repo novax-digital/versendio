@@ -210,6 +210,14 @@ Bild-/Logo-Bausteine im Editor-UI vertagt (Datenmodell und Rendering vorhanden).
 - [x] Seeds: `seed:admin` (Auth-Admin-API), `seed:demo` (Absenderadresse, 5 Kontakte, Leadliste, Serienbrief, 50 € Startguthaben), `seed:stripe`
 - [x] Abschlussbericht (oben)
 
+## Nach Übergabe — Visual Builder v2 + KI-Entwurf (2026-07-10)
+
+- [x] Dokumentmodell v2 (`letter-document.ts`): Theme (Schriftfamilie, Grundgröße, Akzentfarbe), neue Bausteine Überschrift/Trennlinie, Ausrichtung/Farbe je Baustein; `parseLetterDocument` mit v1-Upgrade (Legacy-Metriken eingefroren, Differentialtest — A-010)
+- [x] PDF-Renderer v2: eingebettete OFL-Fonts (Lato/Poppins/PT Serif, Subset), Farben, Ausrichtung mit x-Clamp, Betreff/Überschrift-Umbruch, Bild-Kapazitäts-Clamp, kein Leerblatt durch End-Spacer; Glyph-Coverage-Warnung beim Speichern
+- [x] WYSIWYG-Builder: skalierter A4-Canvas mit echten Briefschriften, Klick-Auswahl + Mini-Toolbar, Inspector (Baustein/Brief), Logo-/Bild-Upload mit eigener Asset-Route, Zonen-/Beispieldaten-Toggle, Seiten-Schätzung, Dirty-Guard, PDF-„Versand-Vorschau"; E2E-Kontrakt (user-journey) unverändert grün
+- [x] KI-Entwurf: `LetterDraftProvider` (Anthropic/Mock), Server-Action mit Guthaben-Gate, Minuten-Limit und atomarer Tagesquote (fail-closed), Kill-Switch in Admin-Einstellungen, `ai_draft_log`-Telemetrie inkl. GDPR-Lifecycle (A-009)
+- [x] Select-Fix app-weit: Trigger-Labels explizit gerendert (Base-UI zeigte rohe Werte)
+
 ## Nächster Schritt
 
 Projekt übergeben. Vor dem Go-live die sechs Punkte aus **„Offene Punkte vor dem Go-live"** im

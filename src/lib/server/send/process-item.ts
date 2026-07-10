@@ -6,7 +6,7 @@ import { renderEditorLetter } from "@/lib/server/pdf/render-editor";
 import { prependCoverLetter } from "@/lib/server/pdf/cover-letter";
 import { validateLetterPdf } from "@/lib/server/pdf/validate";
 import { isSubmittable } from "@/lib/shared/validation-result";
-import { letterDocumentSchema } from "@/lib/shared/letter-document";
+import { parseLetterDocument } from "@/lib/shared/letter-document";
 import {
   buildRecipientAddressLines,
   buildProviderAddressLines,
@@ -296,13 +296,13 @@ async function buildItemPdf(
 
   const { data: letter } = await admin
     .from("letters")
-    .select("source, storage_path, editor_document, use_cover_letter")
+    .select("user_id, source, storage_path, editor_document, use_cover_letter")
     .eq("id", letterId)
     .single();
   if (!letter) throw new Error("letter_missing");
 
   if (letter.source === "editor") {
-    const doc = letterDocumentSchema.parse(letter.editor_document);
+    const doc = parseLetterDocument(letter.editor_document);
     return renderEditorLetter({
       document: doc,
       senderLine,
@@ -311,6 +311,9 @@ async function buildItemPdf(
         placeholders: toPlaceholderContext(recipient),
       },
       loadImage: async (path) => {
+        // Ownership boundary: the service-role client bypasses RLS, so the
+        // document must never reference another tenant's asset objects.
+        if (!path.startsWith(`${letter.user_id}/`)) return null;
         const { data } = await admin.storage.from(BUCKETS.assets).download(path);
         if (!data) return null;
         return {

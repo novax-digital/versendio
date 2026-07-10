@@ -6,6 +6,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { blockedActionError, requireProfile } from "@/lib/server/auth-context";
 import { renderEditorLetter } from "@/lib/server/pdf/render-editor";
+import { findUnsupportedChars } from "@/lib/server/pdf/fonts";
 import { sampleRecipient } from "@/lib/server/pdf/sample-recipient";
 import { downloadObject } from "@/lib/server/storage";
 import { type ActionResult, fieldErrorsFromZod } from "@/lib/server/action-result";
@@ -117,9 +118,11 @@ export async function saveEditorLetterAction(
   }
 
   const doc = parsed.data.document;
-  const placeholders = doc.blocks.some(
-    (b) => (b.type === "text" || b.type === "subject") && hasPlaceholders(b.text),
+  const textBlocks = doc.blocks.filter(
+    (b): b is Extract<typeof b, { text: string }> =>
+      b.type === "text" || b.type === "subject" || b.type === "heading",
   );
+  const placeholders = textBlocks.some((b) => hasPlaceholders(b.text));
 
   // One shared validation path (ADR-0006): render with a sample recipient and
   // validate exactly like an upload — catches page/size overruns early.
@@ -130,6 +133,9 @@ export async function saveEditorLetterAction(
       senderLine: "Absender · Muster · 00000 Ort",
       recipient: sampleRecipient(),
       loadImage: async (path) => {
+        // Ownership boundary: asset paths are keyed <userId>/… at upload time;
+        // a document must never be able to embed another tenant's objects.
+        if (!path.startsWith(`${profile.id}/`)) return null;
         const bytes = await downloadObject(BUCKETS.assets, path);
         if (!bytes) return null;
         return { bytes, mime: path.toLowerCase().endsWith(".png") ? "image/png" : "image/jpeg" };
@@ -142,6 +148,24 @@ export async function saveEditorLetterAction(
   }
   if (!isSubmittable(validation)) {
     return { ok: false, error: de.letters.validationFailed };
+  }
+
+  // Glyph coverage: fonts render missing characters silently (tofu / "?"),
+  // so surface them as a save-time warning in the validation report.
+  try {
+    const unsupported = await findUnsupportedChars(
+      doc.theme.fontFamily,
+      textBlocks.map((b) => b.text).join("\n"),
+    );
+    if (unsupported.length > 0) {
+      validation.rules.push({
+        id: "font_coverage",
+        severity: "warning",
+        message: `${de.letters.fontCoverageWarning} ${unsupported.slice(0, 12).join(" ")}`,
+      });
+    }
+  } catch {
+    // Coverage check is best-effort; never block a save on it.
   }
 
   const supabase = await createClient();

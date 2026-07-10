@@ -7,7 +7,7 @@ test.describe("public pages", () => {
   test("root redirects into the app login gate", async ({ page }) => {
     await page.goto("/");
     await expect(page).toHaveURL(/\/login/);
-    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Anmelden" })).toBeVisible();
   });
 
   test("legal placeholder pages exist", async ({ page }) => {

@@ -270,6 +270,9 @@ const SETTING_SCHEMAS = {
   status_sync_max_queries_per_run: z.number().int().min(1).max(500),
   mock_fail_percent: z.number().min(0).max(100),
   mock_status_step_minutes: z.number().min(0.1).max(1440),
+  // KI-Entwurf: limit 0 doubles as a soft kill switch.
+  ai_drafts_enabled: z.boolean(),
+  ai_daily_draft_limit: z.number().int().min(0).max(100),
 } as const;
 
 const settingsSchema = z.object({

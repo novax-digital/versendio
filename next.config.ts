@@ -18,6 +18,17 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // The PDF renderer reads public/fonts TTFs via fs at runtime. File tracing
+  // must include them in every serverless bundle that renders letters:
+  // editor server actions (page routes), the preview route, and the queue
+  // worker. Missing files degrade to Helvetica (see server/pdf/fonts.ts).
+  outputFileTracingIncludes: {
+    "/app/briefe/editor": ["./public/fonts/**"],
+    "/app/briefe/editor/[id]": ["./public/fonts/**"],
+    "/app/briefe/[id]/preview": ["./public/fonts/**"],
+    "/app/briefe/[id]": ["./public/fonts/**"],
+    "/api/cron/queue": ["./public/fonts/**"],
+  },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

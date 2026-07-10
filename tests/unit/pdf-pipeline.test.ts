@@ -32,8 +32,8 @@ describe("editor render → validate", () => {
   it("produces a valid A4 PDF that passes validation", async () => {
     const doc = emptyLetterDocument();
     doc.blocks = [
-      { type: "subject", id: "s", text: "Ihr Angebot {{firma}}" },
-      { type: "text", id: "t", text: "Sehr geehrte {{anrede}} {{nachname}},\n\nvielen Dank." },
+      { type: "subject", id: "s", text: "Ihr Angebot {{firma}}", align: "left", color: "default" },
+      { type: "text", id: "t", text: "Sehr geehrte {{anrede}} {{nachname}},\n\nvielen Dank.", align: "left", sizeDeltaPt: 0, color: "default" },
     ];
     const bytes = await renderEditorLetter({
       document: doc,
@@ -50,7 +50,7 @@ describe("editor render → validate", () => {
 
   it("resolves placeholders into the rendered text", async () => {
     const doc = emptyLetterDocument();
-    doc.blocks = [{ type: "text", id: "t", text: "Hallo {{vorname}} {{nachname}}" }];
+    doc.blocks = [{ type: "text", id: "t", text: "Hallo {{vorname}} {{nachname}}", align: "left", sizeDeltaPt: 0, color: "default" }];
     const bytes = await renderEditorLetter({
       document: doc,
       senderLine: "Absender",
@@ -64,7 +64,7 @@ describe("editor render → validate", () => {
   it("keeps long body text within the 94-sheet limit and paginates", async () => {
     const doc = emptyLetterDocument();
     const longText = Array.from({ length: 400 }, (_, i) => `Zeile ${i} mit etwas Text.`).join("\n");
-    doc.blocks = [{ type: "text", id: "t", text: longText }];
+    doc.blocks = [{ type: "text", id: "t", text: longText, align: "left", sizeDeltaPt: 0, color: "default" }];
     const bytes = await renderEditorLetter({ document: doc, senderLine: "A", recipient });
     const validation = await validateLetterPdf(bytes);
     expect(validation.pageCount).toBeGreaterThan(1);

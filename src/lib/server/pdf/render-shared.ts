@@ -42,6 +42,10 @@ export function drawRecipientBlock(page: PDFPage, font: PDFFont, lines: string[]
 /** Truncates text with an ellipsis so it never exceeds maxWidth. */
 export function clampToWidth(text: string, font: PDFFont, size: number, maxWidth: number): string {
   const sanitized = sanitizeText(text);
+  return clampPrepared(sanitized, font, size, maxWidth);
+}
+
+function clampPrepared(sanitized: string, font: PDFFont, size: number, maxWidth: number): string {
   if (font.widthOfTextAtSize(sanitized, size) <= maxWidth) return sanitized;
   let result = sanitized;
   while (result.length > 1 && font.widthOfTextAtSize(result + "…", size) > maxWidth) {
@@ -50,10 +54,22 @@ export function clampToWidth(text: string, font: PDFFont, size: number, maxWidth
   return result + "…";
 }
 
-/** Word-wraps text to a max width, returning lines. */
-export function wrapText(text: string, font: PDFFont, size: number, maxWidth: number): string[] {
+/**
+ * Word-wraps text to a max width, returning lines. `sanitize=false` keeps the
+ * raw text (embedded full-Unicode fonts); the standard fonts require the
+ * WinAnsi sanitize pass. Measurement and drawing must use the same strings —
+ * callers draw exactly the returned lines.
+ */
+export function wrapText(
+  text: string,
+  font: PDFFont,
+  size: number,
+  maxWidth: number,
+  sanitize = true,
+): string[] {
   const lines: string[] = [];
-  for (const paragraph of sanitizeText(text).split("\n")) {
+  const prepared = sanitize ? sanitizeText(text) : text.replaceAll("\t", "  ").replaceAll("\r", "");
+  for (const paragraph of prepared.split("\n")) {
     if (paragraph === "") {
       lines.push("");
       continue;

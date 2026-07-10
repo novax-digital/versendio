@@ -9,8 +9,18 @@ import { createAdminClient } from "@/lib/supabase/admin";
 export async function exportUserData(userId: string): Promise<Record<string, unknown>> {
   const admin = createAdminClient();
 
-  const [profile, senderAddresses, contacts, leadLists, letters, templates, jobs, items, ledger] =
-    await Promise.all([
+  const [
+    profile,
+    senderAddresses,
+    contacts,
+    leadLists,
+    letters,
+    templates,
+    jobs,
+    items,
+    aiDrafts,
+    ledger,
+  ] = await Promise.all([
       admin
         .from("profiles")
         .select(
@@ -51,6 +61,11 @@ export async function exportUserData(userId: string): Promise<Record<string, unk
         .eq("user_id", userId)
         .then((r) => r.data ?? []),
       admin
+        .from("ai_draft_log")
+        .select("id, provider, model, input_chars, output_chars, created_at")
+        .eq("user_id", userId)
+        .then((r) => r.data ?? []),
+      admin
         .from("credit_transactions")
         .select("id, type, amount_cents, balance_after_cents, comment, receipt_url, created_at")
         .eq("user_id", userId)
@@ -68,6 +83,7 @@ export async function exportUserData(userId: string): Promise<Record<string, unk
     letterTemplates: templates,
     sendJobs: jobs,
     sendJobItems: items,
+    aiDrafts,
     creditTransactions: ledger,
   };
 }

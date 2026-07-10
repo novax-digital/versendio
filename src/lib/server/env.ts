@@ -35,6 +35,15 @@ const serverEnvSchema = z.object({
   ADMIN_EMAIL: z.string().email().optional(),
   CRON_SECRET: z.string().optional(),
   SENTRY_DSN: z.string().optional(),
+
+  // KI-Entwurf (AI letter drafts). Without a key the MockDraftProvider is
+  // used (visible in the dialog), mirroring the LetterProvider pattern.
+  FEATURE_AI_DRAFTS: z
+    .string()
+    .default("true")
+    .transform((v) => v === "true"),
+  ANTHROPIC_API_KEY: z.string().optional(),
+  AI_MODEL: z.string().default("claude-opus-4-8"),
 });
 
 export type ServerEnv = z.infer<typeof serverEnvSchema>;

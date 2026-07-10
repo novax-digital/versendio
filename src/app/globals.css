@@ -150,6 +150,56 @@
   --sidebar-ring: #7c93f7;
 }
 
+/*
+ * Letter builder fonts — the SAME TTFs the PDF renderer embeds (public/fonts),
+ * so the WYSIWYG canvas matches the printed letter. Distinct family names so
+ * they never collide with the UI fonts.
+ */
+@font-face {
+  font-family: "Lato Letter";
+  src: url("/fonts/Lato-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Lato Letter";
+  src: url("/fonts/Lato-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Poppins Letter";
+  src: url("/fonts/Poppins-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Poppins Letter";
+  src: url("/fonts/Poppins-SemiBold.ttf") format("truetype");
+  font-weight: 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: "PT Serif Letter";
+  src: url("/fonts/PT_Serif-Web-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "PT Serif Letter";
+  src: url("/fonts/PT_Serif-Web-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-display: swap;
+}
+
+/* Canvas text must measure like the PDF: no kerning/ligature adjustments
+ * (the renderer embeds with ligatures disabled and draws bare advances). */
+.letter-canvas-text {
+  font-kerning: none;
+  font-variant-ligatures: none;
+  letter-spacing: 0;
+}
+
 @layer base {
   * {
     border-color: var(--color-border);

@@ -1,11 +1,19 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useMemo, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { ArrowDown, ArrowUp, Plus, Trash2, Type, Heading, SeparatorHorizontal } from "lucide-react";
-import { saveEditorLetterAction, saveTemplateAction } from "../actions";
-import { letterDocumentSchema } from "@/lib/shared/letter-document";
+import {
+  Eye,
+  Heading,
+  ImagePlus,
+  Minus,
+  MoveVertical,
+  Type,
+} from "lucide-react";
+import { saveEditorLetterAction, saveTemplateAction, uploadAssetAction } from "../actions";
+import { safeParseLetterDocument } from "@/lib/shared/letter-document";
+import type { LetterBlock, LetterDocument, LetterTheme } from "@/lib/shared/letter-document";
 import {
   Dialog,
   DialogContent,
@@ -13,18 +21,11 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,8 +33,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { LetterPreview } from "@/components/letters/letter-preview";
+import { LetterCanvas } from "@/components/letters/letter-canvas";
+import { BlockInspector } from "@/components/letters/block-inspector";
+import { AiDraftDialog } from "@/components/letters/ai-draft-dialog";
 import { PLACEHOLDER_KEYS, PLACEHOLDER_LABELS, unknownPlaceholders } from "@/lib/shared/placeholders";
-import type { LetterBlock, LetterDocument } from "@/lib/shared/letter-document";
+import { sheetsFromPages } from "@/lib/shared/sheets";
 import { de } from "@/lib/i18n/de";
 
 type SenderAddress = { id: string; label: string; sender_line: string; is_default: boolean };
@@ -42,18 +46,39 @@ type Template = { id: string; name: string; editor_document: unknown };
 let blockCounter = 0;
 const nextId = () => `b${Date.now()}-${blockCounter++}`;
 
+function newBlock(type: LetterBlock["type"]): LetterBlock {
+  switch (type) {
+    case "subject":
+      return { type: "subject", id: nextId(), text: "", align: "left", color: "default" };
+    case "heading":
+      return { type: "heading", id: nextId(), text: "", level: 2, align: "left", color: "default" };
+    case "text":
+      return { type: "text", id: nextId(), text: "", align: "left", sizeDeltaPt: 0, color: "default" };
+    case "divider":
+      return { type: "divider", id: nextId(), widthPct: 100, thicknessPt: 0.75, color: "muted" };
+    case "spacer":
+      return { type: "spacer", id: nextId(), heightMm: 8 };
+    case "image":
+      return { type: "image", id: nextId(), storagePath: "", widthMm: 80, align: "left" };
+  }
+}
+
 export function LetterEditor({
   letterId,
   initialTitle,
   initialDocument,
   senderAddresses,
   templates,
+  aiMock,
+  aiEnabled,
 }: {
   letterId: string | null;
   initialTitle: string;
   initialDocument: LetterDocument;
   senderAddresses: SenderAddress[];
   templates: Template[];
+  aiMock: boolean;
+  aiEnabled: boolean;
 }) {
   const router = useRouter();
   const [title, setTitle] = useState(initialTitle);
@@ -63,23 +88,60 @@ export function LetterEditor({
   const [isSaving, startSaving] = useTransition();
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
   const [templateName, setTemplateName] = useState("");
-  const activeTextRef = useRef<{
-    blockId: string;
-    el: HTMLTextAreaElement | HTMLInputElement;
-  } | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [dirty, setDirty] = useState(false);
+  const [showZones, setShowZones] = useState(false);
+  const [showSampleData, setShowSampleData] = useState(false);
+  const [zoom, setZoom] = useState<"fit" | "full">("fit");
+  const [estimatedPages, setEstimatedPages] = useState(1);
+  const activeTextRef = useRef<{ blockId: string; el: HTMLTextAreaElement } | null>(null);
+  const imageFileRef = useRef<HTMLInputElement>(null);
+  const [isUploadingImage, startImageUpload] = useTransition();
 
   const hasSender = senderAddresses.length > 0;
 
+  const updateDoc = useCallback((updater: (prev: LetterDocument) => LetterDocument) => {
+    setDoc(updater);
+    setDirty(true);
+  }, []);
+
+  // Unsaved-changes guard.
+  useEffect(() => {
+    if (!dirty) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [dirty]);
+
+  const senderLine = useMemo(() => {
+    const chosen =
+      senderAddresses.find((a) => a.id === doc.senderAddressId) ??
+      senderAddresses.find((a) => a.is_default) ??
+      senderAddresses[0];
+    return chosen?.sender_line ?? "";
+  }, [doc.senderAddressId, senderAddresses]);
+
+  const recipientLines = useMemo(
+    () => ["Muster GmbH", "Frau Erika Mustermann", "Musterstraße 12", "10115 Berlin"],
+    [],
+  );
+
+  const selectedBlock = doc.blocks.find((b) => b.id === selectedId) ?? null;
+
   const loadTemplate = (template: Template) => {
-    const parsed = letterDocumentSchema.safeParse(template.editor_document);
+    const parsed = safeParseLetterDocument(template.editor_document);
     if (!parsed.success) {
       toast.error(de.letters.saveFailed);
       return;
     }
-    // Keep the currently selected sender address.
-    setDoc({ ...parsed.data, senderAddressId: doc.senderAddressId });
+    const hasContent = doc.blocks.some((b) => "text" in b && b.text.trim().length > 0);
+    if (hasContent && !window.confirm(de.letters.templateLoadConfirm)) return;
+    updateDoc((prev) => ({ ...parsed.data, senderAddressId: prev.senderAddressId }));
     if (!title.trim()) setTitle(template.name);
-    toast.success(de.letters.saved);
+    setSelectedId(null);
+    toast.success(de.letters.templateLoaded);
   };
 
   const saveTemplate = () => {
@@ -99,28 +161,80 @@ export function LetterEditor({
     });
   };
 
-  const updateBlock = useCallback((id: string, patch: Partial<LetterBlock>) => {
-    setDoc((prev) => ({
-      ...prev,
-      blocks: prev.blocks.map((b) => (b.id === id ? ({ ...b, ...patch } as LetterBlock) : b)),
-    }));
-  }, []);
+  const updateBlock = useCallback(
+    (id: string, patch: Partial<LetterBlock>) => {
+      updateDoc((prev) => ({
+        ...prev,
+        blocks: prev.blocks.map((b) => (b.id === id ? ({ ...b, ...patch } as LetterBlock) : b)),
+      }));
+    },
+    [updateDoc],
+  );
 
-  const addBlock = (type: LetterBlock["type"]) => {
-    const block: LetterBlock =
-      type === "subject"
-        ? { type: "subject", id: nextId(), text: "" }
-        : type === "text"
-          ? { type: "text", id: nextId(), text: "" }
-          : { type: "spacer", id: nextId(), heightMm: 8 };
-    setDoc((prev) => ({ ...prev, blocks: [...prev.blocks, block] }));
+  const updateTheme = useCallback(
+    (patch: Partial<LetterTheme>) => {
+      updateDoc((prev) => ({ ...prev, theme: { ...prev.theme, ...patch } }));
+    },
+    [updateDoc],
+  );
+
+  const updateDocFields = useCallback(
+    (patch: Partial<Pick<LetterDocument, "logoStoragePath" | "showDate" | "senderAddressId">>) => {
+      updateDoc((prev) => ({ ...prev, ...patch }));
+    },
+    [updateDoc],
+  );
+
+  /** Inserts after the selected block (or at the end) and selects the new block. */
+  const insertBlock = (block: LetterBlock) => {
+    updateDoc((prev) => {
+      const idx = prev.blocks.findIndex((b) => b.id === selectedId);
+      const at = idx >= 0 ? idx + 1 : prev.blocks.length;
+      const blocks = [...prev.blocks];
+      blocks.splice(at, 0, block);
+      return { ...prev, blocks };
+    });
+    setSelectedId(block.id);
+    requestAnimationFrame(() => {
+      document
+        .querySelector(`[data-block-id="${block.id}"]`)
+        ?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    });
   };
 
-  const removeBlock = (id: string) =>
-    setDoc((prev) => ({ ...prev, blocks: prev.blocks.filter((b) => b.id !== id) }));
+  const addBlock = (type: Exclude<LetterBlock["type"], "image">) => insertBlock(newBlock(type));
+
+  const addImageBlock = (file: File) => {
+    startImageUpload(async () => {
+      const formData = new FormData();
+      formData.append("file", file);
+      const result = await uploadAssetAction(null, formData);
+      if (result.ok && result.data) {
+        insertBlock({ ...newBlock("image"), storagePath: result.data.path } as LetterBlock);
+      } else {
+        toast.error(result.ok ? de.common.genericError : result.error);
+      }
+    });
+  };
+
+  const removeBlock = (id: string) => {
+    updateDoc((prev) => ({ ...prev, blocks: prev.blocks.filter((b) => b.id !== id) }));
+    if (selectedId === id) setSelectedId(null);
+  };
+
+  const duplicateBlock = (id: string) => {
+    updateDoc((prev) => {
+      const idx = prev.blocks.findIndex((b) => b.id === id);
+      if (idx < 0) return prev;
+      const copy = { ...prev.blocks[idx], id: nextId() } as LetterBlock;
+      const blocks = [...prev.blocks];
+      blocks.splice(idx + 1, 0, copy);
+      return { ...prev, blocks };
+    });
+  };
 
   const moveBlock = (id: string, dir: -1 | 1) =>
-    setDoc((prev) => {
+    updateDoc((prev) => {
       const idx = prev.blocks.findIndex((b) => b.id === id);
       const next = idx + dir;
       if (idx < 0 || next < 0 || next >= prev.blocks.length) return prev;
@@ -140,7 +254,7 @@ export function LetterEditor({
     const start = el.selectionStart ?? el.value.length;
     const end = el.selectionEnd ?? el.value.length;
     const block = doc.blocks.find((b) => b.id === active.blockId);
-    if (!block || (block.type !== "text" && block.type !== "subject")) return;
+    if (!block || !("text" in block)) return;
     const nextText = block.text.slice(0, start) + token + block.text.slice(end);
     updateBlock(active.blockId, { text: nextText });
     // Restore focus and place the caret after the inserted token so a second
@@ -156,10 +270,35 @@ export function LetterEditor({
     });
   };
 
+  const insertAiDraft = (draft: { betreff: string; absaetze: string[] }) => {
+    if (draft.absaetze.length === 0 && !draft.betreff.trim()) return;
+    updateDoc((prev) => {
+      const blocks = [...prev.blocks];
+      // Fill the existing empty subject (default doc) instead of duplicating it.
+      const subjectIdx = blocks.findIndex((b) => b.type === "subject" && !b.text.trim());
+      if (subjectIdx >= 0) {
+        blocks[subjectIdx] = { ...blocks[subjectIdx], text: draft.betreff } as LetterBlock;
+      } else {
+        blocks.push({ ...newBlock("subject"), text: draft.betreff } as LetterBlock);
+      }
+      const emptyTextIdx = blocks.findIndex((b) => b.type === "text" && !b.text.trim());
+      const paragraphBlocks = draft.absaetze.map(
+        (text) => ({ ...newBlock("text"), text }) as LetterBlock,
+      );
+      if (emptyTextIdx >= 0 && paragraphBlocks.length > 0) {
+        blocks.splice(emptyTextIdx, 1, ...paragraphBlocks);
+      } else {
+        blocks.push(...paragraphBlocks);
+      }
+      return { ...prev, blocks };
+    });
+    setSelectedId(null);
+  };
+
   const unknownTokens = useMemo(() => {
     const found = new Set<string>();
     for (const b of doc.blocks) {
-      if (b.type === "text" || b.type === "subject") {
+      if ("text" in b) {
         for (const t of unknownPlaceholders(b.text)) found.add(t);
       }
     }
@@ -176,6 +315,7 @@ export function LetterEditor({
       if (result.ok && result.data) {
         setSavedId(result.data.letterId);
         setPreviewVersion((v) => v + 1);
+        setDirty(false);
         toast.success(de.letters.saved);
         onSaved?.(result.data.letterId);
       } else {
@@ -184,14 +324,23 @@ export function LetterEditor({
     });
   };
 
+  const estimatedSheets = sheetsFromPages(estimatedPages, false);
+
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
+    <div className="mx-auto max-w-[1400px] space-y-4">
+      {/* Top bar */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold">{de.letters.editorTitle}</h1>
           <p className="text-muted-foreground text-sm">{de.letters.editorSubtitle}</p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {dirty ? (
+            <Badge variant="outline" className="border-warning text-warning">
+              {de.letters.unsavedChanges}
+            </Badge>
+          ) : null}
+          {aiEnabled ? <AiDraftDialog mock={aiMock} onDraft={insertAiDraft} /> : null}
           {templates.length > 0 ? (
             <DropdownMenu>
               <DropdownMenuTrigger render={<Button variant="ghost" />}>
@@ -244,191 +393,180 @@ export function LetterEditor({
         </p>
       ) : null}
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <div className="space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="letter-title">{de.letters.letterName}</Label>
-            <Input
-              id="letter-title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder={de.letters.letterNamePlaceholder}
+      <div className="space-y-1.5">
+        <Label htmlFor="letter-title">{de.letters.letterName}</Label>
+        <Input
+          id="letter-title"
+          value={title}
+          onChange={(e) => {
+            setTitle(e.target.value);
+            setDirty(true);
+          }}
+          placeholder={de.letters.letterNamePlaceholder}
+          className="max-w-md"
+        />
+      </div>
+
+      <p className="bg-muted text-muted-foreground rounded-md p-2 text-xs md:hidden">
+        {de.letters.mobileReadOnlyHint}
+      </p>
+
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_300px]">
+        {/* Canvas column */}
+        <div className="min-w-0 space-y-3">
+          {/* Block palette + canvas toolbar (editing is desktop-only) */}
+          <div className="hidden flex-wrap items-center gap-2 md:flex">
+            <span className="text-muted-foreground text-xs font-medium">{de.letters.addBlock}:</span>
+            <Button variant="outline" size="sm" onClick={() => addBlock("subject")}>
+              <Heading className="size-3.5" aria-hidden /> {de.letters.blockSubject}
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => addBlock("heading")}>
+              <Heading className="size-3.5" aria-hidden /> {de.letters.blockHeading}
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => addBlock("text")}>
+              <Type className="size-3.5" aria-hidden /> {de.letters.blockText}
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => addBlock("divider")}>
+              <Minus className="size-3.5" aria-hidden /> {de.letters.blockDivider}
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => addBlock("spacer")}>
+              <MoveVertical className="size-3.5" aria-hidden /> {de.letters.blockSpacer}
+            </Button>
+            <input
+              ref={imageFileRef}
+              type="file"
+              accept="image/png,image/jpeg"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) addImageBlock(file);
+                e.target.value = "";
+              }}
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={isUploadingImage}
+              onClick={() => imageFileRef.current?.click()}
+            >
+              <ImagePlus className="size-3.5" aria-hidden /> {de.letters.blockImage}
+            </Button>
+          </div>
+
+          <div className="text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
+            <span>
+              {de.letters.estimateLabel}: ca. {estimatedPages}{" "}
+              {estimatedPages === 1 ? "Seite" : de.letters.pageCount} · {estimatedSheets}{" "}
+              {de.letters.sheetCount}
+            </span>
+            <label className="flex items-center gap-1.5">
+              <Switch checked={showZones} onCheckedChange={setShowZones} />
+              {de.letters.showZones}
+            </label>
+            <label className="flex items-center gap-1.5">
+              <Switch checked={showSampleData} onCheckedChange={setShowSampleData} />
+              {de.letters.sampleDataToggle}
+            </label>
+            <Button
+              variant="ghost"
+              size="xs"
+              onClick={() => setZoom(zoom === "fit" ? "full" : "fit")}
+            >
+              {zoom === "fit" ? de.letters.zoom100 : de.letters.zoomFit}
+            </Button>
+            {savedId ? (
+              <Dialog>
+                <DialogTrigger render={<Button variant="ghost" size="xs" />}>
+                  <Eye className="size-3.5" aria-hidden /> {de.letters.pdfPreviewButton}
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-xl">
+                  <DialogHeader>
+                    <DialogTitle>{de.letters.pdfPreviewButton}</DialogTitle>
+                  </DialogHeader>
+                  <LetterPreview letterId={savedId} version={previewVersion} />
+                  <p className="text-muted-foreground text-xs">{de.letters.estimateDisclaimer}</p>
+                </DialogContent>
+              </Dialog>
+            ) : null}
+          </div>
+
+          <div className="hidden md:block">
+            <LetterCanvas
+              doc={doc}
+              senderLine={senderLine}
+              recipientLines={recipientLines}
+              selectedId={selectedId}
+              readOnly={false}
+              showZones={showZones}
+              showSampleData={showSampleData}
+              zoom={zoom}
+              onSelect={setSelectedId}
+              onChangeBlock={updateBlock}
+              onMoveBlock={moveBlock}
+              onRemoveBlock={removeBlock}
+              onDuplicateBlock={duplicateBlock}
+              onFocusText={(blockId, el) => (activeTextRef.current = { blockId, el })}
+              onEstimate={setEstimatedPages}
+            />
+          </div>
+          <div className="md:hidden">
+            <LetterCanvas
+              doc={doc}
+              senderLine={senderLine}
+              recipientLines={recipientLines}
+              selectedId={selectedId}
+              readOnly
+              showZones={false}
+              showSampleData={showSampleData}
+              zoom="fit"
+              onSelect={setSelectedId}
+              onChangeBlock={updateBlock}
+              onMoveBlock={moveBlock}
+              onRemoveBlock={removeBlock}
+              onDuplicateBlock={duplicateBlock}
+              onFocusText={() => undefined}
+              onEstimate={setEstimatedPages}
             />
           </div>
 
-          <div className="space-y-1.5">
-            <Label>{de.letters.senderAddressSelect}</Label>
-            <Select
-              value={doc.senderAddressId ?? undefined}
-              onValueChange={(v) => setDoc((prev) => ({ ...prev, senderAddressId: v }))}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder={de.letters.senderAddressSelect} />
-              </SelectTrigger>
-              <SelectContent>
-                {senderAddresses.map((a) => (
-                  <SelectItem key={a.id} value={a.id}>
-                    {a.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-base">{de.letters.editorTitle}</CardTitle>
-              <DropdownMenu>
-                <DropdownMenuTrigger render={<Button variant="outline" size="sm" />}>
-                  <Plus className="size-4" aria-hidden />
-                  {de.letters.addBlock}
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onSelect={() => addBlock("subject")}>
-                    <Heading className="size-4" aria-hidden />
-                    {de.letters.blockSubject}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => addBlock("text")}>
-                    <Type className="size-4" aria-hidden />
-                    {de.letters.blockText}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => addBlock("spacer")}>
-                    <SeparatorHorizontal className="size-4" aria-hidden />
-                    {de.letters.blockSpacer}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {doc.blocks.map((block, i) => (
-                <BlockEditor
-                  key={block.id}
-                  block={block}
-                  isFirst={i === 0}
-                  isLast={i === doc.blocks.length - 1}
-                  onChange={(patch) => updateBlock(block.id, patch)}
-                  onRemove={() => removeBlock(block.id)}
-                  onMove={(dir) => moveBlock(block.id, dir)}
-                  onFocusText={(el) => (activeTextRef.current = { blockId: block.id, el })}
-                />
+          {/* Placeholder chips (Serienbrief) */}
+          <div className="space-y-2">
+            <p className="text-muted-foreground text-xs">{de.letters.placeholdersHint}</p>
+            <div className="hidden flex-wrap gap-2 md:flex">
+              {PLACEHOLDER_KEYS.map((key) => (
+                <Button
+                  key={key}
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => insertPlaceholder(key)}
+                >
+                  {PLACEHOLDER_LABELS[key]}
+                </Button>
               ))}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">{de.letters.placeholders}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <p className="text-muted-foreground text-xs">{de.letters.placeholdersHint}</p>
-              <div className="flex flex-wrap gap-2">
-                {PLACEHOLDER_KEYS.map((key) => (
-                  <Button
-                    key={key}
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => insertPlaceholder(key)}
-                  >
-                    {PLACEHOLDER_LABELS[key]}
-                  </Button>
-                ))}
-              </div>
-              {unknownTokens.length > 0 ? (
-                <p className="text-amber-600 text-xs">
-                  {de.letters.unknownPlaceholderWarning}{" "}
-                  {unknownTokens.map((t) => `{{${t}}}`).join(", ")}
-                </p>
-              ) : null}
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="lg:sticky lg:top-4 lg:self-start">
-          {savedId ? (
-            <LetterPreview letterId={savedId} version={previewVersion} />
-          ) : (
-            <div className="bg-muted text-muted-foreground flex aspect-[210/297] max-w-md items-center justify-center rounded-md border p-6 text-center text-sm">
-              {de.letters.previewAfterSave}
             </div>
-          )}
+            {unknownTokens.length > 0 ? (
+              <p className="text-warning text-xs">
+                {de.letters.unknownPlaceholderWarning}{" "}
+                {unknownTokens.map((t) => `{{${t}}}`).join(", ")}
+              </p>
+            ) : null}
+            <p className="text-muted-foreground text-xs">{de.letters.perRecipientHint}</p>
+          </div>
         </div>
-      </div>
-    </div>
-  );
-}
 
-function BlockEditor({
-  block,
-  isFirst,
-  isLast,
-  onChange,
-  onRemove,
-  onMove,
-  onFocusText,
-}: {
-  block: LetterBlock;
-  isFirst: boolean;
-  isLast: boolean;
-  onChange: (patch: Partial<LetterBlock>) => void;
-  onRemove: () => void;
-  onMove: (dir: -1 | 1) => void;
-  onFocusText: (el: HTMLTextAreaElement | HTMLInputElement) => void;
-}) {
-  return (
-    <div className="rounded-md border p-3">
-      <div className="mb-2 flex items-center justify-between">
-        <span className="text-muted-foreground text-xs font-medium uppercase">
-          {block.type === "subject"
-            ? de.letters.blockSubject
-            : block.type === "text"
-              ? de.letters.blockText
-              : block.type === "spacer"
-                ? de.letters.blockSpacer
-                : de.letters.blockImage}
-        </span>
-        <div className="flex gap-1">
-          <Button variant="ghost" size="icon-sm" onClick={() => onMove(-1)} disabled={isFirst} aria-label={de.letters.moveUp}>
-            <ArrowUp className="size-3.5" />
-          </Button>
-          <Button variant="ghost" size="icon-sm" onClick={() => onMove(1)} disabled={isLast} aria-label={de.letters.moveDown}>
-            <ArrowDown className="size-3.5" />
-          </Button>
-          <Button variant="ghost" size="icon-sm" className="text-destructive" onClick={onRemove} aria-label={de.letters.removeBlock}>
-            <Trash2 className="size-3.5" />
-          </Button>
-        </div>
-      </div>
-      {block.type === "subject" ? (
-        <Input
-          value={block.text}
-          onChange={(e) => onChange({ text: e.target.value })}
-          onFocus={(e) => onFocusText(e.currentTarget)}
-          placeholder={de.letters.blockSubject}
-        />
-      ) : null}
-      {block.type === "text" ? (
-        <Textarea
-          value={block.text}
-          onChange={(e) => onChange({ text: e.target.value })}
-          onFocus={(e) => onFocusText(e.currentTarget)}
-          rows={5}
-          placeholder={de.letters.blockText}
-        />
-      ) : null}
-      {block.type === "spacer" ? (
-        <div className="flex items-center gap-2">
-          <Label className="text-xs">{de.letters.blockSpacer} (mm)</Label>
-          <Input
-            type="number"
-            min={1}
-            max={120}
-            value={block.heightMm}
-            onChange={(e) => onChange({ heightMm: Number(e.target.value) || 1 })}
-            className="w-24"
+        {/* Inspector column */}
+        <div className="min-w-0 xl:sticky xl:top-4 xl:self-start">
+          <BlockInspector
+            doc={doc}
+            selected={selectedBlock}
+            senderAddresses={senderAddresses}
+            onChangeBlock={updateBlock}
+            onChangeTheme={updateTheme}
+            onChangeDoc={updateDocFields}
           />
         </div>
-      ) : null}
+      </div>
     </div>
   );
 }
