@@ -17,18 +17,18 @@ async function main() {
   }
 
   const stripe = new Stripe(key);
-  const appName = process.env.APP_NAME ?? "E-Post Mailer";
+  const appName = process.env.APP_NAME ?? "Versendio";
 
   // Idempotent: find-or-create by metadata marker.
   const existing = await stripe.products.search({
-    query: `metadata['app']:'e-post-mailer' AND metadata['purpose']:'topup'`,
+    query: `metadata['app']:'versendio' AND metadata['purpose']:'topup'`,
   });
   if (existing.data.length > 0) {
     console.log(`Top-up product exists: ${existing.data[0].id}`);
   } else {
     const product = await stripe.products.create({
       name: `Guthaben-Aufladung ${appName}`,
-      metadata: { app: "e-post-mailer", purpose: "topup" },
+      metadata: { app: "versendio", purpose: "topup" },
     });
     console.log(`Created top-up product: ${product.id}`);
   }

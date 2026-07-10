@@ -4,7 +4,7 @@
  */
 export const de = {
   common: {
-    appName: "E-Post Mailer",
+    appName: "Versendio",
     save: "Speichern",
     cancel: "Abbrechen",
     delete: "Löschen",
@@ -560,7 +560,7 @@ export const de = {
     settingsNav: "Einstellungen",
   },
   mail: {
-    welcomeSubject: "Willkommen bei E-Post Mailer",
+    welcomeSubject: "Willkommen bei Versendio",
     footer: "Diese E-Mail wurde automatisch versendet. Bitte antworten Sie nicht darauf.",
   },
   legal: {

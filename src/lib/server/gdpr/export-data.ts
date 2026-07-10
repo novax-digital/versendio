@@ -59,7 +59,7 @@ export async function exportUserData(userId: string): Promise<Record<string, unk
 
   return {
     exportedAt: new Date().toISOString(),
-    format: "e-post-mailer/gdpr-export/v1",
+    format: "versendio/gdpr-export/v1",
     profile,
     senderAddresses,
     contacts,

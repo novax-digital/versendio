@@ -1,6 +1,6 @@
-# CLAUDE.md — E-Post-Mailer
+# CLAUDE.md — Versendio (Arbeitsverzeichnis: E-Post-Mailer)
 
-SaaS for sending physical letters via Deutsche Post E-POSTBUSINESS API. Prepaid credit billing, no subscriptions. Target: Vercel + Supabase.
+Versendio (versendio.de) — SaaS for sending physical letters via Deutsche Post E-POSTBUSINESS API. Prepaid credit billing, no subscriptions. Target: Vercel + Supabase.
 
 **Session resume:** read `MASTERPROMPT.md` (binding requirements) → `docs/PROGRESS.md` (current phase/state) → `docs/ASSUMPTIONS.md`, then continue at the next open item. One mandatory checkpoint after Phase 1 (architecture approval); otherwise work autonomously.
 

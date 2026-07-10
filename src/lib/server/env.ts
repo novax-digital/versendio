@@ -2,7 +2,7 @@ import "server-only";
 import { z } from "zod";
 
 const serverEnvSchema = z.object({
-  APP_NAME: z.string().default("E-Post Mailer"),
+  APP_NAME: z.string().default("Versendio"),
   APP_URL: z.string().url().optional(),
   MOCK_MODE: z
     .string()

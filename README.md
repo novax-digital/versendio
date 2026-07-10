@@ -1,6 +1,6 @@
-# E-Post Mailer
+# Versendio
 
-SaaS-Plattform zum Versand physischer Briefe über die **E-POSTBUSINESS API der Deutschen Post**.
+SaaS-Plattform zum Versand physischer Briefe über die **E-POSTBUSINESS API der Deutschen Post** — erreichbar unter [versendio.de](https://versendio.de).
 Brief per PDF hochladen oder im Editor erstellen, Empfänger einzeln oder als Leadliste importieren,
 Versand mit Statusverfolgung. Die Nutzung ist kostenlos — abgerechnet wird rein transaktional pro
 Brief über ein Prepaid-Guthaben.
@@ -80,10 +80,10 @@ die Versand-RPCs und die DSGVO-Löschfunktion.
 
 Unter **Authentication → URL Configuration**:
 
-- **Site URL:** `http://localhost:3000` (lokal) bzw. `https://<ihre-domain>` (Produktion)
+- **Site URL:** `http://localhost:3000` (lokal) bzw. `https://versendio.de` (Produktion)
 - **Redirect URLs** (beide Umgebungen eintragen):
   - `http://localhost:3000/auth/callback`
-  - `https://<ihre-domain>/auth/callback`
+  - `https://versendio.de/auth/callback`
 
 Unter **Authentication → Providers → Email**: „Confirm email" **aktivieren** (Double-Opt-in ist
 Teil des Registrierungsflusses).
@@ -138,8 +138,8 @@ Pro-Plan.
 
 ### 4. Domain und Supabase verknüpfen
 
-1. Domain in Vercel hinzufügen.
-2. `APP_URL` auf die finale Domain setzen.
+1. Domain `versendio.de` in Vercel hinzufügen.
+2. `APP_URL=https://versendio.de` setzen.
 3. Die Domain in Supabase unter **Site URL** und **Redirect URLs** eintragen.
 4. Redeploy.
 

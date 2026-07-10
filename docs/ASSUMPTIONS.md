@@ -14,6 +14,9 @@ Preisliste staffelt nach Blatt (Standard inkl. 1 Blatt / Kompakt inkl. 4 / Groß
 ## A-005 — `old_app/src/styles.css` durch Tooling verändert
 `shadcn init` hat beim Setup versehentlich die CSS-Datei der Legacy-App als Ziel erkannt und deren Farbwerte auf das Neutral-Theme überschrieben (Original-Brandfarben nicht wiederherstellbar). Folgenlos: `old_app/` wird hier nie gebaut und ist gitignored; alle relevanten Legacy-Erkenntnisse sind in `docs/LEGACY_FINDINGS.md` gesichert. `components.json` wurde auf `src/app/globals.css` korrigiert.
 
+## A-013 — Produktname: Versendio, Hauptdomain versendio.de (2026-07-10)
+Der Arbeitstitel „E-Post Mailer" wurde vom Product Owner durch **Versendio** ersetzt; Hauptdomain ist **versendio.de**. Umgesetzt: `de.common.appName`, `APP_NAME`-Default in `env.ts`, `package.json`-Name, Stripe-Seed-Metadaten (`app: versendio` — unkritisch, da noch kein Stripe-Produkt existierte), GDPR-Export-Formatkennung, `.env.example`- und README-Beispiele (Site-/Redirect-URLs, `MAIL_FROM`). Der Repo-Ordnername `E-Post-Mailer` und historische Dokumente (MASTERPROMPT, ADRs, PROGRESS-Verlauf) bleiben unverändert — sie sind Arbeitsstand, kein Kundenkontakt. `APP_URL=https://versendio.de` wird beim Deployment gesetzt.
+
 ## A-010 — Zwei getrennte Adress-Builder (Druck vs. Provider)
 Der QA-Durchlauf deckte auf, dass `addressLine1–5` der E-POST-API laut Swagger v2.6.1 **nur** Name/Firma, Straße und Adresszusatz tragen („Empfängerzeile 1 (z. B. Name,Firma)"); PLZ, Ort und Land werden ausschließlich über die separaten Felder `zipCode`/`city`/`country` übergeben. Beides zusammen hätte auf dem echten Brief die Ortsangabe doppelt gedruckt.
 Daher zwei Funktionen in `src/lib/shared/address.ts`:
