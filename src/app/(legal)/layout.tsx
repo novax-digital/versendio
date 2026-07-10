@@ -10,7 +10,9 @@ const legalLinks = [
   { href: "/rechtliches/avv", label: de.legal.dpa },
 ];
 
-export default function MarketingLayout({ children }: { children: React.ReactNode }) {
+// Minimal public frame for the legal pages (Impressum, Datenschutz, AGB, AVV).
+// There is no marketing site in this app — that will live elsewhere.
+export default function LegalLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-svh flex-col">
       <header className="border-b">
@@ -18,12 +20,9 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
           <Link href="/" className="flex items-center">
             <Logo className="h-7" />
           </Link>
-          <nav className="flex items-center gap-2">
-            <ButtonLink href="/login" variant="ghost">
-              {de.nav.login}
-            </ButtonLink>
-            <ButtonLink href="/registrieren">{de.nav.register}</ButtonLink>
-          </nav>
+          <ButtonLink href="/login" variant="ghost">
+            {de.nav.login}
+          </ButtonLink>
         </div>
       </header>
       <main className="flex-1">{children}</main>

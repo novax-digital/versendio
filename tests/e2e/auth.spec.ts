@@ -2,10 +2,12 @@ import { test, expect } from "@playwright/test";
 import { supabaseConfigured, createTestUser } from "./helpers";
 
 test.describe("public pages", () => {
-  test("marketing page renders with CTAs", async ({ page }) => {
+  // There is no marketing site — the root goes straight into the app and the
+  // auth gate lands logged-out visitors on the login page.
+  test("root redirects into the app login gate", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByRole("heading", { level: 1 })).toContainText("Briefe digital");
-    await expect(page.getByRole("link", { name: "Kostenlos registrieren" })).toBeVisible();
+    await expect(page).toHaveURL(/\/login/);
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   });
 
   test("legal placeholder pages exist", async ({ page }) => {
