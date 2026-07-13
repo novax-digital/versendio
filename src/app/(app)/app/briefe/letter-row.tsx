@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { FileText, Pencil } from "lucide-react";
+import { FileText, Pencil, Send } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { ButtonLink } from "@/components/ui-ext/button-link";
 import { de } from "@/lib/i18n/de";
 
 type LetterListItem = {
@@ -19,11 +20,8 @@ export function LetterRow({ letter }: { letter: LetterListItem }) {
   const Icon = letter.source === "editor" ? Pencil : FileText;
 
   return (
-    <li>
-      <Link
-        href={href}
-        className="hover:bg-muted/50 flex items-center gap-3 px-4 py-3 transition-colors"
-      >
+    <li className="hover:bg-muted/50 flex items-center gap-3 px-4 py-3 transition-colors">
+      <Link href={href} className="flex min-w-0 flex-1 items-center gap-3">
         <Icon className="text-muted-foreground size-4 shrink-0" aria-hidden />
         <div className="min-w-0 flex-1">
           <p className="truncate font-medium">{letter.title}</p>
@@ -32,13 +30,24 @@ export function LetterRow({ letter }: { letter: LetterListItem }) {
             {letter.page_count ? ` · ${letter.page_count} ${de.letters.pageCount}` : ""}
           </p>
         </div>
-        {letter.has_placeholders ? (
-          <Badge variant="secondary">{de.letters.serialLetterBadge}</Badge>
-        ) : null}
-        <Badge variant={letter.status === "ready" ? "outline" : "secondary"}>
-          {letter.status === "ready" ? de.letters.statusReady : de.letters.statusDraft}
-        </Badge>
       </Link>
+      {letter.has_placeholders ? (
+        <Badge variant="secondary">{de.letters.serialLetterBadge}</Badge>
+      ) : null}
+      <Badge variant={letter.status === "ready" ? "outline" : "secondary"}>
+        {letter.status === "ready" ? de.letters.statusReady : de.letters.statusDraft}
+      </Badge>
+      {letter.status === "ready" ? (
+        <ButtonLink
+          href={`/app/versand?brief=${letter.id}`}
+          variant="outline"
+          size="sm"
+          className="shrink-0"
+        >
+          <Send className="size-3.5" aria-hidden />
+          {de.letters.sendAction}
+        </ButtonLink>
+      ) : null}
     </li>
   );
 }

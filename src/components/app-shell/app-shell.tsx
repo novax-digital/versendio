@@ -19,9 +19,9 @@ export function AppShell({
   return (
     <div className="flex min-h-svh">
       <aside className="bg-sidebar text-sidebar-foreground border-sidebar-border hidden w-60 shrink-0 flex-col border-r md:flex">
-        <div className="flex h-14 items-center px-4">
+        <div className="flex h-16 items-center px-4">
           <Link href="/app" className="flex items-center">
-            <Logo className="h-6" />
+            <Logo className="h-8" />
           </Link>
         </div>
         <nav className="flex-1 space-y-1 px-2 py-2" aria-label={de.admin.navMain}>
@@ -45,7 +45,7 @@ export function AppShell({
           <div className="flex items-center gap-2">
             <MobileNav isAdmin={profile.role === "admin"} />
             <Link href="/app" className="flex items-center md:hidden">
-              <Logo className="h-5" />
+              <Logo className="h-6" />
             </Link>
             {mockMode ? (
               <Badge variant="outline" className="border-warning text-warning md:hidden">
