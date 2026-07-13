@@ -1,12 +1,13 @@
 # Stripe aktivieren
 
-> Stand: vollständig gegen den **Stripe-Testmodus** implementiert, hinter dem Feature-Flag
-> `FEATURE_STRIPE` (Default `false`). Solange das Flag aus ist, bucht der Admin Guthaben manuell
-> (Beta-Betrieb) — die Guthaben-Seite zeigt dazu einen Hinweis.
+> Stand: hinter dem Feature-Flag `FEATURE_STRIPE` (Default `false`). Solange das Flag aus ist,
+> bucht der Admin Guthaben manuell (Beta-Betrieb) — die Guthaben-Seite zeigt dazu einen Hinweis.
 
-> ⚠️ **Live-Keys sind im Code gesperrt.** `getStripe()` wirft bei einem `sk_live_…`-Key eine
-> Ausnahme, ebenso das Seed-Skript. Das ist eine bewusste Sicherung gegen versehentliche
-> Echtzahlungen und muss beim echten Go-live in `src/lib/server/stripe.ts` bewusst entfernt werden.
+> ✅ **Live-Schaltung erfolgt am 2026-07-13** (Betreiber-Entscheidung): Die frühere
+> Live-Key-Sperre in `getStripe()` ist entfernt; das Seed-Skript verlangt bei Live-Keys das
+> explizite Flag `npm run seed:stripe -- --live`. Live-Webhook-Endpoint
+> (`https://app.versendio.de/api/webhooks/stripe`, 3 Events) und Top-up-Produkt sind im
+> Live-Konto angelegt. Test-Keys funktionieren weiterhin für Staging.
 
 ---
 

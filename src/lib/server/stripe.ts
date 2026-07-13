@@ -17,11 +17,9 @@ export function stripeEnabled(): boolean {
 export function getStripe(): Stripe {
   const env = serverEnv();
   if (!env.STRIPE_SECRET_KEY) throw new Error("STRIPE_SECRET_KEY not configured");
-  if (env.STRIPE_SECRET_KEY.startsWith("sk_live")) {
-    // Hard guard: live payments must never be activated from this codebase
-    // without a deliberate release step (MASTERPROMPT §9).
-    throw new Error("Live Stripe keys are not allowed in this build");
-  }
+  // Live keys deliberately released on 2026-07-13 (operator decision) — the
+  // former hard guard from MASTERPROMPT §9 is retired. Test keys keep working
+  // for local/staging environments.
   return new Stripe(env.STRIPE_SECRET_KEY);
 }
 

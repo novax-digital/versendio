@@ -241,7 +241,23 @@ Bild-/Logo-Bausteine im Editor-UI vertagt (Datenmodell und Rendering vorhanden).
   Geometriequelle wie der Validator; das Muster besteht die eigene Upload-Prüfung (Test)
 - [x] **Navigation**: Logo größer, Leadlisten als Unterpunkt von Kontakte, „Brief versenden" aus
   dem Hauptmenü → „Versenden"-Button je versandbereitem Brief (`/app/versand?brief=<id>`)
-- [x] DoD: Build ✅ Lint ✅ Typecheck ✅ **130 Unit-Tests** ✅ (10 neue)
+- [x] Review-Workflow (17 Agenten, adversarial verifiziert): 13 Findings → alle behoben
+  (u. a. Platzhalter/Font-Coverage im Kopf-/Fußbereich, Speicher-Sperre bei aktiven Sendungen,
+  Muster-PDF-Marker, Rate-Limits auf Editor-Saves)
+- [x] `{{datum}}`-Platzhalter (Versanddatum, frei platzierbar); fixes Datum bleibt als Schalter
+- [x] DoD: Build ✅ Lint ✅ Typecheck ✅ **132 Unit-Tests** ✅
+
+## Nach Übergabe — Stripe LIVE (2026-07-13)
+
+- [x] **Live-Schaltung** (Betreiber-Entscheidung nach Rückfrage): Live-Key-Sperre in
+  `getStripe()` entfernt; `seed:stripe` verlangt `--live`-Flag bei Live-Keys
+- [x] Live-Webhook-Endpoint verifiziert (app.versendio.de, 3 Events, enabled);
+  Top-up-Produkt im Live-Konto (`prod_UsXHO8VYZhTIhO`); `FEATURE_STRIPE=true` lokal
+- [ ] **Vercel-ENV setzen** (`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `FEATURE_STRIPE=true`,
+  `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`) + Redeploy — ohne sie antwortet der Prod-Webhook 503
+- [ ] Dashboard: Zahlungsmethoden (Karte + SEPA) und Stripe Tax im **Live-Modus** aktivieren
+- [ ] Abnahmetest live: eine Mindestbetrag-Aufladung auf eigenes Konto (Gutschrift, Beleg-Link,
+  Held-Item-Release)
 
 ## Nächster Schritt
 

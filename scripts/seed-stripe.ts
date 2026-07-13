@@ -1,7 +1,8 @@
 /**
- * Stripe seed (test mode only): creates the top-up product used for nicer
- * statement/receipt naming and prints the webhook events to configure.
- * Run: node --env-file=.env.local scripts/seed-stripe.ts
+ * Stripe seed: creates the top-up product used for nicer statement/receipt
+ * naming and prints the webhook events to configure.
+ * Run: npm run seed:stripe            (test keys)
+ *      npm run seed:stripe -- --live  (live keys need the explicit flag)
  */
 import Stripe from "stripe";
 
@@ -11,8 +12,8 @@ async function main() {
     console.error("STRIPE_SECRET_KEY missing.");
     process.exit(1);
   }
-  if (key.startsWith("sk_live")) {
-    console.error("Refusing to run against live keys (MASTERPROMPT §9).");
+  if (key.startsWith("sk_live") && !process.argv.includes("--live")) {
+    console.error("Live key detected. Re-run with --live to confirm: npm run seed:stripe -- --live");
     process.exit(1);
   }
 
