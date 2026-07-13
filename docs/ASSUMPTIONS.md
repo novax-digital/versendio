@@ -58,3 +58,15 @@ Die KI-Brieferstellung (`generateLetterDraftAction`) kostet uns Tokens, auch wen
 
 ## A-010 — Builder v2: Legacy-Metriken eingefroren, Canvas ist Schätzung, Renderer erzwingt Zonen
 Der visuelle Brief-Editor (Dokumentmodell v2) ändert Typografie-Metriken (Zeilenhöhe 1,35 × Schriftgrad statt fix 4,6 mm). Damit **bestehende v1-Briefe nicht still umbrechen und sich neu bepreisen** (Blattzahl → Porto-Stufe!), setzt die v1→v2-Migration `theme.legacyLayout=true`: exakt 4,6 mm Zeilenvorschub bei 11 pt, Betreff in Grundgröße — per Differentialtest gepinnt. Einzige bewusste Abweichung: ein überlaufender **End-Abstandshalter** erzeugt keine leere (bezahlte) Seite mehr. Die Canvas-Seitenschätzung ist blockgranular und als „ca." ausgewiesen; verbindlich bleibt die Server-Validierung beim Speichern („Versand-Vorschau"). Zonen-Sicherheit (12-mm-Streifen, Ränder, DVF) wird **im Renderer erzwungen** (Wrap + x-Clamp aller Textblöcke, Bild-Skalierung auf Seitenkapazität), nicht im Validator — analyze-zones sieht nur Text. Glyph-Abdeckung wird beim Speichern geprüft (Warnung, kein Fehler). Schriften: 3 OFL-Familien (Lato, Poppins, PT Serif) als statische TTFs in `public/fonts` — identische Dateien für Browser-Canvas (@font-face) und PDF (fontkit, Subset); `outputFileTracingIncludes` bindet sie in alle rendernden Serverless-Bundles ein, bei Fehlen fällt der Renderer auf Helvetica zurück (loggt, wirft nie im Worker).
+
+## A-014 — B2B-Preismodell: alles netto, feste 19 % USt. an der Zahlungsgrenze (2026-07-13)
+Alle Beträge in der Anwendung (VK-Preise, Guthaben, Ledger) sind **netto**. Die Umsatzsteuer
+entsteht ausschließlich beim Guthabenkauf: Der Stripe-Checkout hängt eine feste exklusive
+Tax Rate (19 %, DE, find-or-create per Metadata-Marker, `getVatTaxRateId`) an das Line-Item —
+der Kunde zahlt netto + USt., die Stripe-Rechnung weist die Steuer aus, gutgeschrieben wird
+der Nettobetrag (`metadata.amount_cents`). Die Auto-Aufladung zieht netto × 1,19 ein und bucht
+netto; ein itemisierter USt.-Ausweis fehlt dort noch (IDEAS I-016). Bewusste Vereinfachungen:
+(a) fester Steuersatz statt Stripe Tax — **EU-Reverse-Charge/OSS wird nicht abgebildet**
+(IDEAS I-017); bei EU-Auslandskunden vor Vertragsabschluss klären. (b) Bereits gekauftes
+Guthaben (vor der Umstellung) wurde ohne USt.-Aufschlag bezahlt — Bestandsguthaben bleibt
+unverändert netto stehen.

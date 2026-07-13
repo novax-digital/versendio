@@ -1,4 +1,5 @@
 import "server-only";
+import { grossFromNetCents } from "@/lib/shared/money";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripe, stripeEnabled } from "@/lib/server/stripe";
 
@@ -50,14 +51,21 @@ export async function processAutoTopup(userId: string): Promise<void> {
 
   try {
     const stripe = getStripe();
+    // B2B: the configured top-up amount is the NET credit; the charge adds
+    // 19 % VAT on top. The webhook books metadata.amount_cents (net), never
+    // the gross charge amount. Itemized VAT invoice is deferred (IDEAS I-016).
     await stripe.paymentIntents.create({
-      amount: account.auto_topup_amount_cents,
+      amount: grossFromNetCents(account.auto_topup_amount_cents),
       currency: "eur",
       customer: account.stripe_customer_id,
       payment_method: account.default_payment_method_id,
       off_session: true,
       confirm: true,
-      metadata: { user_id: userId, purpose: "auto_topup" },
+      metadata: {
+        user_id: userId,
+        purpose: "auto_topup",
+        amount_cents: String(account.auto_topup_amount_cents),
+      },
     });
     // Success/failure is handled by the webhook (payment_intent.succeeded/failed).
   } catch (err) {

@@ -534,6 +534,7 @@ function ConfirmStep({
               </dd>
             </div>
           </dl>
+          <p className="text-muted-foreground mt-3 text-xs">{de.send.netHint}</p>
         </CardContent>
       </Card>
 

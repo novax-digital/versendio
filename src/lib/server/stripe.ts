@@ -1,12 +1,14 @@
 import "server-only";
 import Stripe from "stripe";
+import { VAT_RATE_PERCENT } from "@/lib/shared/money";
 import { serverEnv } from "@/lib/server/env";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
- * Stripe integration (test mode only until launch — MASTERPROMPT §9 forbids
- * live keys). Everything is gated behind FEATURE_STRIPE; credit is booked
- * exclusively by the webhook, never on redirect (§6.6).
+ * Stripe integration. Everything is gated behind FEATURE_STRIPE; credit is
+ * booked exclusively by the webhook, never on redirect (§6.6). B2B pricing:
+ * amounts are NET — German VAT is added at the payment boundary via a fixed
+ * Stripe tax rate (see getVatTaxRateId).
  */
 
 export function stripeEnabled(): boolean {
@@ -21,6 +23,41 @@ export function getStripe(): Stripe {
   // former hard guard from MASTERPROMPT §9 is retired. Test keys keep working
   // for local/staging environments.
   return new Stripe(env.STRIPE_SECRET_KEY);
+}
+
+// Module cache is a serverless-safe optimization only — rebuilt per cold
+// start via find-or-create against Stripe (metadata marker).
+let cachedVatTaxRateId: string | null = null;
+
+/**
+ * Finds or creates the exclusive German VAT tax rate (19 %) used on checkout
+ * line items: the customer pays net + VAT and the Stripe invoice itemizes the
+ * tax, while ledger credit stays net. Fixed-rate deliberately (B2B, DE) —
+ * EU reverse charge would move this to Stripe Tax (see ASSUMPTIONS A-014).
+ */
+export async function getVatTaxRateId(stripe: Stripe): Promise<string> {
+  if (cachedVatTaxRateId) return cachedVatTaxRateId;
+  const existing = await stripe.taxRates.list({ active: true, limit: 100 });
+  const match = existing.data.find(
+    (r) =>
+      r.metadata?.app === "versendio" &&
+      !r.inclusive &&
+      r.percentage === VAT_RATE_PERCENT,
+  );
+  if (match) {
+    cachedVatTaxRateId = match.id;
+    return match.id;
+  }
+  const created = await stripe.taxRates.create({
+    display_name: "USt.",
+    description: `Umsatzsteuer ${VAT_RATE_PERCENT} %`,
+    percentage: VAT_RATE_PERCENT,
+    inclusive: false,
+    country: "DE",
+    metadata: { app: "versendio", purpose: "vat" },
+  });
+  cachedVatTaxRateId = created.id;
+  return created.id;
 }
 
 /** Finds or creates the Stripe customer for a user, persisted in billing_accounts. */

@@ -134,7 +134,12 @@ async function creditTopup(eventId: string, session: Stripe.Checkout.Session): P
 
 async function creditAutoTopup(eventId: string, intent: Stripe.PaymentIntent): Promise<void> {
   const userId = intent.metadata.user_id;
-  const amount = intent.amount_received;
+  // B2B: the charge is gross (net + 19 % VAT); credited is the NET amount
+  // from our metadata. Fallback to amount_received for intents created
+  // before the VAT change (those were charged net without tax).
+  const metaAmount = Number(intent.metadata.amount_cents);
+  const amount =
+    Number.isInteger(metaAmount) && metaAmount > 0 ? metaAmount : intent.amount_received;
   if (!userId || amount <= 0) throw new Error("auto_topup_metadata_invalid");
 
   const receiptUrl = await chargeReceiptUrl(intent.latest_charge);

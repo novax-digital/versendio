@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { blockedActionError, requireProfile } from "@/lib/server/auth-context";
-import { getOrCreateCustomer, getStripe, stripeEnabled } from "@/lib/server/stripe";
+import { getOrCreateCustomer, getStripe, getVatTaxRateId, stripeEnabled } from "@/lib/server/stripe";
 import { getJsonSetting, getNumberSetting } from "@/lib/server/settings";
 import { serverEnv } from "@/lib/server/env";
 import type { ActionResult } from "@/lib/server/action-result";
@@ -60,6 +60,10 @@ export async function startTopupAction(_prev: unknown, formData: FormData): Prom
   const stripe = getStripe();
   const customerId = await getOrCreateCustomer(profile.id, profile.email);
   const base = await appBaseUrl();
+  // B2B: the credit amount is NET; the checkout adds 19 % VAT on top via a
+  // fixed exclusive tax rate, itemized on the Stripe invoice. The webhook
+  // books metadata.amount_cents — the net amount — as credit.
+  const vatTaxRateId = await getVatTaxRateId(stripe);
 
   const session = await stripe.checkout.sessions.create({
     mode: "payment",
@@ -69,6 +73,7 @@ export async function startTopupAction(_prev: unknown, formData: FormData): Prom
     line_items: [
       {
         quantity: 1,
+        tax_rates: [vatTaxRateId],
         price_data: {
           currency: "eur",
           unit_amount: amount,

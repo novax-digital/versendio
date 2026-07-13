@@ -258,6 +258,10 @@ Bild-/Logo-Bausteine im Editor-UI vertagt (Datenmodell und Rendering vorhanden).
 - [ ] Dashboard: Zahlungsmethoden (Karte + SEPA) und Stripe Tax im **Live-Modus** aktivieren
 - [ ] Abnahmetest live: eine Mindestbetrag-Aufladung auf eigenes Konto (Gutschrift, Beleg-Link,
   Held-Item-Release)
+- [x] **B2B-Netto-Preismodell (A-014)**: alle Beträge netto; Checkout mit fester 19 %-Tax-Rate
+  (exklusiv, auto-angelegt), Rechnung weist USt. aus, Gutschrift = netto; Auto-Aufladung zieht
+  netto × 1,19 ein und bucht netto (Metadata-Betrag, Fallback für Alt-Intents); Netto-Hinweise
+  auf Kostenvorschau, Aufladung, Auto-Aufladung, Marketing-Text; IDEAS I-016/I-017
 
 ## Nächster Schritt
 

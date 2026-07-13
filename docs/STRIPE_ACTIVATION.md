@@ -58,11 +58,16 @@ Dashboard → **Settings → Payment methods**: **Karte** und **SEPA-Lastschrift
 SEPA ist ausdrücklich gewünscht (Flat-Fee statt Prozentgebühr — bei Briefpreisen um 1 € frisst eine
 prozentuale Gebühr die Marge).
 
-### Schritt 5 — Steuern (optional, empfohlen)
+### Schritt 5 — Steuern (B2B: netto + 19 % USt., seit 2026-07-13 eingebaut)
 
-Dashboard → **Settings → Tax**: Stripe Tax aktivieren, Sitz und Registrierungen eintragen.
-Die Anwendung verlangt bereits vor der ersten Aufladung eine vollständige **Rechnungsadresse** im
-Profil und erzeugt je Aufladung eine Stripe-Rechnung (`invoice_creation`).
+Alle Preise in der Anwendung sind **netto** (A-014). Der Checkout hängt automatisch eine feste
+**19 %-Tax-Rate** (exklusiv, DE) an das Line-Item — sie wird beim ersten Checkout per
+Metadata-Marker im Stripe-Konto angelegt (`getVatTaxRateId`), kein manueller Schritt nötig.
+Der Kunde zahlt netto + USt.; die Stripe-Rechnung (`invoice_creation`) weist die Steuer aus;
+**gutgeschrieben wird der Nettobetrag**. Die Auto-Aufladung zieht netto × 1,19 ein und bucht
+netto (itemisierte Rechnung dafür: IDEAS I-016). Stripe Tax (automatic_tax) ist bewusst nicht
+im Einsatz — EU-Reverse-Charge siehe IDEAS I-017. Die Anwendung verlangt vor der ersten
+Aufladung eine vollständige **Rechnungsadresse** im Profil.
 
 ---
 

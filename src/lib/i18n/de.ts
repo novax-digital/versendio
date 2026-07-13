@@ -461,6 +461,7 @@ export const de = {
     scheduleNone: "Sofort versenden",
     scheduleHours: (h: number) => `In ${h} Stunden`,
     costPreview: "Kostenvorschau",
+    netHint: "Alle Preise netto. Die Umsatzsteuer (19 %) wird beim Guthabenkauf berechnet.",
     perLetter: "Preis je Brief",
     recipients: "Empfänger",
     sheets: "Blatt je Brief (geschätzt)",
@@ -531,7 +532,7 @@ export const de = {
     refunded: "Erstattet",
     retryInfo:
       "Fehlgeschlagene Briefe wurden automatisch erstattet. Sie können den Versand über den Versand-Assistenten erneut starten.",
-    totalLabel: "Gesamtbetrag",
+    totalLabel: "Gesamtbetrag (netto)",
     statusLabel: "Status",
     createdLabel: "Erstellt",
   },
@@ -541,6 +542,10 @@ export const de = {
     currentBalance: "Aktuelles Guthaben",
     topupTitle: "Guthaben aufladen",
     topupHint: "Sicher bezahlen per Karte oder SEPA-Lastschrift über Stripe.",
+    vatNotice: (gross: string) =>
+      `Alle Beträge netto. Bei der Bezahlung kommen 19 % USt. hinzu (${gross} inkl. USt.); die Rechnung weist die Steuer aus.`,
+    vatNoticeGeneric:
+      "Alle Beträge netto. Bei der Bezahlung kommen 19 % USt. hinzu; die Rechnung weist die Steuer aus.",
     customAmount: "Eigener Betrag (€)",
     topupButton: "Zur Bezahlung",
     stripeDisabled:
@@ -560,7 +565,7 @@ export const de = {
     setupCanceled: "Das Hinterlegen der Zahlungsmethode wurde abgebrochen.",
     autoTopupTitle: "Automatische Aufladung",
     autoTopupHint:
-      "Fällt Ihr Guthaben unter den Schwellwert, laden wir automatisch den gewählten Betrag von Ihrer hinterlegten Zahlungsmethode nach.",
+      "Fällt Ihr Guthaben unter den Schwellwert, laden wir automatisch den gewählten Betrag von Ihrer hinterlegten Zahlungsmethode nach. Der Aufladebetrag ist netto; eingezogen wird er zzgl. 19 % USt.",
     autoTopupEnable: "Automatische Aufladung aktivieren",
     threshold: "Schwellwert (€)",
     autoAmount: "Aufladebetrag (€)",
@@ -711,7 +716,7 @@ export const de = {
       "Vom Eingang bis zum Druckzentrum: Sie sehen jederzeit, wo Ihre Sendung steht.",
     pricingTitle: "Faire, transparente Preise",
     pricingText:
-      "Keine Grundgebühr, kein Abo. Sie laden Guthaben auf und zahlen nur für versendete Briefe.",
+      "Keine Grundgebühr, kein Abo. Sie laden Guthaben auf und zahlen nur für versendete Briefe. Alle Preise netto zzgl. USt.",
   },
 } as const;
 

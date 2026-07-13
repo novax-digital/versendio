@@ -6,7 +6,7 @@ import { startTopupAction } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { formatCents } from "@/lib/shared/money";
+import { formatCents, grossFromNetCents } from "@/lib/shared/money";
 import { de } from "@/lib/i18n/de";
 
 export function TopupSection({
@@ -20,11 +20,12 @@ export function TopupSection({
   const [custom, setCustom] = useState("");
   const [pending, startTransition] = useTransition();
 
+  const customCents = custom ? Math.round(Number(custom.replace(",", ".")) * 100) : null;
+  const effectiveCents = customCents && customCents > 0 ? customCents : selected;
+
   const submit = () => {
-    const customCents = custom ? Math.round(Number(custom.replace(",", ".")) * 100) : null;
-    const amount = customCents && customCents > 0 ? customCents : selected;
     const fd = new FormData();
-    fd.set("amountCents", String(amount));
+    fd.set("amountCents", String(effectiveCents));
     startTransition(async () => {
       const result = await startTopupAction(null, fd);
       // On success the action redirects to Stripe; only errors return.
@@ -61,6 +62,11 @@ export function TopupSection({
           placeholder={(minCents / 100).toFixed(2).replace(".", ",")}
         />
       </div>
+      <p className="text-muted-foreground text-xs">
+        {effectiveCents > 0
+          ? de.credits.vatNotice(formatCents(grossFromNetCents(effectiveCents)))
+          : de.credits.vatNoticeGeneric}
+      </p>
       <Button onClick={submit} disabled={pending} className="w-full">
         {pending ? de.common.loading : de.credits.topupButton}
       </Button>
