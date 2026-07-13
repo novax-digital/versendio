@@ -9,6 +9,7 @@ const tabs = [
   { href: "/admin", label: de.admin.dashboard, exact: true },
   { href: "/admin/nutzer", label: de.admin.users, exact: false },
   { href: "/admin/sendungen", label: de.admin.jobMonitor, exact: false },
+  { href: "/admin/aufladungen", label: de.credits.topupsTitle, exact: false },
   { href: "/admin/preise", label: de.admin.pricingTitle, exact: false },
   { href: "/admin/einstellungen", label: de.admin.settingsTitle, exact: false },
   { href: "/admin/audit", label: de.admin.auditTitle, exact: false },

@@ -584,6 +584,17 @@ export const de = {
     receipt: "Beleg",
     invoice: "Rechnung",
     receiptColumn: "Rechnung / Beleg",
+    // Admin: Aufladungsliste
+    topupsTitle: "Aufladungen",
+    topupsSubtitle:
+      "Alle Guthaben-Aufladungen und manuellen Buchungen. USt. und Brutto sind rechnerisch (19 %) – maßgeblich ist die Stripe-Rechnung.",
+    topupsExportCsv: "CSV exportieren",
+    topupsSumMonth: "Netto-Summe (Monat)",
+    topupsCount: "Vorgänge",
+    colCustomer: "Kunde",
+    colNet: "Netto",
+    colVat: "USt. (19 %)",
+    colGross: "Brutto",
     date: "Datum",
     amount: "Betrag",
     balanceAfter: "Guthaben danach",
