@@ -45,7 +45,8 @@ export const DIN_CONTENT: ContentFrame = {
   leftMm: 25,
   rightMm: A4.widthMm - 20, // 190
   widthMm: A4.widthMm - 20 - 25, // 165
-  bodyStartMm: CONTENT.bodyStartMm,
+  // Below the date line (date band 92–95.5mm) with clear separation.
+  bodyStartMm: 100,
   followTopMm: CONTENT.followTopMm,
   bottomMm: CONTENT.bottomMm,
 };

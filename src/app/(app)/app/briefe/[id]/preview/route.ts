@@ -34,10 +34,11 @@ export async function GET(_request: Request, ctx: { params: Promise<{ id: string
 
     if (letter.source === "editor") {
       const doc = parseLetterDocument(letter.editor_document);
-      const senderLine = await resolveSenderLine(supabase, profile.id, doc.senderAddressId);
+      const sender = await resolveSenderLine(supabase, profile.id, doc.senderAddressId);
       bytes = await renderEditorLetter({
         document: doc,
-        senderLine,
+        senderLine: sender.line,
+        senderCity: sender.city,
         recipient,
         loadImage: async (path) => {
           // Ownership boundary — see uploadAssetAction (paths are <userId>/…).
@@ -53,7 +54,11 @@ export async function GET(_request: Request, ctx: { params: Promise<{ id: string
       if (!stored) return NextResponse.json({ error: "not_found" }, { status: 404 });
       bytes =
         letter.use_cover_letter && recipient.addressLines.length > 0
-          ? await prependCoverLetter(stored, await defaultSenderLine(supabase, profile.id), recipient.addressLines)
+          ? await prependCoverLetter(
+              stored,
+              (await defaultSenderLine(supabase, profile.id)).line,
+              recipient.addressLines,
+            )
           : stored;
     }
 
@@ -76,14 +81,14 @@ async function resolveSenderLine(
   supabase: Awaited<ReturnType<typeof createClient>>,
   userId: string,
   senderAddressId: string | null,
-): Promise<string> {
+): Promise<{ line: string; city: string | null }> {
   if (senderAddressId) {
     const { data } = await supabase
       .from("sender_addresses")
-      .select("sender_line")
+      .select("sender_line, city")
       .eq("id", senderAddressId)
       .single();
-    if (data?.sender_line) return data.sender_line;
+    if (data?.sender_line) return { line: data.sender_line, city: data.city ?? null };
   }
   return defaultSenderLine(supabase, userId);
 }
@@ -91,12 +96,12 @@ async function resolveSenderLine(
 async function defaultSenderLine(
   supabase: Awaited<ReturnType<typeof createClient>>,
   userId: string,
-): Promise<string> {
+): Promise<{ line: string; city: string | null }> {
   const { data } = await supabase
     .from("sender_addresses")
-    .select("sender_line")
+    .select("sender_line, city")
     .eq("user_id", userId)
     .eq("is_default", true)
     .maybeSingle();
-  return data?.sender_line ?? "";
+  return { line: data?.sender_line ?? "", city: data?.city ?? null };
 }

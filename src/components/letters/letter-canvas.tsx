@@ -30,6 +30,7 @@ import {
 import { LETTER_FONTS } from "@/lib/shared/letter-fonts";
 import type { LetterBlock, LetterDocument } from "@/lib/shared/letter-document";
 import {
+  buildDateLine,
   formatLetterDate,
   resolvePlaceholders,
   type PlaceholderContext,
@@ -68,6 +69,7 @@ export const SAMPLE_PLACEHOLDERS: PlaceholderContext = {
 export type CanvasProps = {
   doc: LetterDocument;
   senderLine: string;
+  senderCity?: string | null;
   recipientLines: string[];
   selectedId: string | null;
   readOnly: boolean;
@@ -93,6 +95,7 @@ export type CanvasProps = {
 export function LetterCanvas({
   doc,
   senderLine,
+  senderCity,
   recipientLines,
   selectedId,
   readOnly,
@@ -311,7 +314,7 @@ export function LetterCanvas({
                 fontSize: 10 * PT_PX,
               }}
             >
-              {formatLetterDate()}
+              {buildDateLine(doc.dateStyle, doc.dateWithPlace, senderCity)}
             </div>
           ) : null}
 

@@ -138,6 +138,7 @@ export async function saveEditorLetterAction(
     const rendered = await renderEditorLetter({
       document: doc,
       senderLine: "Absender · Muster · 00000 Ort",
+      senderCity: "Musterstadt",
       recipient: sampleRecipient(),
       loadImage: async (path) => {
         // Ownership boundary: asset paths are keyed <userId>/… at upload time;

@@ -40,7 +40,16 @@ type SenderAddress = { id: string; label: string; sender_line: string; is_defaul
 export type LetterheadOption = { id: string; name: string };
 
 type DocPatch = Partial<
-  Pick<LetterDocument, "logoStoragePath" | "header" | "footer" | "showDate" | "senderAddressId">
+  Pick<
+    LetterDocument,
+    | "logoStoragePath"
+    | "header"
+    | "footer"
+    | "showDate"
+    | "dateStyle"
+    | "dateWithPlace"
+    | "senderAddressId"
+  >
 >;
 
 /** Hint text demoted to an info icon with tooltip — keeps the panel calm. */
@@ -263,6 +272,33 @@ export function BlockInspector({
           </Label>
           <InfoTip text={de.letters.themeShowDateHint} />
         </div>
+        {doc.showDate ? (
+          <>
+            <div className="space-y-1.5">
+              <Label>{de.letters.dateStyleLabel}</Label>
+              <SegmentedGroup
+                value={doc.dateStyle}
+                options={[
+                  { value: "short" as const, label: de.letters.dateStyleShort },
+                  { value: "long" as const, label: de.letters.dateStyleLong },
+                ]}
+                onChange={(dateStyle) => onChangeDoc({ dateStyle })}
+                ariaLabel={de.letters.dateStyleLabel}
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch
+                id="date-place"
+                checked={doc.dateWithPlace}
+                onCheckedChange={(checked) => onChangeDoc({ dateWithPlace: checked })}
+              />
+              <Label htmlFor="date-place" className="font-normal">
+                {de.letters.dateWithPlace}
+              </Label>
+              <InfoTip text={de.letters.dateWithPlaceHint} />
+            </div>
+          </>
+        ) : null}
       </InspectorSection>
 
       <InspectorSection id="briefpapier" title={de.letters.letterheadSection} defaultOpen>

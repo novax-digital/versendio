@@ -15,7 +15,7 @@ export default async function NewEditorLetterPage() {
   const [{ data: senderAddresses }, { data: allTemplates }] = await Promise.all([
     supabase
       .from("sender_addresses")
-      .select("id, label, sender_line, is_default")
+      .select("id, label, sender_line, city, is_default")
       .order("is_default", { ascending: false }),
     supabase
       .from("letter_templates")

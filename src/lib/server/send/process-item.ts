@@ -109,13 +109,14 @@ export async function processSubmitItem(itemId: string): Promise<ProcessResult> 
 
   const recipient = item.recipient_snapshot as unknown as RecipientAddress;
   const addressLines = buildRecipientAddressLines(recipient);
-  const senderSnapshot = job.sender_snapshot as { sender_line?: string } | null;
+  const senderSnapshot = job.sender_snapshot as { sender_line?: string; city?: string } | null;
   const senderLine = senderSnapshot?.sender_line ?? "";
+  const senderCity = senderSnapshot?.city ?? null;
 
   // --- personalize + validate (same path as uploads, ADR-0006) --------------
   let pdfBytes: Uint8Array;
   try {
-    pdfBytes = await buildItemPdf(job.letter_id, recipient, senderLine, addressLines);
+    pdfBytes = await buildItemPdf(job.letter_id, recipient, senderLine, senderCity, addressLines);
   } catch (err) {
     const reason = err instanceof Error ? err.message : "render_failed";
     await failItem(item.id, item.user_id, job.is_test, item.vk_cents, "render_failed", reason);
@@ -289,6 +290,7 @@ async function buildItemPdf(
   letterId: string | null,
   recipient: RecipientAddress,
   senderLine: string,
+  senderCity: string | null,
   addressLines: string[],
 ): Promise<Uint8Array> {
   const admin = createAdminClient();
@@ -306,6 +308,7 @@ async function buildItemPdf(
     return renderEditorLetter({
       document: doc,
       senderLine,
+      senderCity,
       recipient: {
         addressLines,
         placeholders: toPlaceholderContext(recipient),

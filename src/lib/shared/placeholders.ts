@@ -41,13 +41,35 @@ export const PLACEHOLDER_LABELS: Record<keyof PlaceholderContext, string> = {
   datum: "Datum",
 };
 
-/** The letter date (dd.mm.yyyy), used for the date line and `{{datum}}`. */
-export function formatLetterDate(date: Date = new Date()): string {
+/** The letter date, used for the date line and `{{datum}}`. */
+export function formatLetterDate(
+  date: Date = new Date(),
+  style: "short" | "long" = "short",
+): string {
+  if (style === "long") {
+    // "13. Juli 2026"
+    return new Intl.DateTimeFormat("de-DE", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    }).format(date);
+  }
   return new Intl.DateTimeFormat("de-DE", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
   }).format(date);
+}
+
+/** The visible date line: optional "Ort, " prefix from the sender address. */
+export function buildDateLine(
+  style: "short" | "long",
+  withPlace: boolean,
+  senderCity: string | null | undefined,
+  date: Date = new Date(),
+): string {
+  const formatted = formatLetterDate(date, style);
+  return withPlace && senderCity?.trim() ? `${senderCity.trim()}, ${formatted}` : formatted;
 }
 
 const TOKEN_RE = /\{\{\s*([a-zA-ZäöüÄÖÜß]+)\s*\}\}/g;

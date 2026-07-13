@@ -4,6 +4,7 @@ import {
   parseLetterDocument,
   type LetterDocument,
 } from "@/lib/shared/letter-document";
+import { buildDateLine, formatLetterDate } from "@/lib/shared/placeholders";
 import {
   CONTENT,
   DIN_CONTENT,
@@ -49,8 +50,9 @@ describe("content frame (marginStyle)", () => {
     expect(frame.leftMm).toBe(ZONES.recipient.x + 2);
     expect(frame.rightMm).toBe(190); // 20mm right margin
     expect(frame.widthMm).toBe(165);
-    // Vertical pagination metrics are identical to the classic frame.
-    expect(frame.bodyStartMm).toBe(CONTENT.bodyStartMm);
+    // Body starts below the date line (92–95.5mm band); other vertical
+    // pagination metrics are identical to the classic frame.
+    expect(frame.bodyStartMm).toBe(100);
     expect(frame.followTopMm).toBe(CONTENT.followTopMm);
     expect(frame.bottomMm).toBe(CONTENT.bottomMm);
   });
@@ -136,6 +138,19 @@ describe("header/footer (Briefpapier)", () => {
     const withChrome = await validateLetterPdf(await render(decorated));
     expect(withChrome.pageCount).toBe(plain.pageCount);
     expect(withChrome.sheetCountSimplex).toBe(plain.sheetCountSimplex);
+  });
+
+  it("date line: formats, place prefix, and backward-compatible defaults", () => {
+    const date = new Date(2026, 6, 13); // 13.07.2026
+    expect(formatLetterDate(date, "short")).toBe("13.07.2026");
+    expect(formatLetterDate(date, "long")).toBe("13. Juli 2026");
+    expect(buildDateLine("short", true, "Hannover", date)).toBe("Hannover, 13.07.2026");
+    expect(buildDateLine("long", true, "  ", date)).toBe("13. Juli 2026"); // blank city → no prefix
+    expect(buildDateLine("short", false, "Hannover", date)).toBe("13.07.2026");
+    // Stored documents without the new fields keep today's rendering.
+    const doc = parseLetterDocument({ version: 2, blocks: [] });
+    expect(doc.dateStyle).toBe("short");
+    expect(doc.dateWithPlace).toBe(false);
   });
 
   it("footer band sits below the body flow and above the print-free margin", () => {

@@ -10,6 +10,7 @@ import {
   resolveTextStyle,
 } from "@/lib/shared/letter-style";
 import {
+  buildDateLine,
   formatLetterDate,
   resolvePlaceholders,
   type PlaceholderContext,
@@ -32,6 +33,8 @@ export type RecipientRender = {
 export type EditorRenderInput = {
   document: LetterDocument;
   senderLine: string;
+  /** City of the sender address — used when the date line shows a place. */
+  senderCity?: string | null;
   recipient: RecipientRender;
   // Resolves an image storage path to raw bytes + mime (logos, image blocks).
   loadImage?: (storagePath: string) => Promise<{ bytes: Uint8Array; mime: string } | null>;
@@ -162,7 +165,11 @@ export async function renderEditorLetter(input: EditorRenderInput): Promise<Uint
 
   // Date, right-aligned, just below the address block.
   if (input.document.showDate) {
-    const dateStr = formatLetterDate();
+    const dateStr = buildDateLine(
+      input.document.dateStyle,
+      input.document.dateWithPlace,
+      input.senderCity,
+    );
     const size = 10;
     const w = family.regular.widthOfTextAtSize(dateStr, size);
     page.drawText(dateStr, {

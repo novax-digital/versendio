@@ -269,6 +269,12 @@ export const de = {
     themeShowDate: "Datum anzeigen",
     themeShowDateHint:
       "Fest positioniert rechts unter dem Adressfeld. Alternativ ausschalten und den Platzhalter {{datum}} frei im Text platzieren.",
+    dateStyleLabel: "Datumsformat",
+    dateStyleShort: "Kurz",
+    dateStyleLong: "Lang",
+    dateWithPlace: "Ort voranstellen",
+    dateWithPlaceHint:
+      "Stellt den Ort der gewählten Absenderadresse voran, z. B. „Hannover, 13.07.2026“.",
     alignLabel: "Ausrichtung",
     alignLeft: "Linksbündig",
     alignCenter: "Zentriert",

@@ -148,6 +148,10 @@ export const letterDocumentSchema = z.object({
   header: letterHeaderSchema,
   footer: letterFooterSchema,
   showDate: z.boolean().default(true),
+  /** Date line format: "13.07.2026" (short) or "13. Juli 2026" (long). */
+  dateStyle: z.enum(["short", "long"]).default("short"),
+  /** Prefix the date with the sender address city ("Hannover, 13.07.2026"). */
+  dateWithPlace: z.boolean().default(false),
   senderAddressId: z.string().uuid().nullable().default(null),
   blocks: z.array(blockSchema).max(200),
 });
@@ -194,6 +198,8 @@ function upgradeV1(v1: z.infer<typeof letterDocumentV1Schema>): LetterDocument {
     logoStoragePath: v1.logoStoragePath,
     header: { text: "", logoAlign: "left" },
     footer: { text: "" },
+    dateStyle: "short",
+    dateWithPlace: false,
     showDate: v1.showDate,
     senderAddressId: v1.senderAddressId,
     blocks: v1.blocks.map((b): LetterBlock => {
@@ -248,6 +254,8 @@ export function emptyLetterDocument(): LetterDocument {
     header: { text: "", logoAlign: "left" },
     footer: { text: "" },
     showDate: true,
+    dateStyle: "short",
+    dateWithPlace: false,
     senderAddressId: null,
     blocks: [
       { type: "subject", id: "subject", text: "", align: "left", color: "default" },

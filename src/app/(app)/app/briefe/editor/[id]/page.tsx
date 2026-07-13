@@ -23,7 +23,7 @@ export default async function EditEditorLetterPage({
     supabase.from("letters").select("id, title, source, editor_document").eq("id", id).single(),
     supabase
       .from("sender_addresses")
-      .select("id, label, sender_line, is_default")
+      .select("id, label, sender_line, city, is_default")
       .order("is_default", { ascending: false }),
     supabase
       .from("letter_templates")

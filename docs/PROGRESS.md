@@ -302,3 +302,7 @@ Abschlussbericht abarbeiten.
 - [x] Verifikation: alle 4 E2E-Suiten grün (auth 8/8, admin 8/8, user-journey 6/6, DnD-Drag +
   Gap-Insert per echtem Browser-Drag verifiziert); Build/Lint/Typecheck/135 Unit-Tests grün.
   Hinweis: E2E-Vollläufe müssen wegen `login`-Rate-Limit (10/5min/IP) fensterweise laufen
+- [x] **Datumszeile**: Format Kurz/Lang („13.07.2026" / „13. Juli 2026") + optional Ort aus der
+  Absenderadresse („Hannover, 13. Juli 2026"), Controls im Versand-Abschnitt des Inspectors;
+  Textbeginn im DIN-Frame auf 100 mm (unter die Datumszeile) — auf allen Render-Pfaden
+  (Speichern, Vorschau, Versand-Worker via sender_snapshot.city) und im Canvas

@@ -50,7 +50,13 @@ import { sheetsFromPages } from "@/lib/shared/sheets";
 import { cn } from "@/lib/utils";
 import { de } from "@/lib/i18n/de";
 
-type SenderAddress = { id: string; label: string; sender_line: string; is_default: boolean };
+type SenderAddress = {
+  id: string;
+  label: string;
+  sender_line: string;
+  city: string | null;
+  is_default: boolean;
+};
 type Template = { id: string; name: string; editor_document: unknown };
 
 let blockCounter = 0;
@@ -179,12 +185,12 @@ export function LetterEditor({
     return () => document.removeEventListener("click", handler, true);
   }, [dirty]);
 
-  const senderLine = useMemo(() => {
+  const { senderLine, senderCity } = useMemo(() => {
     const chosen =
       senderAddresses.find((a) => a.id === doc.senderAddressId) ??
       senderAddresses.find((a) => a.is_default) ??
       senderAddresses[0];
-    return chosen?.sender_line ?? "";
+    return { senderLine: chosen?.sender_line ?? "", senderCity: chosen?.city ?? null };
   }, [doc.senderAddressId, senderAddresses]);
 
   const recipientLines = useMemo(
@@ -305,7 +311,13 @@ export function LetterEditor({
       patch: Partial<
         Pick<
           LetterDocument,
-          "logoStoragePath" | "header" | "footer" | "showDate" | "senderAddressId"
+          | "logoStoragePath"
+          | "header"
+          | "footer"
+          | "showDate"
+          | "dateStyle"
+          | "dateWithPlace"
+          | "senderAddressId"
         >
       >,
     ) => {
@@ -581,6 +593,7 @@ export function LetterEditor({
   const canvasProps = {
     doc,
     senderLine,
+    senderCity,
     recipientLines,
     selectedId,
     showZones,
