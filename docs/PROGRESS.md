@@ -270,6 +270,13 @@ Abschlussbericht abarbeiten.
 - [x] **Auto-Aufladung → Stripe-Invoicing (I-016 umgesetzt)**: Rechnungsposition (netto,
   19 %-Tax-Rate) → Finalisieren → off-session Einzug; Gutschrift + Rechnungslink via
   `invoice.paid`; Legacy-PaymentIntent-Pfad bleibt für Alt-Vorgänge
+- [x] **Rechnungs-Downloads**: Guthaben-Seite (Kunde) und neue Admin-Seite „Aufladungen"
+  (alle Aufladungen, Netto/USt./Brutto, CSV-Export im DE-Excel-Format) — Rechnungs-PDF wird
+  je Abruf frisch von Stripe aufgelöst
+- [x] **Live-Performance**: Ursache = Vercel-Funktionen in iad1 bei DB in eu-central-1
+  (`x-vercel-id: fra1::iad1` → jede Navigation 3–5 Transatlantik-Roundtrips). Fix:
+  `regions: ["fra1"]` in vercel.json (verifiziert: `fra1::fra1`) + loading.tsx-Boundaries
+  für App- und Admin-Routen (sofortiges Klick-Feedback)
 - [x] **Webhook-Events ergänzt** (2026-07-13, vom Betreiber im Dashboard): alle 5 Events aktiv,
   per API verifiziert; Prod-Webhook antwortet 400 auf unsignierte Requests → `STRIPE_WEBHOOK_SECRET`
   ist in Vercel gesetzt
