@@ -591,15 +591,18 @@ function LetterControls({
 
       <Separator />
 
-      <div className="flex items-center gap-2">
-        <Switch
-          id="show-date"
-          checked={doc.showDate}
-          onCheckedChange={(checked) => onChangeDoc({ showDate: checked })}
-        />
-        <Label htmlFor="show-date" className="font-normal">
-          {de.letters.themeShowDate}
-        </Label>
+      <div className="space-y-1.5">
+        <div className="flex items-center gap-2">
+          <Switch
+            id="show-date"
+            checked={doc.showDate}
+            onCheckedChange={(checked) => onChangeDoc({ showDate: checked })}
+          />
+          <Label htmlFor="show-date" className="font-normal">
+            {de.letters.themeShowDate}
+          </Label>
+        </div>
+        <p className="text-muted-foreground text-xs">{de.letters.themeShowDateHint}</p>
       </div>
 
       <div className="space-y-1.5">

@@ -13,6 +13,8 @@ export type PlaceholderContext = {
   plz?: string | null;
   ort?: string | null;
   land?: string | null;
+  /** Send date (dd.mm.yyyy) — injected by the renderer, not recipient data. */
+  datum?: string | null;
 };
 
 export const PLACEHOLDER_KEYS: (keyof PlaceholderContext)[] = [
@@ -24,6 +26,7 @@ export const PLACEHOLDER_KEYS: (keyof PlaceholderContext)[] = [
   "plz",
   "ort",
   "land",
+  "datum",
 ];
 
 export const PLACEHOLDER_LABELS: Record<keyof PlaceholderContext, string> = {
@@ -35,7 +38,17 @@ export const PLACEHOLDER_LABELS: Record<keyof PlaceholderContext, string> = {
   plz: "PLZ",
   ort: "Ort",
   land: "Land",
+  datum: "Datum",
 };
+
+/** The letter date (dd.mm.yyyy), used for the date line and `{{datum}}`. */
+export function formatLetterDate(date: Date = new Date()): string {
+  return new Intl.DateTimeFormat("de-DE", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(date);
+}
 
 const TOKEN_RE = /\{\{\s*([a-zA-ZäöüÄÖÜß]+)\s*\}\}/g;
 

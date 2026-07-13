@@ -12,7 +12,11 @@ import {
 } from "@/lib/shared/letter-style";
 import { LETTER_FONTS } from "@/lib/shared/letter-fonts";
 import type { LetterBlock, LetterDocument } from "@/lib/shared/letter-document";
-import { resolvePlaceholders, type PlaceholderContext } from "@/lib/shared/placeholders";
+import {
+  formatLetterDate,
+  resolvePlaceholders,
+  type PlaceholderContext,
+} from "@/lib/shared/placeholders";
 import { ZoneOverlay } from "@/components/letters/zone-overlay";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -41,6 +45,7 @@ export const SAMPLE_PLACEHOLDERS: PlaceholderContext = {
   plz: "10115",
   ort: "Berlin",
   land: "",
+  datum: formatLetterDate(),
 };
 
 export type CanvasProps = {
@@ -266,11 +271,7 @@ export function LetterCanvas({
                 fontSize: 10 * PT_PX,
               }}
             >
-              {new Intl.DateTimeFormat("de-DE", {
-                day: "2-digit",
-                month: "2-digit",
-                year: "numeric",
-              }).format(new Date())}
+              {formatLetterDate()}
             </div>
           ) : null}
 

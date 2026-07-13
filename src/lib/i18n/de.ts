@@ -266,6 +266,8 @@ export const de = {
     themeBaseSize: "Grundschriftgröße",
     themeAccent: "Akzentfarbe",
     themeShowDate: "Datum anzeigen",
+    themeShowDateHint:
+      "Fest positioniert rechts unter dem Adressfeld. Alternativ ausschalten und den Platzhalter {{datum}} frei im Text platzieren.",
     alignLabel: "Ausrichtung",
     alignLeft: "Linksbündig",
     alignCenter: "Zentriert",

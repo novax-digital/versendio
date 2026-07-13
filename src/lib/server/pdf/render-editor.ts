@@ -9,7 +9,11 @@ import {
   dividerMetrics,
   resolveTextStyle,
 } from "@/lib/shared/letter-style";
-import { resolvePlaceholders, type PlaceholderContext } from "@/lib/shared/placeholders";
+import {
+  formatLetterDate,
+  resolvePlaceholders,
+  type PlaceholderContext,
+} from "@/lib/shared/placeholders";
 import { embedLetterFont } from "./fonts";
 import {
   drawRecipientBlock,
@@ -61,7 +65,9 @@ export async function renderEditorLetter(input: EditorRenderInput): Promise<Uint
     : await pdf.embedFont(StandardFonts.Helvetica);
 
   const frame = contentFrame(theme);
-  const ctx = input.recipient.placeholders;
+  // {{datum}} resolves to the render date on every path (save-validation,
+  // preview, send worker) — it is not recipient data, so inject it here.
+  const ctx: PlaceholderContext = { datum: formatLetterDate(), ...input.recipient.placeholders };
 
   let page = pdf.addPage([A4.widthPt, A4.heightPt]);
 
@@ -156,11 +162,7 @@ export async function renderEditorLetter(input: EditorRenderInput): Promise<Uint
 
   // Date, right-aligned, just below the address block.
   if (input.document.showDate) {
-    const dateStr = new Intl.DateTimeFormat("de-DE", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    }).format(new Date());
+    const dateStr = formatLetterDate();
     const size = 10;
     const w = family.regular.widthOfTextAtSize(dateStr, size);
     page.drawText(dateStr, {

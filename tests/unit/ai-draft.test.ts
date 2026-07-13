@@ -8,9 +8,13 @@ describe("stripUnknownTokens", () => {
   });
 
   it("removes invented tokens and normalizes known ones", () => {
-    expect(stripUnknownTokens("Hallo {{ Anrede }} {{datum}} {{unterschrift}}!")).toBe(
+    expect(stripUnknownTokens("Hallo {{ Anrede }} {{betrag}} {{unterschrift}}!")).toBe(
       "Hallo {{anrede}}  !",
     );
+  });
+
+  it("keeps {{datum}} — it resolves to the send date at render time", () => {
+    expect(stripUnknownTokens("Stand: {{ Datum }}")).toBe("Stand: {{datum}}");
   });
 
   it("keeps text without tokens untouched", () => {
