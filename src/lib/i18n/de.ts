@@ -582,6 +582,8 @@ export const de = {
       admin_adjust: "Korrektur",
     } as Record<string, string>,
     receipt: "Beleg",
+    invoice: "Rechnung",
+    receiptColumn: "Rechnung / Beleg",
     date: "Datum",
     amount: "Betrag",
     balanceAfter: "Guthaben danach",

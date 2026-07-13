@@ -35,7 +35,9 @@ export default async function CreditsPage({
   const [transactions, amounts, minCents] = await Promise.all([
     supabase
       .from("credit_transactions")
-      .select("id, type, amount_cents, balance_after_cents, comment, receipt_url, created_at")
+      .select(
+        "id, type, amount_cents, balance_after_cents, comment, receipt_url, stripe_invoice_id, created_at",
+      )
       // Explicit own-scope: the RLS policy widens for admins, and this page is
       // always the caller's personal view.
       .eq("user_id", profile.id)
@@ -133,7 +135,7 @@ export default async function CreditsPage({
                     <TableHead>{de.credits.typeLabel}</TableHead>
                     <TableHead className="text-right">{de.credits.amount}</TableHead>
                     <TableHead className="text-right">{de.credits.balanceAfter}</TableHead>
-                    <TableHead>{de.credits.receipt}</TableHead>
+                    <TableHead>{de.credits.receiptColumn}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -165,7 +167,17 @@ export default async function CreditsPage({
                         {formatCents(tx.balance_after_cents)}
                       </TableCell>
                       <TableCell>
-                        {tx.receipt_url ? (
+                        {tx.stripe_invoice_id ? (
+                          // Fresh PDF via Stripe (survives expired snapshot URLs).
+                          <a
+                            href={`/app/guthaben/rechnung/${tx.id}`}
+                            target="_blank"
+                            rel="noreferrer noopener"
+                            className="text-sm underline underline-offset-4"
+                          >
+                            {de.credits.invoice}
+                          </a>
+                        ) : tx.receipt_url ? (
                           <a
                             href={tx.receipt_url}
                             target="_blank"
