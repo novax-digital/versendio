@@ -44,7 +44,7 @@ export function BlockInsertMenuContent({
         return (
           <DropdownMenuItem
             key={type}
-            onSelect={() => (type === "image" ? onInsertImage() : onInsert(type))}
+            onClick={() => (type === "image" ? onInsertImage() : onInsert(type))}
           >
             <Icon className="size-4" aria-hidden />
             {meta.label}

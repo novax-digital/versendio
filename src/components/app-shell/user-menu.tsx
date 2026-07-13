@@ -60,7 +60,7 @@ export function UserMenu({
           <DropdownMenuSeparator />
           <DropdownMenuItem
             variant="destructive"
-            onSelect={() => {
+            onClick={() => {
               void logoutAction();
             }}
           >

@@ -1,7 +1,24 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowDown, ArrowUp, Copy, Trash2 } from "lucide-react";
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { ArrowDown, ArrowUp, Copy, GripVertical, Plus, Trash2 } from "lucide-react";
+import { DropdownMenu, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { BlockInsertMenuContent } from "@/components/letters/block-insert-menu";
 import { A4, ZONES } from "@/lib/shared/schablone";
 import {
   LETTERHEAD,
@@ -66,6 +83,11 @@ export type CanvasProps = {
   onEstimate?: (pages: number) => void;
   /** Sheet chrome-zone click (header/footer band) → open the matching inspector section. */
   onEditChrome?: (kind: "header" | "footer") => void;
+  /** Drag-reorder (dnd-kit); arrows in the gutter remain the fallback. */
+  onReorderBlock?: (from: number, to: number) => void;
+  /** Gap inserter between blocks. */
+  onInsertBlockAt?: (type: Exclude<LetterBlock["type"], "image">, at: number) => void;
+  onInsertImageAt?: (at: number) => void;
 };
 
 export function LetterCanvas({
@@ -85,7 +107,14 @@ export function LetterCanvas({
   onFocusText,
   onEstimate,
   onEditChrome,
+  onReorderBlock,
+  onInsertBlockAt,
+  onInsertImageAt,
 }: CanvasProps) {
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
   const containerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0.75);
@@ -287,36 +316,64 @@ export function LetterCanvas({
           ) : null}
 
           {/* Content column */}
-          <div
-            ref={contentRef}
-            className="absolute"
-            style={{
-              left: mm(frame.leftMm),
-              top: mm(frame.bodyStartMm),
-              width: mm(frame.widthMm),
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            accessibility={{
+              screenReaderInstructions: { draggable: de.letters.dragSrInstructions },
+              announcements: {
+                onDragStart: () => de.letters.dragStarted,
+                onDragOver: () => de.letters.dragOver,
+                onDragEnd: () => de.letters.dragDropped,
+                onDragCancel: () => de.letters.dragCanceled,
+              },
+            }}
+            onDragEnd={(e: DragEndEvent) => {
+              const { active, over } = e;
+              if (!over || active.id === over.id || !onReorderBlock) return;
+              const from = doc.blocks.findIndex((b) => b.id === active.id);
+              const to = doc.blocks.findIndex((b) => b.id === over.id);
+              if (from >= 0 && to >= 0) onReorderBlock(from, to);
             }}
           >
-            {doc.blocks.map((block, index) => (
-              <CanvasBlock
-                key={block.id}
-                block={block}
-                doc={doc}
-                index={index}
-                total={doc.blocks.length}
-                selected={selectedId === block.id}
-                readOnly={readOnly}
-                showSampleData={showSampleData}
-                scale={scale}
-                fontTick={fontTick}
-                onSelect={onSelect}
-                onChangeBlock={onChangeBlock}
-                onMoveBlock={onMoveBlock}
-                onRemoveBlock={onRemoveBlock}
-                onDuplicateBlock={onDuplicateBlock}
-                onFocusText={onFocusText}
-              />
-            ))}
-          </div>
+            <SortableContext
+              items={doc.blocks.map((b) => b.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              <div
+                ref={contentRef}
+                className="absolute"
+                style={{
+                  left: mm(frame.leftMm),
+                  top: mm(frame.bodyStartMm),
+                  width: mm(frame.widthMm),
+                }}
+              >
+                {doc.blocks.map((block, index) => (
+                  <CanvasBlock
+                    key={block.id}
+                    block={block}
+                    doc={doc}
+                    index={index}
+                    total={doc.blocks.length}
+                    selected={selectedId === block.id}
+                    readOnly={readOnly}
+                    showSampleData={showSampleData}
+                    scale={scale}
+                    fontTick={fontTick}
+                    onSelect={onSelect}
+                    onChangeBlock={onChangeBlock}
+                    onMoveBlock={onMoveBlock}
+                    onRemoveBlock={onRemoveBlock}
+                    onDuplicateBlock={onDuplicateBlock}
+                    onFocusText={onFocusText}
+                    onInsertBlockAt={onInsertBlockAt}
+                    onInsertImageAt={onInsertImageAt}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
 
           {/* Page-1 boundary hint when the sheet grew */}
           {sheetHeight > SHEET_H_PX + 1 ? (
@@ -402,6 +459,8 @@ function CanvasBlock({
   onRemoveBlock,
   onDuplicateBlock,
   onFocusText,
+  onInsertBlockAt,
+  onInsertImageAt,
 }: {
   block: LetterBlock;
   doc: LetterDocument;
@@ -418,9 +477,30 @@ function CanvasBlock({
   onRemoveBlock: (id: string) => void;
   onDuplicateBlock: (id: string) => void;
   onFocusText: (blockId: string, el: HTMLTextAreaElement) => void;
+  onInsertBlockAt?: (type: Exclude<LetterBlock["type"], "image">, at: number) => void;
+  onInsertImageAt?: (at: number) => void;
 }) {
   const theme = doc.theme;
   const fontStack = LETTER_FONTS[theme.fontFamily].cssStack;
+  const {
+    setNodeRef,
+    setActivatorNodeRef,
+    listeners,
+    attributes,
+    transform,
+    isDragging,
+  } = useSortable({ id: block.id, disabled: readOnly });
+  // Sortable transforms are computed from screen-space (scaled) rects but are
+  // applied INSIDE the transform-scaled sheet — divide by the scale so drag
+  // deltas and sibling displacement match visually (I-011 inverse-scale).
+  // Applied only while a drag is active, so resting layout px stay mm-exact.
+  const dragStyle: React.CSSProperties = transform
+    ? {
+        transform: `translate3d(0, ${transform.y / scale}px, 0)`,
+        zIndex: isDragging ? 20 : undefined,
+        opacity: isDragging ? 0.85 : undefined,
+      }
+    : {};
 
   const select = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -515,26 +595,62 @@ function CanvasBlock({
 
   return (
     <div
+      ref={setNodeRef}
       className={cn(
         "group/block relative -mx-1 rounded-sm px-1 transition-shadow",
         selected
           ? "ring-primary/70 ring-2"
           : "hover:ring-1 hover:ring-slate-300",
       )}
-      style={{ marginBottom: marginBottomPx }}
+      style={{ marginBottom: marginBottomPx, ...dragStyle }}
       onClick={select}
       data-block-id={block.id}
     >
       {body}
+      {/* Gap inserter: zero-height hover zones straddling the block edges. */}
+      {!readOnly && onInsertBlockAt && onInsertImageAt ? (
+        <>
+          {index === 0 ? (
+            <GapInserter
+              at={0}
+              position="top"
+              scale={scale}
+              onInsert={onInsertBlockAt}
+              onInsertImage={onInsertImageAt}
+            />
+          ) : null}
+          <GapInserter
+            at={index + 1}
+            position="bottom"
+            scale={scale}
+            onInsert={onInsertBlockAt}
+            onInsertImage={onInsertImageAt}
+          />
+        </>
+      ) : null}
       {!readOnly ? (
         <div
           className={cn(
             "absolute top-0 -left-12 z-10 origin-top-right transition-opacity",
-            selected ? "opacity-100" : "opacity-0 group-hover/block:opacity-70",
+            selected
+              ? "opacity-100"
+              : "opacity-0 group-focus-within/block:opacity-100 group-hover/block:opacity-70",
           )}
+          onFocus={() => onSelect(block.id)}
           style={{ transform: `scale(${Math.min(1.6, Math.max(1, 1 / scale))})` }}
         >
           <div className="bg-background flex flex-col items-center gap-0.5 rounded-md border p-0.5 shadow-sm">
+            <button
+              ref={setActivatorNodeRef}
+              type="button"
+              aria-label={de.letters.dragToMove}
+              title={de.letters.dragToMove}
+              className="text-muted-foreground hover:text-foreground flex size-7 cursor-grab items-center justify-center rounded active:cursor-grabbing"
+              {...listeners}
+              {...attributes}
+            >
+              <GripVertical className="size-3.5" aria-hidden />
+            </button>
             <Button
               variant="ghost"
               size="icon-sm"
@@ -589,6 +705,64 @@ function CanvasBlock({
           </div>
         </div>
       ) : null}
+    </div>
+  );
+}
+
+/**
+ * Hover-revealed insertion affordance between blocks: a zero-layout-height
+ * absolute zone that shows a Kurierblau line + centered "+" menu on hover.
+ * Pure CSS reveal (group-hover) — no React hover state, no mm impact.
+ */
+function GapInserter({
+  at,
+  position,
+  scale,
+  onInsert,
+  onInsertImage,
+}: {
+  at: number;
+  position: "top" | "bottom";
+  scale: number;
+  onInsert: (type: Exclude<LetterBlock["type"], "image">, at: number) => void;
+  onInsertImage: (at: number) => void;
+}) {
+  return (
+    // The outer band is pointer-transparent so caret clicks at block
+    // boundaries reach the textareas; only the small centered hotspot is
+    // interactive. Opacity (not display) reveal keeps the trigger tabbable.
+    <div
+      className={cn(
+        "pointer-events-none absolute inset-x-0 z-10 flex h-4 items-center justify-center",
+        position === "top" ? "-top-2" : "-bottom-2",
+      )}
+    >
+      <div
+        className="group/gap pointer-events-auto flex h-4 w-16 items-center justify-center"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="bg-primary/50 absolute inset-x-0 top-1/2 h-px opacity-0 group-focus-within/gap:opacity-100 group-hover/gap:opacity-100" />
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <button
+                type="button"
+                aria-label={de.letters.insertBlockHere}
+                title={de.letters.insertBlockHere}
+                className="bg-primary text-primary-foreground hover:bg-primary-hover relative flex size-5 items-center justify-center rounded-full opacity-0 shadow-sm group-hover/gap:opacity-100 focus-visible:opacity-100 aria-expanded:opacity-100"
+                style={{ transform: `scale(${Math.min(1.6, Math.max(1, 1 / scale))})` }}
+              />
+            }
+          >
+            <Plus className="size-3.5" aria-hidden />
+          </DropdownMenuTrigger>
+          <BlockInsertMenuContent
+            align="center"
+            onInsert={(type) => onInsert(type, at)}
+            onInsertImage={() => onInsertImage(at)}
+          />
+        </DropdownMenu>
+      </div>
     </div>
   );
 }

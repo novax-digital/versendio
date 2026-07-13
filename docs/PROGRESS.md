@@ -280,3 +280,25 @@ Abschlussbericht abarbeiten.
 - [x] **Webhook-Events ergänzt** (2026-07-13, vom Betreiber im Dashboard): alle 5 Events aktiv,
   per API verifiziert; Prod-Webhook antwortet 400 auf unsignierte Requests → `STRIPE_WEBHOOK_SECRET`
   ist in Vercel gesetzt
+
+## Nach Übergabe — Builder-Redesign „Document-first" (2026-07-13)
+
+- [x] **Mehragenten-Designprozess**: 4 Kritik-Linsen → 3 unabhängige Entwürfe → 3-Juroren-Panel;
+  „Document-first, minimal chrome" einstimmig (41/50), Übernahmen aus den Verliererentwürfen
+- [x] **Phase 1 — Chrome**: Sticky-Top-Bar (Breadcrumb + Inline-Titel + Speicherstatus),
+  Workspace-Well (`--workspace`-Token) mit zentriertem Blatt + Papier-Schatten, Schnellstart-Karte,
+  Chip-Leiste (sticky) mit Unbekannt-Badge, Gutter-Cluster statt Mini-Toolbar, klickbare
+  Kopf-/Fußzonen, Inspector ohne Tabs (kontextuelle Baustein-Karte + 4 Sektionen mit
+  localStorage), SegmentedGroup-Picker, Undo-Toast, Cmd/Ctrl+S, In-App-Dirty-Guard (I-015 ✓)
+- [x] **Phase 2 — DnD**: dnd-kit-Sortierung per Grip-Handle (Inverse-Scale, I-011 teilweise ✓),
+  Hover-Gap-Inserter (klick-transparent, Tastatur-erreichbar), KeyboardSensor + deutsche
+  SR-Ansagen
+- [x] **Adversarialer Review**: 8 bestätigte Findings behoben (u. a. Guard-Bypass nach
+  fehlgeschlagenem „Speichern und verlassen", Hydration im Inspector, Cmd+S-Gates)
+- [x] **Zwei Alt-Regressionen (10.07.) gefunden & behoben**: (1) Benutzermenü crashte beim Öffnen
+  (`DropdownMenuLabel` ohne `Menu.Group`, Base UI 1.6) → **Logout war app-weit kaputt**;
+  (2) alle `onSelect`-Handler auf Menü-Items still tot (Base UI nutzt `onClick`) → Logout-,
+  Vorlagen- und Einfüge-Menüs; Admin-Settings-E2E-Test robust gegen Zeilen-Reihenfolge
+- [x] Verifikation: alle 4 E2E-Suiten grün (auth 8/8, admin 8/8, user-journey 6/6, DnD-Drag +
+  Gap-Insert per echtem Browser-Drag verifiziert); Build/Lint/Typecheck/135 Unit-Tests grün.
+  Hinweis: E2E-Vollläufe müssen wegen `login`-Rate-Limit (10/5min/IP) fensterweise laufen

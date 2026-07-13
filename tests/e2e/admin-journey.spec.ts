@@ -93,7 +93,12 @@ test.describe("admin journey", () => {
     await page.goto("/admin/einstellungen");
     const field = page.getByLabel(/Queue-Batchgröße je Lauf/);
     await field.fill('"nonsense"');
-    await page.getByRole("button", { name: "Speichern" }).first().click();
+    // Each setting row carries its own save button — click the one in the
+    // same row (list order changes as settings are added).
+    await page
+      .locator("li", { has: field })
+      .getByRole("button", { name: "Speichern" })
+      .click();
     await expect(page.getByText("nicht das erwartete Format", { exact: false })).toBeVisible();
   });
 

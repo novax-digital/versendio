@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -24,14 +24,22 @@ export function InspectorSection({
   children: React.ReactNode;
 }) {
   const storageKey = `versendio.editor.section.${id}`;
-  const [open, setOpen] = useState<boolean>(() => {
-    if (typeof window !== "undefined") {
+  // Server and first client render must agree (hydration) — the stored
+  // preference is applied in an effect after mount (one-frame flip accepted).
+  const [open, setOpen] = useState<boolean>(defaultOpen);
+  useEffect(() => {
+    try {
       const stored = window.localStorage.getItem(storageKey);
-      if (stored === "1") return true;
-      if (stored === "0") return false;
+      // Post-mount sync from an external store (localStorage) is the point
+      // of this effect — the setState here is deliberate.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      if (stored === "1") setOpen(true);
+      else if (stored === "0") setOpen(false);
+    } catch {
+      // storage unavailable (blocked cookies/private mode) — keep the default
     }
-    return defaultOpen;
-  });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   // Force-open on demand ("adjust state during render" pattern — guarded).
   const [prevForce, setPrevForce] = useState(forceOpen ?? 0);
   if ((forceOpen ?? 0) !== prevForce) {

@@ -339,6 +339,13 @@ export const de = {
     createSenderAddress: "Absenderadresse anlegen",
     placeholdersLabel: "Platzhalter",
     insertBlockHere: "Baustein hier einfügen",
+    dragToMove: "Verschieben (ziehen)",
+    dragSrInstructions:
+      "Zum Verschieben Leertaste oder Eingabetaste drücken, mit den Pfeiltasten bewegen, mit Leertaste ablegen, mit Escape abbrechen.",
+    dragStarted: "Baustein aufgenommen.",
+    dragOver: "Baustein über neuer Position.",
+    dragDropped: "Baustein abgelegt.",
+    dragCanceled: "Verschieben abgebrochen.",
     editHeaderZone: "Kopfbereich bearbeiten",
     editFooterZone: "Fußbereich bearbeiten",
     starterTitle: "Wie möchten Sie beginnen?",

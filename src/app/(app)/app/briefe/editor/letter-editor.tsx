@@ -336,6 +336,25 @@ export function LetterEditor({
   const addBlock = (type: Exclude<LetterBlock["type"], "image">) => insertBlock(newBlock(type));
   const appendBlock = (type: Exclude<LetterBlock["type"], "image">) =>
     insertBlock(newBlock(type), doc.blocks.length);
+  const insertBlockAt = (type: Exclude<LetterBlock["type"], "image">, at: number) =>
+    insertBlock(newBlock(type), at);
+
+  const [pendingImageAt, setPendingImageAt] = useState<number | null>(null);
+  const gapImageRef = useRef<HTMLInputElement>(null);
+  const requestImageAt = (at: number) => {
+    setPendingImageAt(at);
+    gapImageRef.current?.click();
+  };
+
+  const reorderBlock = (from: number, to: number) =>
+    updateDoc((prev) => {
+      if (from === to || from < 0 || to < 0 || from >= prev.blocks.length || to >= prev.blocks.length)
+        return prev;
+      const blocks = [...prev.blocks];
+      const [moved] = blocks.splice(from, 1);
+      blocks.splice(to, 0, moved);
+      return { ...prev, blocks };
+    });
 
   const addImageBlock = (file: File, at?: number) => {
     startSaving(async () => {
@@ -493,8 +512,19 @@ export function LetterEditor({
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") {
+        // Always suppress the browser save dialog; run save only when the
+        // Save button would be enabled and no dialog is open.
         e.preventDefault();
-        save();
+        if (
+          !isSaving &&
+          hasSender &&
+          !aiOpen &&
+          !templateDialogOpen &&
+          !pendingTemplate &&
+          leaveHref === null
+        ) {
+          save();
+        }
         return;
       }
       if (e.key === "Escape") {
@@ -533,10 +563,15 @@ export function LetterEditor({
   };
 
   const leave = (href: string, viaSave: boolean) => {
-    bypassGuardRef.current = true;
+    // Bypass the guard only once navigation actually happens — a failed save
+    // (empty title, server error) must leave the guard armed.
     if (viaSave) {
-      save(() => router.push(href));
+      save(() => {
+        bypassGuardRef.current = true;
+        router.push(href);
+      });
     } else {
+      bypassGuardRef.current = true;
       router.push(href);
     }
     setLeaveHref(null);
@@ -628,7 +663,7 @@ export function LetterEditor({
                   <>
                     <DropdownMenuLabel>{de.letters.useTemplate}</DropdownMenuLabel>
                     {templates.map((t) => (
-                      <DropdownMenuItem key={t.id} onSelect={() => requestTemplate(t)}>
+                      <DropdownMenuItem key={t.id} onClick={() => requestTemplate(t)}>
                         <LayoutTemplate className="size-4" aria-hidden />
                         {t.name}
                       </DropdownMenuItem>
@@ -636,7 +671,7 @@ export function LetterEditor({
                     <DropdownMenuSeparator />
                   </>
                 ) : null}
-                <DropdownMenuItem onSelect={() => setTemplateDialogOpen(true)}>
+                <DropdownMenuItem onClick={() => setTemplateDialogOpen(true)}>
                   {de.letters.saveAsTemplate}
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -866,8 +901,23 @@ export function LetterEditor({
                     (activeTextRef.current = { kind: "block", blockId, el })
                   }
                   onEditChrome={onEditChrome}
+                  onReorderBlock={reorderBlock}
+                  onInsertBlockAt={insertBlockAt}
+                  onInsertImageAt={requestImageAt}
                 />
               </div>
+              <input
+                ref={gapImageRef}
+                type="file"
+                accept="image/png,image/jpeg"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file && pendingImageAt !== null) addImageBlock(file, pendingImageAt);
+                  setPendingImageAt(null);
+                  e.target.value = "";
+                }}
+              />
               <div className="md:hidden">
                 <LetterCanvas
                   {...canvasProps}
@@ -999,7 +1049,10 @@ export function LetterEditor({
             >
               {de.letters.leaveWithoutSaving}
             </Button>
-            <Button onClick={() => leaveHref && leave(leaveHref, true)}>
+            <Button
+              disabled={isSaving || !hasSender}
+              onClick={() => leaveHref && leave(leaveHref, true)}
+            >
               {de.letters.saveAndLeave}
             </Button>
           </DialogFooter>
