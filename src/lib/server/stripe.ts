@@ -68,7 +68,21 @@ export async function getOrCreateCustomer(userId: string, email: string | null):
     .select("stripe_customer_id")
     .eq("user_id", userId)
     .maybeSingle();
-  if (existing?.stripe_customer_id) return existing.stripe_customer_id;
+  if (existing?.stripe_customer_id) {
+    // Keep the Stripe email current so receipt/invoice mails reach the
+    // customer's ACTIVE address (it is only set at creation otherwise).
+    // Best-effort: a failure must never block the payment flow.
+    if (email) {
+      try {
+        await getStripe().customers.update(existing.stripe_customer_id, { email });
+      } catch (err) {
+        console.error("stripe_customer_email_sync_failed", {
+          error: err instanceof Error ? err.message : "unknown",
+        });
+      }
+    }
+    return existing.stripe_customer_id;
+  }
 
   const stripe = getStripe();
   const customer = await stripe.customers.create({

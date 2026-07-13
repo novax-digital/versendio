@@ -86,6 +86,15 @@ Alles im Stripe-Dashboard, gilt für Rechnungen, Belege und den Checkout:
 - **Settings → Business details**: Firmenname/Anschrift; unter „Tax IDs" die **USt-IdNr**
   hinterlegen — sie wird auf jeder Rechnung ausgewiesen (§ 14 UStG).
 
+### Kunden-E-Mails (Beleg + Rechnung automatisch von Stripe)
+
+- **Settings → Emails → „Successful payments"** aktivieren → Stripe mailt nach jeder Zahlung
+  den Zahlungsbeleg (nur im Live-Modus; optional auch „Refunds").
+- **Settings → Billing → „Email finalized invoices to customers"** aktivieren → jede Rechnung
+  (Checkout-Aufladung und Auto-Aufladung) geht mit PDF-Link an den Kunden.
+- Die Mails gehen an die E-Mail des Stripe-Customers; `getOrCreateCustomer` synchronisiert sie
+  bei jedem Zahlungsvorgang mit der aktuellen Versendio-Adresse (best-effort).
+
 ---
 
 ## 2. Was aktiviert wird
