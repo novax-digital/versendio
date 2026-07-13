@@ -15,7 +15,8 @@
     "test:e2e": "playwright test",
     "seed:admin": "node --env-file=.env.local scripts/seed-admin.ts",
     "seed:stripe": "node --env-file=.env.local scripts/seed-stripe.ts",
-    "seed:demo": "node --env-file=.env.local scripts/seed-demo.ts"
+    "seed:demo": "node --env-file=.env.local scripts/seed-demo.ts",
+    "setup:epost": "node --env-file=.env.local scripts/setup-epost.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.110.0",

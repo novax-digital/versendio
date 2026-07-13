@@ -218,6 +218,14 @@ Bild-/Logo-Bausteine im Editor-UI vertagt (Datenmodell und Rendering vorhanden).
 - [x] KI-Entwurf: `LetterDraftProvider` (Anthropic/Mock), Server-Action mit Guthaben-Gate, Minuten-Limit und atomarer Tagesquote (fail-closed), Kill-Switch in Admin-Einstellungen, `ai_draft_log`-Telemetrie inkl. GDPR-Lifecycle (A-009)
 - [x] Select-Fix app-weit: Trigger-Labels explizit gerendert (Base-UI zeigte rohe Werte)
 
+## Nach Übergabe — E-Post-Anbindung (2026-07-13)
+
+- [x] `npm run setup:epost`: interaktives Erst-Setup der API-Credentials per SMS-TAN
+  (`smsRequest` → TAN → `setPassword` → `secret`), Login-Verifikation, optionales Eintragen in
+  `.env.local`; Doku aktualisiert (EPOST_INTEGRATION §1, README, .env.example)
+- [ ] Skript gegen den echten Account ausführen (SMS-TAN benötigt — nur der Betreiber kann das),
+  danach Testplan `docs/EPOST_INTEGRATION.md` §4 Stufe 1–3
+
 ## Nächster Schritt
 
 Projekt übergeben. Vor dem Go-live die sechs Punkte aus **„Offene Punkte vor dem Go-live"** im

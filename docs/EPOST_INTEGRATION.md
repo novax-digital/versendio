@@ -28,13 +28,21 @@ Mock-Modus zurück — auch bei `MOCK_MODE=false`. Der effektive Modus steht im 
 ### Erst-Setup des API-Passworts (einmalig, falls noch nicht geschehen)
 
 Die Anwendung nutzt den fertigen Zugang. Das initiale Passwort und das `secret` werden einmalig
-über die API erzeugt:
+über die API erzeugt — geführt durch das Skript:
 
-1. `POST /api/Login/smsRequest` mit `{vendorID, ekp}` → SMS-TAN an die bei der Post hinterlegte
-   Mobilnummer.
-2. `POST /api/Login/setPassword` mit `{vendorID, ekp, newPassword, smsCode}` → Antwort enthält das
-   `secret`.
-3. `newPassword` → `EPOST_PASSWORD`, `secret` → `EPOST_SECRET`.
+```bash
+npm run setup:epost   # benötigt EPOST_BASE_URL, EPOST_VENDOR_ID, EPOST_EKP in .env.local
+```
+
+Das Skript fordert die SMS-TAN an (`POST /api/Login/smsRequest`, geht an die bei der Post
+hinterlegte Mobilnummer), setzt nach TAN-Eingabe das Passwort (`POST /api/Login/setPassword`,
+Antwort enthält das `secret`), verifiziert beides per Login und trägt `EPOST_PASSWORD` /
+`EPOST_SECRET` auf Wunsch direkt in `.env.local` ein. Für Produktion die beiden Werte zusätzlich
+in Vercel hinterlegen.
+
+**Achtung:** Ein erneuter Lauf ersetzt Passwort *und* `secret` — bereits konfigurierte
+Umgebungen (Vercel) müssen dann nachgezogen werden. Entwicklungs- und Produktivumgebung haben
+getrennte Zugänge; das Setup gilt jeweils für die URL in `EPOST_BASE_URL`.
 
 ---
 

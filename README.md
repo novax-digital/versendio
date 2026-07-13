@@ -45,6 +45,7 @@ Brief raus. Ein Badge in der Oberfläche und der Admin-Systemstatus zeigen das a
 | `npm run seed:admin` | `ADMIN_EMAIL` zum Administrator machen |
 | `npm run seed:demo` | Demo-Daten für ein Testkonto anlegen |
 | `npm run seed:stripe` | Stripe-Produkt anlegen (nur Testmodus) |
+| `npm run setup:epost` | E-Post-API-Passwort/-Secret per SMS-TAN einrichten (einmalig) |
 
 ---
 
