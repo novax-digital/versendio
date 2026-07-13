@@ -270,5 +270,6 @@ Abschlussbericht abarbeiten.
 - [x] **Auto-Aufladung → Stripe-Invoicing (I-016 umgesetzt)**: Rechnungsposition (netto,
   19 %-Tax-Rate) → Finalisieren → off-session Einzug; Gutschrift + Rechnungslink via
   `invoice.paid`; Legacy-PaymentIntent-Pfad bleibt für Alt-Vorgänge
-- [ ] **Webhook-Events ergänzen** (Dashboard → Webhooks → Endpoint → Events): `invoice.paid`
-  + `invoice.payment_failed` — Pflicht, sonst wird eine bezahlte Auto-Aufladung nicht gebucht
+- [x] **Webhook-Events ergänzt** (2026-07-13, vom Betreiber im Dashboard): alle 5 Events aktiv,
+  per API verifiziert; Prod-Webhook antwortet 400 auf unsignierte Requests → `STRIPE_WEBHOOK_SECRET`
+  ist in Vercel gesetzt
