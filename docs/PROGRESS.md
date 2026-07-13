@@ -267,3 +267,8 @@ Bild-/Logo-Bausteine im Editor-UI vertagt (Datenmodell und Rendering vorhanden).
 
 Projekt übergeben. Vor dem Go-live die sechs Punkte aus **„Offene Punkte vor dem Go-live"** im
 Abschlussbericht abarbeiten.
+- [x] **Auto-Aufladung → Stripe-Invoicing (I-016 umgesetzt)**: Rechnungsposition (netto,
+  19 %-Tax-Rate) → Finalisieren → off-session Einzug; Gutschrift + Rechnungslink via
+  `invoice.paid`; Legacy-PaymentIntent-Pfad bleibt für Alt-Vorgänge
+- [ ] **Webhook-Events ergänzen** (Dashboard → Webhooks → Endpoint → Events): `invoice.paid`
+  + `invoice.payment_failed` — Pflicht, sonst wird eine bezahlte Auto-Aufladung nicht gebucht

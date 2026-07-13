@@ -72,11 +72,29 @@ export async function POST(request: Request) {
         }
         break;
       }
+      case "invoice.paid": {
+        const invoice = event.data.object as Stripe.Invoice;
+        // Auto top-ups run through the invoicing flow and carry our metadata.
+        // Checkout-created invoices (regular top-ups) have no purpose metadata
+        // and are credited via checkout.session.completed instead.
+        if (invoice.metadata?.purpose === "auto_topup") {
+          await creditAutoTopupInvoice(event.id, invoice);
+        }
+        break;
+      }
+      case "invoice.payment_failed": {
+        const invoice = event.data.object as Stripe.Invoice;
+        if (invoice.metadata?.purpose === "auto_topup" && invoice.metadata.user_id) {
+          await handleAutoTopupFailure(invoice.metadata.user_id);
+        }
+        break;
+      }
       case "payment_intent.succeeded": {
         const intent = event.data.object as Stripe.PaymentIntent;
-        // Off-session auto top-ups carry our metadata; checkout payments are
-        // credited via checkout.session.completed instead (ledger idempotency
-        // would also dedupe, but we avoid double work).
+        // Legacy path: auto top-ups created as bare PaymentIntents before the
+        // invoicing flow (2026-07-13) carry our metadata directly. New invoice
+        // payments arrive WITHOUT purpose metadata on the intent and are
+        // credited via invoice.paid; checkout payments via checkout.session.*.
         if (intent.metadata?.purpose === "auto_topup") {
           await creditAutoTopup(event.id, intent);
         }
@@ -132,6 +150,31 @@ async function creditTopup(eventId: string, session: Stripe.Checkout.Session): P
   await bookTopup(userId, amount, eventId, receipt.url, receipt.invoiceId, "Guthaben-Aufladung");
 }
 
+async function creditAutoTopupInvoice(eventId: string, invoice: Stripe.Invoice): Promise<void> {
+  const userId = invoice.metadata?.user_id;
+  // Credited is the NET amount from our metadata (the invoice total is gross).
+  const amount = Number(invoice.metadata?.amount_cents);
+  if (!userId || !Number.isInteger(amount) || amount <= 0) {
+    throw new Error("auto_topup_invoice_metadata_invalid");
+  }
+
+  await bookTopup(
+    userId,
+    amount,
+    eventId,
+    invoice.hosted_invoice_url ?? null,
+    invoice.id ?? null,
+    "Automatische Aufladung",
+  );
+
+  const admin = createAdminClient();
+  await admin
+    .from("billing_accounts")
+    .update({ auto_topup_pending_at: null })
+    .eq("user_id", userId);
+}
+
+/** Legacy: auto top-ups charged as bare PaymentIntents before 2026-07-13. */
 async function creditAutoTopup(eventId: string, intent: Stripe.PaymentIntent): Promise<void> {
   const userId = intent.metadata.user_id;
   // B2B: the charge is gross (net + 19 % VAT); credited is the NET amount

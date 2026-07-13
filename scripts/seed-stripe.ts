@@ -37,7 +37,8 @@ async function main() {
   console.log("\nWebhook konfigurieren (Dashboard → Developers → Webhooks):");
   console.log("  Endpoint: <APP_URL>/api/webhooks/stripe");
   console.log("  Events:   checkout.session.completed,");
-  console.log("            payment_intent.succeeded, payment_intent.payment_failed");
+  console.log("            payment_intent.succeeded, payment_intent.payment_failed,");
+  console.log("            invoice.paid, invoice.payment_failed");
   console.log("  Signing-Secret als STRIPE_WEBHOOK_SECRET in .env.local eintragen.");
 }
 

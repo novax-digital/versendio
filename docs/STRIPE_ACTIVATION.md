@@ -40,8 +40,11 @@ Stripe-Dashboard → **Developers → Webhooks → Add endpoint**:
 - **Endpoint:** `<APP_URL>/api/webhooks/stripe`
 - **Events:**
   - `checkout.session.completed`
-  - `payment_intent.succeeded`
+  - `payment_intent.succeeded` (Legacy-Auto-Aufladungen vor 2026-07-13)
   - `payment_intent.payment_failed`
+  - `invoice.paid` (Auto-Aufladung, Invoicing-Flow — **Pflicht**, sonst wird
+    eine bezahlte Auto-Aufladung nicht gutgeschrieben)
+  - `invoice.payment_failed`
 - Signing-Secret kopieren → `STRIPE_WEBHOOK_SECRET=whsec_…`
 
 Lokal testen:
@@ -64,10 +67,24 @@ Alle Preise in der Anwendung sind **netto** (A-014). Der Checkout hängt automat
 **19 %-Tax-Rate** (exklusiv, DE) an das Line-Item — sie wird beim ersten Checkout per
 Metadata-Marker im Stripe-Konto angelegt (`getVatTaxRateId`), kein manueller Schritt nötig.
 Der Kunde zahlt netto + USt.; die Stripe-Rechnung (`invoice_creation`) weist die Steuer aus;
-**gutgeschrieben wird der Nettobetrag**. Die Auto-Aufladung zieht netto × 1,19 ein und bucht
-netto (itemisierte Rechnung dafür: IDEAS I-016). Stripe Tax (automatic_tax) ist bewusst nicht
-im Einsatz — EU-Reverse-Charge siehe IDEAS I-017. Die Anwendung verlangt vor der ersten
-Aufladung eine vollständige **Rechnungsadresse** im Profil.
+**gutgeschrieben wird der Nettobetrag**. Die Auto-Aufladung läuft seit 2026-07-13 über den
+**Invoicing-Flow**: Rechnungsposition (netto, Tax-Rate) → Rechnung finalisieren → off-session
+einziehen — auch Auto-Aufladungen erhalten damit eine vollständige USt.-Rechnung
+(Gutschrift via `invoice.paid`). Stripe Tax (automatic_tax) ist bewusst nicht im Einsatz —
+EU-Reverse-Charge siehe IDEAS I-017. Die Anwendung verlangt vor der ersten Aufladung eine
+vollständige **Rechnungsadresse** im Profil.
+
+### Rechnungsgestaltung (Logo, Farben, Pflichtangaben)
+
+Alles im Stripe-Dashboard, gilt für Rechnungen, Belege und den Checkout:
+
+- **Settings → Branding**: Logo (quadratisches Icon + Logo), Markenfarbe, Akzentfarbe —
+  erscheint im Rechnungs-PDF, auf der Hosted-Invoice-Seite und im Checkout.
+- **Settings → Billing → Invoice template**: Nummernkreis (eigener Präfix, fortlaufend),
+  Standard-Memo und **Fußzeile** — dort gehören die deutschen Pflichtangaben hin
+  (Handelsregister, Geschäftsführung, ggf. Bankverbindung).
+- **Settings → Business details**: Firmenname/Anschrift; unter „Tax IDs" die **USt-IdNr**
+  hinterlegen — sie wird auf jeder Rechnung ausgewiesen (§ 14 UStG).
 
 ---
 

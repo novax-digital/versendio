@@ -1,7 +1,7 @@
 import "server-only";
-import { grossFromNetCents } from "@/lib/shared/money";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getStripe, stripeEnabled } from "@/lib/server/stripe";
+import { getStripe, getVatTaxRateId, stripeEnabled } from "@/lib/server/stripe";
+import { serverEnv } from "@/lib/server/env";
 
 /**
  * Off-session auto top-up (§6.6): when the balance falls below the user's
@@ -51,23 +51,30 @@ export async function processAutoTopup(userId: string): Promise<void> {
 
   try {
     const stripe = getStripe();
-    // B2B: the configured top-up amount is the NET credit; the charge adds
-    // 19 % VAT on top. The webhook books metadata.amount_cents (net), never
-    // the gross charge amount. Itemized VAT invoice is deferred (IDEAS I-016).
-    await stripe.paymentIntents.create({
-      amount: grossFromNetCents(account.auto_topup_amount_cents),
-      currency: "eur",
+    const net = account.auto_topup_amount_cents;
+    // B2B invoicing flow: a real Stripe invoice (net line item + exclusive
+    // 19 % VAT rate) is finalized and charged off-session — the customer gets
+    // a proper VAT invoice, unlike a bare PaymentIntent. The webhook books
+    // the NET metadata amount on `invoice.paid` and links the invoice.
+    const vatTaxRateId = await getVatTaxRateId(stripe);
+    const invoice = await stripe.invoices.create({
       customer: account.stripe_customer_id,
-      payment_method: account.default_payment_method_id,
-      off_session: true,
-      confirm: true,
-      metadata: {
-        user_id: userId,
-        purpose: "auto_topup",
-        amount_cents: String(account.auto_topup_amount_cents),
-      },
+      collection_method: "charge_automatically",
+      default_payment_method: account.default_payment_method_id,
+      auto_advance: false, // finalize + pay explicitly, right now
+      metadata: { user_id: userId, purpose: "auto_topup", amount_cents: String(net) },
     });
-    // Success/failure is handled by the webhook (payment_intent.succeeded/failed).
+    await stripe.invoiceItems.create({
+      customer: account.stripe_customer_id,
+      invoice: invoice.id,
+      amount: net,
+      currency: "eur",
+      description: `Automatische Guthaben-Aufladung ${serverEnv().APP_NAME}`,
+      tax_rates: [vatTaxRateId],
+    });
+    await stripe.invoices.finalizeInvoice(invoice.id);
+    await stripe.invoices.pay(invoice.id, { off_session: true });
+    // Success/failure is handled by the webhook (invoice.paid/payment_failed).
   } catch (err) {
     // SCA required or card declined: clear the flag; the failure webhook may
     // also fire, which is idempotent.
