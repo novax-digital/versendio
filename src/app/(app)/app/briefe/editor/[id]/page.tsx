@@ -19,12 +19,17 @@ export default async function EditEditorLetterPage({
   const { id } = await params;
   const supabase = await createClient();
 
-  const [{ data: letter }, { data: senderAddresses }] = await Promise.all([
+  const [{ data: letter }, { data: senderAddresses }, { data: letterheads }] = await Promise.all([
     supabase.from("letters").select("id, title, source, editor_document").eq("id", id).single(),
     supabase
       .from("sender_addresses")
       .select("id, label, sender_line, is_default")
       .order("is_default", { ascending: false }),
+    supabase
+      .from("letter_templates")
+      .select("id, name, editor_document, kind")
+      .eq("kind", "letterhead")
+      .order("created_at", { ascending: false }),
   ]);
 
   if (!letter || letter.source !== "editor") notFound();
@@ -39,6 +44,7 @@ export default async function EditEditorLetterPage({
       initialDocument={parsed.data}
       senderAddresses={senderAddresses ?? []}
       templates={[]}
+      letterheads={letterheads ?? []}
       aiMock={!serverEnv().ANTHROPIC_API_KEY}
       aiEnabled={serverEnv().FEATURE_AI_DRAFTS && (await getJsonSetting<boolean>("ai_drafts_enabled", true))}
     />

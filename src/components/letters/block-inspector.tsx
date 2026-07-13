@@ -10,7 +10,9 @@ import { LETTER_FONTS, LETTER_FONT_IDS } from "@/lib/shared/letter-fonts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
@@ -23,26 +25,37 @@ import { cn } from "@/lib/utils";
 import { de } from "@/lib/i18n/de";
 
 type SenderAddress = { id: string; label: string; sender_line: string; is_default: boolean };
+export type LetterheadOption = { id: string; name: string };
+
+type DocPatch = Partial<
+  Pick<LetterDocument, "logoStoragePath" | "header" | "footer" | "showDate" | "senderAddressId">
+>;
 
 /**
  * Right-hand inspector of the letter builder: "Baustein" styles the selected
  * block, "Brief" holds the document theme (font, base size, accent color,
- * logo, date, sender address).
+ * logo, header/footer, letterhead, date, sender address).
  */
 export function BlockInspector({
   doc,
   selected,
   senderAddresses,
+  letterheads,
   onChangeBlock,
   onChangeTheme,
   onChangeDoc,
+  onApplyLetterhead,
+  onSaveLetterhead,
 }: {
   doc: LetterDocument;
   selected: LetterBlock | null;
   senderAddresses: SenderAddress[];
+  letterheads: LetterheadOption[];
   onChangeBlock: (id: string, patch: Partial<LetterBlock>) => void;
   onChangeTheme: (patch: Partial<LetterTheme>) => void;
-  onChangeDoc: (patch: Partial<Pick<LetterDocument, "logoStoragePath" | "showDate" | "senderAddressId">>) => void;
+  onChangeDoc: (patch: DocPatch) => void;
+  onApplyLetterhead: (id: string) => void;
+  onSaveLetterhead: (name: string) => void;
 }) {
   const [tab, setTab] = useState<string>(selected ? "block" : "letter");
   // Auto-switch to the block tab when the selection changes (React's
@@ -77,8 +90,11 @@ export function BlockInspector({
         <LetterControls
           doc={doc}
           senderAddresses={senderAddresses}
+          letterheads={letterheads}
           onChangeTheme={onChangeTheme}
           onChangeDoc={onChangeDoc}
+          onApplyLetterhead={onApplyLetterhead}
+          onSaveLetterhead={onSaveLetterhead}
         />
       </TabsContent>
     </Tabs>
@@ -327,17 +343,25 @@ function BlockControls({
 function LetterControls({
   doc,
   senderAddresses,
+  letterheads,
   onChangeTheme,
   onChangeDoc,
+  onApplyLetterhead,
+  onSaveLetterhead,
 }: {
   doc: LetterDocument;
   senderAddresses: SenderAddress[];
+  letterheads: LetterheadOption[];
   onChangeTheme: (patch: Partial<LetterTheme>) => void;
-  onChangeDoc: (patch: Partial<Pick<LetterDocument, "logoStoragePath" | "showDate" | "senderAddressId">>) => void;
+  onChangeDoc: (patch: DocPatch) => void;
+  onApplyLetterhead: (id: string) => void;
+  onSaveLetterhead: (name: string) => void;
 }) {
   const theme = doc.theme;
   const fileRef = useRef<HTMLInputElement>(null);
   const [isUploading, startUpload] = useTransition();
+  const [letterheadId, setLetterheadId] = useState<string | null>(null);
+  const [letterheadName, setLetterheadName] = useState("");
 
   const uploadLogo = (file: File) => {
     startUpload(async () => {
@@ -456,6 +480,116 @@ function LetterControls({
           ) : null}
         </div>
       </div>
+
+      <Separator />
+
+      {/* Header (Kopfbereich) */}
+      <div className="space-y-1.5">
+        <Label htmlFor="header-text">
+          {de.letters.headerSection} · {de.letters.headerTextLabel}
+        </Label>
+        <Textarea
+          id="header-text"
+          value={doc.header.text}
+          rows={3}
+          maxLength={400}
+          placeholder={de.letters.headerTextPlaceholder}
+          onChange={(e) => onChangeDoc({ header: { ...doc.header, text: e.target.value } })}
+        />
+        <p className="text-muted-foreground text-xs">{de.letters.headerTextHint}</p>
+      </div>
+      {doc.logoStoragePath ? (
+        <div className="space-y-1.5">
+          <Label>{de.letters.logoPositionLabel}</Label>
+          <div className="flex gap-1">
+            {(["left", "right"] as const).map((side) => (
+              <Button
+                key={side}
+                type="button"
+                size="sm"
+                variant={doc.header.logoAlign === side ? "secondary" : "ghost"}
+                onClick={() => onChangeDoc({ header: { ...doc.header, logoAlign: side } })}
+              >
+                {side === "left" ? de.letters.alignLeft : de.letters.alignRight}
+              </Button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {/* Footer (Fußbereich) */}
+      <div className="space-y-1.5">
+        <Label htmlFor="footer-text">
+          {de.letters.footerSection} · {de.letters.footerTextLabel}
+        </Label>
+        <Textarea
+          id="footer-text"
+          value={doc.footer.text}
+          rows={3}
+          maxLength={600}
+          placeholder={de.letters.footerTextPlaceholder}
+          onChange={(e) => onChangeDoc({ footer: { text: e.target.value } })}
+        />
+        <p className="text-muted-foreground text-xs">{de.letters.footerTextHint}</p>
+      </div>
+
+      <Separator />
+
+      {/* Letterhead (Briefpapier) */}
+      <div className="space-y-1.5">
+        <Label>{de.letters.letterheadSection}</Label>
+        <p className="text-muted-foreground text-xs">{de.letters.letterheadHint}</p>
+        {letterheads.length > 0 ? (
+          <div className="flex gap-2">
+            <Select value={letterheadId ?? undefined} onValueChange={setLetterheadId}>
+              <SelectTrigger className="min-w-0 flex-1">
+                <SelectValue placeholder={de.letters.letterheadSelect}>
+                  {letterheads.find((l) => l.id === letterheadId)?.name}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {letterheads.map((l) => (
+                  <SelectItem key={l.id} value={l.id}>
+                    {l.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={!letterheadId}
+              onClick={() => letterheadId && onApplyLetterhead(letterheadId)}
+            >
+              {de.letters.applyLetterhead}
+            </Button>
+          </div>
+        ) : (
+          <p className="text-muted-foreground text-xs">{de.letters.noLetterheads}</p>
+        )}
+        <div className="flex gap-2">
+          <Input
+            value={letterheadName}
+            placeholder={de.letters.letterheadNamePlaceholder}
+            onChange={(e) => setLetterheadName(e.target.value)}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={!letterheadName.trim()}
+            onClick={() => {
+              onSaveLetterhead(letterheadName.trim());
+              setLetterheadName("");
+            }}
+          >
+            {de.common.save}
+          </Button>
+        </div>
+      </div>
+
+      <Separator />
 
       <div className="flex items-center gap-2">
         <Switch

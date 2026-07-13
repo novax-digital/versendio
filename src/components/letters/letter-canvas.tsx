@@ -3,7 +3,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, Copy, Trash2 } from "lucide-react";
 import { A4, ZONES } from "@/lib/shared/schablone";
-import { CONTENT, dividerMetrics, resolveTextStyle } from "@/lib/shared/letter-style";
+import {
+  LETTERHEAD,
+  MUTED_COLOR,
+  contentFrame,
+  dividerMetrics,
+  resolveTextStyle,
+} from "@/lib/shared/letter-style";
 import { LETTER_FONTS } from "@/lib/shared/letter-fonts";
 import type { LetterBlock, LetterDocument } from "@/lib/shared/letter-document";
 import { resolvePlaceholders, type PlaceholderContext } from "@/lib/shared/placeholders";
@@ -99,6 +105,9 @@ export function LetterCanvas({
     return () => observer.disconnect();
   }, [zoom]);
 
+  const theme = doc.theme;
+  const frame = contentFrame(theme);
+
   // Page estimate + sheet growth: measure rendered block heights (layout px
   // are unaffected by the transform) and replay the renderer's cursor math.
   const measure = useCallback(() => {
@@ -106,36 +115,39 @@ export function LetterCanvas({
     // A display:none instance (responsive twin) measures 0 heights — skip.
     if (!content || content.offsetParent === null) return;
     const children = Array.from(content.children) as HTMLElement[];
-    let cursorMm = CONTENT.bodyStartMm;
+    let cursorMm = frame.bodyStartMm;
     let pages = 1;
     for (const child of children) {
       let hMm = child.offsetHeight / MM_PX;
       if (hMm <= 0) continue;
-      if (cursorMm + hMm > CONTENT.bottomMm && cursorMm > CONTENT.followTopMm) {
+      if (cursorMm + hMm > frame.bottomMm && cursorMm > frame.followTopMm) {
         pages += 1;
-        cursorMm = CONTENT.followTopMm;
+        cursorMm = frame.followTopMm;
       }
       // A single block taller than a page spills across several pages.
-      while (cursorMm + hMm > CONTENT.bottomMm) {
-        hMm -= CONTENT.bottomMm - cursorMm;
+      while (cursorMm + hMm > frame.bottomMm) {
+        hMm -= frame.bottomMm - cursorMm;
         pages += 1;
-        cursorMm = CONTENT.followTopMm;
+        cursorMm = frame.followTopMm;
       }
       cursorMm += hMm;
     }
     onEstimate?.(pages);
-    const contentBottomPx = CONTENT.bodyStartMm * MM_PX + content.offsetHeight;
+    const contentBottomPx = frame.bodyStartMm * MM_PX + content.offsetHeight;
     setSheetHeight(Math.max(SHEET_H_PX, contentBottomPx + 20 * MM_PX));
-  }, [onEstimate]);
+  }, [onEstimate, frame]);
 
   useEffect(() => {
     measure();
   });
 
-  const theme = doc.theme;
   const fontStack = LETTER_FONTS[theme.fontFamily].cssStack;
 
   const mm = (v: number) => v * MM_PX;
+  const logoRight = doc.header.logoAlign === "right";
+  const headerTextWidthMm = doc.logoStoragePath
+    ? frame.widthMm - LETTERHEAD.logo.maxWidthMm - LETTERHEAD.gapMm
+    : frame.widthMm;
 
   return (
     <div ref={containerRef} className={cn("w-full", zoom === "full" && "overflow-x-auto")}>
@@ -151,14 +163,62 @@ export function LetterCanvas({
             <img
               src={`/app/briefe/assets/${doc.logoStoragePath}`}
               alt={de.letters.logo}
-              className="absolute object-contain object-left-top"
+              className={cn(
+                "absolute object-contain",
+                logoRight ? "object-right-top" : "object-left-top",
+              )}
               style={{
-                left: mm(CONTENT.leftMm),
-                top: mm(10),
-                maxWidth: mm(60),
-                maxHeight: mm(30),
+                ...(logoRight
+                  ? { right: mm(A4.widthMm - frame.rightMm) }
+                  : { left: mm(frame.leftMm) }),
+                top: mm(LETTERHEAD.logo.topMm),
+                maxWidth: mm(LETTERHEAD.logo.maxWidthMm),
+                maxHeight: mm(LETTERHEAD.logo.maxHeightMm),
               }}
             />
+          ) : null}
+
+          {/* Header contact block (opposite the logo) */}
+          {doc.header.text.trim() ? (
+            <div
+              className="absolute overflow-hidden whitespace-pre-wrap"
+              style={{
+                ...(doc.logoStoragePath && logoRight
+                  ? { left: mm(frame.leftMm), textAlign: "left" as const }
+                  : { right: mm(A4.widthMm - frame.rightMm), textAlign: "right" as const }),
+                top: mm(LETTERHEAD.header.topMm),
+                width: mm(headerTextWidthMm),
+                maxHeight: mm(LETTERHEAD.header.maxLines * LETTERHEAD.header.lineMm),
+                fontFamily: fontStack,
+                fontSize: LETTERHEAD.header.sizePt * PT_PX,
+                lineHeight: `${mm(LETTERHEAD.header.lineMm)}px`,
+              }}
+            >
+              {showSampleData
+                ? resolvePlaceholders(doc.header.text, SAMPLE_PLACEHOLDERS)
+                : doc.header.text}
+            </div>
+          ) : null}
+
+          {/* Footer small print (page 1, fixed band below the body flow) */}
+          {doc.footer.text.trim() ? (
+            <div
+              className="absolute overflow-hidden text-center whitespace-pre-wrap"
+              style={{
+                left: mm(frame.leftMm),
+                top: mm(LETTERHEAD.footer.topMm),
+                width: mm(frame.widthMm),
+                maxHeight: mm(LETTERHEAD.footer.maxLines * LETTERHEAD.footer.lineMm),
+                color: MUTED_COLOR,
+                fontFamily: fontStack,
+                fontSize: LETTERHEAD.footer.sizePt * PT_PX,
+                lineHeight: `${mm(LETTERHEAD.footer.lineMm)}px`,
+              }}
+            >
+              {showSampleData
+                ? resolvePlaceholders(doc.footer.text, SAMPLE_PLACEHOLDERS)
+                : doc.footer.text}
+            </div>
           ) : null}
 
           {/* Sender line (Schablone zone, always Helvetica 8pt) */}
@@ -200,7 +260,7 @@ export function LetterCanvas({
             <div
               className="absolute text-right"
               style={{
-                right: mm(A4.widthMm - CONTENT.rightMm),
+                right: mm(A4.widthMm - frame.rightMm),
                 top: mm(ZONES.addressBlock.y + ZONES.addressBlock.height + 2),
                 fontFamily: fontStack,
                 fontSize: 10 * PT_PX,
@@ -219,9 +279,9 @@ export function LetterCanvas({
             ref={contentRef}
             className="absolute"
             style={{
-              left: mm(CONTENT.leftMm),
-              top: mm(CONTENT.bodyStartMm),
-              width: mm(CONTENT.widthMm),
+              left: mm(frame.leftMm),
+              top: mm(frame.bodyStartMm),
+              width: mm(frame.widthMm),
             }}
           >
             {doc.blocks.map((block, index) => (
@@ -347,7 +407,7 @@ function CanvasBlock({
       );
     }
   } else if (block.type === "divider") {
-    const metrics = dividerMetrics(block);
+    const metrics = dividerMetrics(block, theme);
     marginBottomPx = 0;
     body = (
       <div style={{ padding: `${metrics.spacingMm * MM_PX}px 0` }}>
@@ -374,7 +434,7 @@ function CanvasBlock({
     );
   } else if (block.type === "image") {
     marginBottomPx = 2 * MM_PX;
-    const width = Math.min(block.widthMm, CONTENT.widthMm) * MM_PX;
+    const width = Math.min(block.widthMm, contentFrame(theme).widthMm) * MM_PX;
     body = (
       <div
         style={{

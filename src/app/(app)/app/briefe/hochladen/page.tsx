@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { FileDown } from "lucide-react";
 import { requireProfile } from "@/lib/server/auth-context";
 import { de } from "@/lib/i18n/de";
 import { UploadForm } from "./upload-form";
@@ -12,6 +13,17 @@ export default async function UploadLetterPage() {
       <div>
         <h1 className="text-2xl font-semibold">{de.letters.uploadTitle}</h1>
         <p className="text-muted-foreground text-sm">{de.letters.uploadHint}</p>
+      </div>
+      <div className="bg-muted/50 space-y-2 rounded-md border p-3 text-sm">
+        <p className="text-muted-foreground">{de.letters.uploadZoneNotice}</p>
+        <a
+          href="/app/briefe/hochladen/muster"
+          className="text-primary inline-flex items-center gap-1.5 font-medium hover:underline"
+          download
+        >
+          <FileDown className="size-4" aria-hidden />
+          {de.letters.uploadMusterDownload}
+        </a>
       </div>
       <UploadForm />
     </div>

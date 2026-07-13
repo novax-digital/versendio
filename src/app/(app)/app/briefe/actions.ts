@@ -265,6 +265,7 @@ export async function saveTemplateAction(
       user_id: profile.id,
       name: parsed.data.name,
       editor_document: parsed.data.document as unknown as Record<string, unknown>,
+      kind: parsed.data.kind,
     })
     .select("id")
     .single();

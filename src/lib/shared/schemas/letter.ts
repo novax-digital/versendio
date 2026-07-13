@@ -13,6 +13,8 @@ export const saveEditorLetterSchema = z.object({
 export const saveTemplateSchema = z.object({
   name: z.string().trim().min(1, de.validation.fieldRequired).max(160),
   document: letterDocumentSchema,
+  /** "template" = full letter template; "letterhead" = theme/header/footer preset. */
+  kind: z.enum(["template", "letterhead"]).default("template"),
 });
 
 export type SaveEditorLetterInput = z.infer<typeof saveEditorLetterSchema>;

@@ -10,8 +10,7 @@ import type { LetterBlock, LetterTheme } from "@/lib/shared/letter-document";
 
 export const PT_TO_MM = 25.4 / 72; // 0.3528 — 1 typographic point in mm
 
-/** Content column on every page (clear of the 12mm strip + 2mm margins). */
-export const CONTENT: {
+export type ContentFrame = {
   leftMm: number;
   rightMm: number;
   widthMm: number;
@@ -21,7 +20,14 @@ export const CONTENT: {
   followTopMm: number;
   /** Last usable line on every page (20mm bottom margin). */
   bottomMm: number;
-} = {
+};
+
+/**
+ * Original content column (clear of the 12mm strip + 2mm margins). Kept
+ * verbatim for `marginStyle: "classic"` documents — their stored pagination
+ * (= booked price) must not change.
+ */
+export const CONTENT: ContentFrame = {
   leftMm: MARGINS.leftStripMm + 3, // 15
   rightMm: A4.widthMm - MARGINS.rightMm - 3, // 205
   widthMm: A4.widthMm - MARGINS.rightMm - 3 - (MARGINS.leftStripMm + 3), // 190
@@ -29,6 +35,40 @@ export const CONTENT: {
   followTopMm: MARGINS.topMm + 15, // 17
   bottomMm: A4.heightMm - 20, // 277
 };
+
+/**
+ * DIN 5008 content column: 25mm left / 20mm right. The body text aligns
+ * exactly with the printed address block (Schablone zone x23 + 2mm inset).
+ * Vertical metrics stay identical to CONTENT so only wrapping changes.
+ */
+export const DIN_CONTENT: ContentFrame = {
+  leftMm: 25,
+  rightMm: A4.widthMm - 20, // 190
+  widthMm: A4.widthMm - 20 - 25, // 165
+  bodyStartMm: CONTENT.bodyStartMm,
+  followTopMm: CONTENT.followTopMm,
+  bottomMm: CONTENT.bottomMm,
+};
+
+/** Resolves the content column for a document's theme. */
+export function contentFrame(theme: Pick<LetterTheme, "marginStyle">): ContentFrame {
+  return theme.marginStyle === "din" ? DIN_CONTENT : CONTENT;
+}
+
+/**
+ * Page-1 letterhead geometry (header band, footer band, logo box). Fixed
+ * bands OUTSIDE the body flow: the header ends above the sender zone (y45,
+ * minus safety), the footer sits below CONTENT.bottomMm and above the 2mm
+ * print-free margin — so neither can ever change pagination or collide with
+ * the Schablone zones (enforced by construction, the validator only sees text).
+ */
+export const LETTERHEAD = {
+  header: { topMm: 12, sizePt: 8, lineMm: 8 * (25.4 / 72) * 1.3, maxLines: 8 }, // ends ≤ 42.6mm < 43
+  footer: { topMm: 279, sizePt: 7.5, lineMm: 7.5 * (25.4 / 72) * 1.3, maxLines: 4 }, // ends ≤ 292.8mm < 295
+  logo: { topMm: 10, maxWidthMm: 60, maxHeightMm: 30 },
+  /** Horizontal gap between logo box and header text when both are present. */
+  gapMm: 5,
+} as const;
 
 /** v1 renderer metrics, frozen: 4.6mm line advance at 11pt body size. */
 export const LEGACY_LINE_MM_AT_11PT = 4.6;
@@ -109,9 +149,12 @@ export function resolveTextStyle(
 }
 
 /** Divider geometry within the content column (always left-anchored). */
-export function dividerMetrics(block: Extract<LetterBlock, { type: "divider" }>) {
+export function dividerMetrics(
+  block: Extract<LetterBlock, { type: "divider" }>,
+  theme: Pick<LetterTheme, "marginStyle">,
+) {
   return {
-    widthMm: (CONTENT.widthMm * block.widthPct) / 100,
+    widthMm: (contentFrame(theme).widthMm * block.widthPct) / 100,
     thicknessMm: block.thicknessPt * PT_TO_MM,
     spacingMm: 2.5, // above and below
   };

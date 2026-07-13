@@ -2,7 +2,13 @@ import "server-only";
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFImage } from "pdf-lib";
 import { A4, ZONES, mmToPt } from "@/lib/shared/schablone";
 import type { LetterDocument } from "@/lib/shared/letter-document";
-import { CONTENT, dividerMetrics, resolveTextStyle } from "@/lib/shared/letter-style";
+import {
+  LETTERHEAD,
+  MUTED_COLOR,
+  contentFrame,
+  dividerMetrics,
+  resolveTextStyle,
+} from "@/lib/shared/letter-style";
 import { resolvePlaceholders, type PlaceholderContext } from "@/lib/shared/placeholders";
 import { embedLetterFont } from "./fonts";
 import {
@@ -54,28 +60,93 @@ export async function renderEditorLetter(input: EditorRenderInput): Promise<Uint
     ? family.regular
     : await pdf.embedFont(StandardFonts.Helvetica);
 
+  const frame = contentFrame(theme);
+  const ctx = input.recipient.placeholders;
+
   let page = pdf.addPage([A4.widthPt, A4.heightPt]);
 
   // Logo (optional), above the address block. Bounded 60×30mm at y=10mm —
-  // safely above the sender zone (y45).
+  // safely above the sender zone (y45). Anchored left or right per header.
+  const logoAlign = input.document.header.logoAlign;
+  let hasLogo = false;
   if (input.document.logoStoragePath && input.loadImage) {
     const image = await input.loadImage(input.document.logoStoragePath);
     if (image) {
       const embedded = await embedImage(pdf, image);
       if (embedded) {
-        const maxWmm = 60;
-        const scale = Math.min(1, mmToPt(maxWmm) / embedded.width);
+        const scale = Math.min(1, mmToPt(LETTERHEAD.logo.maxWidthMm) / embedded.width);
         const wPt = embedded.width * scale;
         const hPt = embedded.height * scale;
-        const maxHpt = mmToPt(30);
+        const maxHpt = mmToPt(LETTERHEAD.logo.maxHeightMm);
         const finalScale = hPt > maxHpt ? maxHpt / hPt : 1;
+        const drawnW = wPt * finalScale;
+        hasLogo = true;
         page.drawImage(embedded, {
-          x: mmToPt(CONTENT.leftMm),
-          y: A4.heightPt - mmToPt(10) - hPt * finalScale,
-          width: wPt * finalScale,
+          x: logoAlign === "right" ? mmToPt(frame.rightMm) - drawnW : mmToPt(frame.leftMm),
+          y: A4.heightPt - mmToPt(LETTERHEAD.logo.topMm) - hPt * finalScale,
+          width: drawnW,
           height: hPt * finalScale,
         });
       }
+    }
+  }
+
+  // Header contact block (page 1 only), opposite the logo, above the sender
+  // zone — the band is fixed (12–43mm), so it never affects pagination.
+  const headerText = resolvePlaceholders(input.document.header.text, ctx).trim();
+  if (headerText) {
+    const textAlign: "left" | "right" = hasLogo && logoAlign === "right" ? "left" : "right";
+    const maxWmm = hasLogo
+      ? frame.widthMm - LETTERHEAD.logo.maxWidthMm - LETTERHEAD.gapMm
+      : frame.widthMm;
+    const maxWpt = mmToPt(maxWmm);
+    const size = LETTERHEAD.header.sizePt;
+    const lines = headerText
+      .split("\n")
+      .flatMap((l) => wrapText(l, family.regular, size, maxWpt, family.isStandard))
+      .slice(0, LETTERHEAD.header.maxLines);
+    let yMm = LETTERHEAD.header.topMm;
+    for (const line of lines) {
+      if (line !== "") {
+        const w = family.regular.widthOfTextAtSize(line, size);
+        const x =
+          textAlign === "right" ? mmToPt(frame.rightMm) - w : mmToPt(frame.leftMm);
+        page.drawText(line, {
+          x,
+          y: topMmToBaselinePt(yMm, size),
+          size,
+          font: family.regular,
+          color: BLACK,
+        });
+      }
+      yMm += LETTERHEAD.header.lineMm;
+    }
+  }
+
+  // Footer small print (page 1 only), centered in the fixed 279–293mm band —
+  // below the body flow (bottomMm 277) and above the 2mm print-free margin.
+  const footerText = resolvePlaceholders(input.document.footer.text, ctx).trim();
+  if (footerText) {
+    const size = LETTERHEAD.footer.sizePt;
+    const maxWpt = mmToPt(frame.widthMm);
+    const lines = footerText
+      .split("\n")
+      .flatMap((l) => wrapText(l, family.regular, size, maxWpt, family.isStandard))
+      .slice(0, LETTERHEAD.footer.maxLines);
+    const footerColor = hexToRgb(MUTED_COLOR);
+    let yMm = LETTERHEAD.footer.topMm;
+    for (const line of lines) {
+      if (line !== "") {
+        const w = family.regular.widthOfTextAtSize(line, size);
+        page.drawText(line, {
+          x: mmToPt(frame.leftMm) + (maxWpt - w) / 2,
+          y: topMmToBaselinePt(yMm, size),
+          size,
+          font: family.regular,
+          color: footerColor,
+        });
+      }
+      yMm += LETTERHEAD.footer.lineMm;
     }
   }
 
@@ -93,7 +164,7 @@ export async function renderEditorLetter(input: EditorRenderInput): Promise<Uint
     const size = 10;
     const w = family.regular.widthOfTextAtSize(dateStr, size);
     page.drawText(dateStr, {
-      x: mmToPt(CONTENT.rightMm) - w,
+      x: mmToPt(frame.rightMm) - w,
       y: topMmToBaselinePt(ZONES.addressBlock.y + ZONES.addressBlock.height + 2, size),
       size,
       font: family.regular,
@@ -102,27 +173,26 @@ export async function renderEditorLetter(input: EditorRenderInput): Promise<Uint
   }
 
   // Body blocks.
-  const ctx = input.recipient.placeholders;
-  const maxWidthPt = mmToPt(CONTENT.widthMm);
-  const leftPt = mmToPt(CONTENT.leftMm);
-  let cursorMm = CONTENT.bodyStartMm;
+  const maxWidthPt = mmToPt(frame.widthMm);
+  const leftPt = mmToPt(frame.leftMm);
+  let cursorMm = frame.bodyStartMm;
   // Spacer advances are deferred until the next drawable block so a trailing
   // spacer never produces a paid blank page; a spacer never spans pages.
   let pendingSpacerMm = 0;
 
   const newPage = () => {
     page = pdf.addPage([A4.widthPt, A4.heightPt]);
-    cursorMm = CONTENT.followTopMm;
+    cursorMm = frame.followTopMm;
   };
   const applyPendingSpace = () => {
     if (pendingSpacerMm > 0) {
       cursorMm += pendingSpacerMm;
       pendingSpacerMm = 0;
-      if (cursorMm > CONTENT.bottomMm) newPage();
+      if (cursorMm > frame.bottomMm) newPage();
     }
   };
   const ensureSpace = (neededMm: number) => {
-    if (cursorMm + neededMm > CONTENT.bottomMm) newPage();
+    if (cursorMm + neededMm > frame.bottomMm) newPage();
   };
   const drawAlignedLine = (
     line: string,
@@ -155,7 +225,7 @@ export async function renderEditorLetter(input: EditorRenderInput): Promise<Uint
         // v1 semantics, bit-identical: apply immediately; a spacer crossing
         // the boundary resets to the follow-page top (even mid-chain).
         cursorMm += block.heightMm;
-        if (cursorMm > CONTENT.bottomMm) newPage();
+        if (cursorMm > frame.bottomMm) newPage();
       } else {
         // New docs: defer so a trailing spacer never adds a paid blank page.
         pendingSpacerMm += block.heightMm;
@@ -200,13 +270,13 @@ export async function renderEditorLetter(input: EditorRenderInput): Promise<Uint
     }
 
     if (block.type === "divider") {
-      const metrics = dividerMetrics(block);
+      const metrics = dividerMetrics(block, theme);
       applyPendingSpace();
       ensureSpace(metrics.spacingMm * 2 + metrics.thicknessMm);
       const y = A4.heightPt - mmToPt(cursorMm + metrics.spacingMm);
       page.drawLine({
         start: { x: leftPt, y },
-        end: { x: leftPt + mmToPt(Math.min(metrics.widthMm, CONTENT.widthMm)), y },
+        end: { x: leftPt + mmToPt(Math.min(metrics.widthMm, frame.widthMm)), y },
         thickness: mmToPt(metrics.thicknessMm),
         color: block.color === "accent" ? hexToRgb(theme.accentColor) : hexToRgb("#94A3B8"),
       });
@@ -220,11 +290,11 @@ export async function renderEditorLetter(input: EditorRenderInput): Promise<Uint
       const embedded = await embedImage(pdf, image);
       if (!embedded) continue;
       applyPendingSpace();
-      let wMm = Math.min(block.widthMm, CONTENT.widthMm);
+      let wMm = Math.min(block.widthMm, frame.widthMm);
       let hMm = (embedded.height / embedded.width) * wMm;
       // Clamp to a full page's content height so an image can never paint
       // into the bottom margin (scale down preserving aspect ratio).
-      const pageCapacityMm = CONTENT.bottomMm - CONTENT.followTopMm;
+      const pageCapacityMm = frame.bottomMm - frame.followTopMm;
       if (hMm > pageCapacityMm) {
         const s = pageCapacityMm / hMm;
         hMm *= s;

@@ -44,9 +44,34 @@ export const themeSchema = z.object({
    * letters keep their page/sheet count and price. Never set for new docs.
    */
   legacyLayout: z.boolean().default(false),
+  /**
+   * Content frame. "classic" = the original 15–205mm column; "din" = DIN 5008
+   * margins (25mm left / 20mm right) so the body aligns with the address
+   * block. The default keeps stored documents' pagination (= price) stable;
+   * the editor upgrades non-legacy documents to "din" on open.
+   */
+  marginStyle: z.enum(["classic", "din"]).default("classic"),
 });
 
 export type LetterTheme = z.infer<typeof themeSchema>;
+
+/** Page-1 letterhead: contact block opposite the logo, above the sender zone. */
+export const letterHeaderSchema = z
+  .object({
+    text: z.string().max(400).default(""),
+    logoAlign: z.enum(["left", "right"]).default("left"),
+  })
+  .default({ text: "", logoAlign: "left" });
+
+/** Page-1 small print (Geschäftsangaben) below the body flow, above the 2mm margin. */
+export const letterFooterSchema = z
+  .object({
+    text: z.string().max(600).default(""),
+  })
+  .default({ text: "" });
+
+export type LetterHeader = z.infer<typeof letterHeaderSchema>;
+export type LetterFooter = z.infer<typeof letterFooterSchema>;
 
 export const subjectBlockSchema = z.object({
   type: z.literal("subject"),
@@ -116,9 +141,12 @@ export const letterDocumentSchema = z.object({
     accentColor: "#2C4BE8",
     lineHeight: 1.35,
     legacyLayout: false,
+    marginStyle: "classic",
   }),
   // Header/logo shown above the address field.
   logoStoragePath: z.string().nullable().default(null),
+  header: letterHeaderSchema,
+  footer: letterFooterSchema,
   showDate: z.boolean().default(true),
   senderAddressId: z.string().uuid().nullable().default(null),
   blocks: z.array(blockSchema).max(200),
@@ -161,8 +189,11 @@ function upgradeV1(v1: z.infer<typeof letterDocumentV1Schema>): LetterDocument {
       accentColor: "#2C4BE8",
       lineHeight: 1.35, // unused while legacyLayout is true
       legacyLayout: true,
+      marginStyle: "classic",
     },
     logoStoragePath: v1.logoStoragePath,
+    header: { text: "", logoAlign: "left" },
+    footer: { text: "" },
     showDate: v1.showDate,
     senderAddressId: v1.senderAddressId,
     blocks: v1.blocks.map((b): LetterBlock => {
@@ -211,8 +242,11 @@ export function emptyLetterDocument(): LetterDocument {
       accentColor: "#2C4BE8",
       lineHeight: 1.35,
       legacyLayout: false,
+      marginStyle: "din",
     },
     logoStoragePath: null,
+    header: { text: "", logoAlign: "left" },
+    footer: { text: "" },
     showDate: true,
     senderAddressId: null,
     blocks: [

@@ -179,6 +179,23 @@ export const de = {
     uploadTitle: "PDF hochladen",
     uploadDropzone: "PDF hierher ziehen oder klicken zum Auswählen",
     uploadHint: "DIN A4 Hochformat, max. 94 Blatt, max. 20 MB. Ziel-Format: PDF/A-1b.",
+    uploadZoneNotice:
+      "Ihr PDF wird beim Hochladen automatisch technisch geprüft (Format, Adresszonen, druckfreie Ränder). Halten Sie den Adressbereich auf Seite 1 gemäß Muster ein – oder lassen Sie ihn komplett frei und aktivieren Sie das Deckblatt: Dann erzeugt Versendio die Seite mit Absenderzeile und Empfängeradresse automatisch.",
+    uploadMusterDownload: "Muster-PDF mit Adresszonen herunterladen",
+    musterTitle: "Muster: PDF-Layout für den Briefversand (Schablone V3)",
+    musterZoneSender: "Absenderzeile (1 Zeile)",
+    musterZoneDvf: "Muss vollständig frei bleiben (DV-Freimachung)",
+    musterZoneRecipient: "Empfängeradresse (max. 6 Zeilen)",
+    musterZoneMargins: "Druckfreier Bereich: links 12 mm, oben/rechts/unten 2 mm",
+    musterNotes: [
+      "DIN A4 Hochformat, exakt 210 × 297 mm – andere Formate werden abgelehnt.",
+      "Die rot markierte DV-Freimachungszone muss auf Seite 1 vollständig frei bleiben.",
+      "Empfängeradresse in das markierte Fenster setzen (max. 6 Zeilen), Absenderzeile einzeilig darüber.",
+      "Alternativ: Adressbereich komplett freilassen und beim Upload das Deckblatt aktivieren – Versendio erzeugt die Adressseite dann automatisch.",
+      "Der linke Rand (12 mm) und 2 mm an allen übrigen Rändern bleiben auf allen Seiten druckfrei.",
+      "Keine eigenen Falzmarken drucken – die Deutsche Post fügt sie hinzu.",
+      "Eigene Kopf- und Fußzeilen sind außerhalb der markierten Zonen erlaubt.",
+    ],
     letterName: "Bezeichnung des Briefs",
     letterNamePlaceholder: "z. B. Angebot Frühjahr 2026",
     noFile: "Bitte wählen Sie eine PDF-Datei aus.",
@@ -235,6 +252,8 @@ export const de = {
     recommendedBadge: "Empfohlen",
     previewAfterSave: "Speichern Sie den Brief, um die Vorschau zu sehen.",
 
+    sendAction: "Versenden",
+
     // Visual Builder (v2)
     blockHeading: "Überschrift",
     blockDivider: "Trennlinie",
@@ -279,6 +298,27 @@ export const de = {
       "Der Brief-Editor ist für größere Bildschirme optimiert. Auf diesem Gerät wird der Brief schreibgeschützt angezeigt.",
     fontCoverageWarning: "Diese Zeichen können mit der gewählten Schrift nicht gedruckt werden:",
     colorPrintHint: "Farben werden nur bei Versand mit Farbdruck farbig gedruckt, sonst in Graustufen.",
+
+    // Kopf-/Fußbereich & Briefpapier
+    headerSection: "Kopfbereich",
+    headerTextLabel: "Kopfzeilen",
+    headerTextPlaceholder: "z. B. Firmenname, Telefon, E-Mail – eine Angabe je Zeile",
+    headerTextHint: "Erscheint oben auf der ersten Seite, gegenüber dem Logo.",
+    logoPositionLabel: "Logo-Position",
+    footerSection: "Fußbereich",
+    footerTextLabel: "Fußzeilen",
+    footerTextPlaceholder: "z. B. Firmenangaben, Registergericht, Bankverbindung",
+    footerTextHint: "Erscheint klein am unteren Rand der ersten Seite.",
+    letterheadSection: "Briefpapier",
+    letterheadSelect: "Gespeichertes Briefpapier",
+    applyLetterhead: "Anwenden",
+    saveAsLetterhead: "Als Briefpapier speichern",
+    letterheadNamePlaceholder: "Name des Briefpapiers",
+    letterheadSaved: "Das Briefpapier wurde gespeichert.",
+    letterheadApplied: "Das Briefpapier wurde übernommen.",
+    letterheadHint:
+      "Briefpapier bündelt Schrift, Farben, Logo sowie Kopf- und Fußbereich – für ein einheitliches Erscheinungsbild aller Briefe.",
+    noLetterheads: "Noch kein Briefpapier gespeichert.",
 
     // KI-Entwurf
     aiButton: "KI-Entwurf",

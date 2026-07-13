@@ -223,8 +223,25 @@ Bild-/Logo-Bausteine im Editor-UI vertagt (Datenmodell und Rendering vorhanden).
 - [x] `npm run setup:epost`: interaktives Erst-Setup der API-Credentials per SMS-TAN
   (`smsRequest` → TAN → `setPassword` → `secret`), Login-Verifikation, optionales Eintragen in
   `.env.local`; Doku aktualisiert (EPOST_INTEGRATION §1, README, .env.example)
-- [ ] Skript gegen den echten Account ausführen (SMS-TAN benötigt — nur der Betreiber kann das),
-  danach Testplan `docs/EPOST_INTEGRATION.md` §4 Stufe 1–3
+- [x] Skript ausgeführt, Credentials komplett; `MOCK_MODE=false` lokal; Health-Check OK
+- [ ] Testplan `docs/EPOST_INTEGRATION.md` §4: Probeversand (testFlag, kostenlos) → 1 echter Brief
+
+## Nach Übergabe — Briefpapier & DIN-Satzspiegel (2026-07-13)
+
+- [x] **DIN-5008-Satzspiegel** (`theme.marginStyle`): Fließtext fluchtet mit dem Adressblock
+  (links 25mm, rechts 20mm). Bestandsdokumente behalten per Zod-Default den alten Satzspiegel
+  (Blattzahl = gebuchter Preis, A-010-Analogie); der Editor hebt Nicht-Legacy-Briefe beim Öffnen
+  auf DIN an (als ungespeicherte Änderung markiert)
+- [x] **Kopf-/Fußbereich** (`document.header/footer`): Kontaktblock gegenüber dem Logo (Band
+  12–43mm, kollisionsfrei zu Absenderzeile/DVF per Konstruktion), Kleingedrucktes 279–293mm —
+  beide außerhalb des Textflusses, ändern nie die Paginierung; WYSIWYG-Parität im Canvas
+- [x] **Briefpapier**: Theme+Logo+Kopf+Fuß als benanntes Preset (letter_templates.kind,
+  Migration 20260713170000 angewendet); Anwenden erhält legacyLayout/marginStyle des Zielbriefs
+- [x] **Muster-PDF für Uploads** (`/app/briefe/hochladen/muster`): Zonen aus derselben
+  Geometriequelle wie der Validator; das Muster besteht die eigene Upload-Prüfung (Test)
+- [x] **Navigation**: Logo größer, Leadlisten als Unterpunkt von Kontakte, „Brief versenden" aus
+  dem Hauptmenü → „Versenden"-Button je versandbereitem Brief (`/app/versand?brief=<id>`)
+- [x] DoD: Build ✅ Lint ✅ Typecheck ✅ **130 Unit-Tests** ✅ (10 neue)
 
 ## Nächster Schritt
 

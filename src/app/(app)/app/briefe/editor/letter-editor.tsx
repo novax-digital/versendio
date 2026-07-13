@@ -43,6 +43,16 @@ import { de } from "@/lib/i18n/de";
 type SenderAddress = { id: string; label: string; sender_line: string; is_default: boolean };
 type Template = { id: string; name: string; editor_document: unknown };
 
+/**
+ * Non-legacy documents are upgraded to the DIN 5008 content frame on open so
+ * the body aligns with the address block. Legacy (v1) documents keep their
+ * frozen metrics — their stored pagination equals the booked price.
+ */
+function modernizeMarginStyle(doc: LetterDocument): LetterDocument {
+  if (doc.theme.legacyLayout || doc.theme.marginStyle === "din") return doc;
+  return { ...doc, theme: { ...doc.theme, marginStyle: "din" } };
+}
+
 let blockCounter = 0;
 const nextId = () => `b${Date.now()}-${blockCounter++}`;
 
@@ -69,6 +79,7 @@ export function LetterEditor({
   initialDocument,
   senderAddresses,
   templates,
+  letterheads,
   aiMock,
   aiEnabled,
 }: {
@@ -77,19 +88,24 @@ export function LetterEditor({
   initialDocument: LetterDocument;
   senderAddresses: SenderAddress[];
   templates: Template[];
+  letterheads: Template[];
   aiMock: boolean;
   aiEnabled: boolean;
 }) {
   const router = useRouter();
   const [title, setTitle] = useState(initialTitle);
-  const [doc, setDoc] = useState<LetterDocument>(initialDocument);
+  const [doc, setDoc] = useState<LetterDocument>(() => modernizeMarginStyle(initialDocument));
   const [savedId, setSavedId] = useState<string | null>(letterId);
   const [previewVersion, setPreviewVersion] = useState(0);
   const [isSaving, startSaving] = useTransition();
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
   const [templateName, setTemplateName] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [dirty, setDirty] = useState(false);
+  // A margin-style upgrade counts as an unsaved change (the stored letter
+  // still renders with the old frame until re-saved).
+  const [dirty, setDirty] = useState(
+    letterId !== null && modernizeMarginStyle(initialDocument) !== initialDocument,
+  );
   const [showZones, setShowZones] = useState(false);
   const [showSampleData, setShowSampleData] = useState(false);
   const [zoom, setZoom] = useState<"fit" | "full">("fit");
@@ -138,7 +154,9 @@ export function LetterEditor({
     }
     const hasContent = doc.blocks.some((b) => "text" in b && b.text.trim().length > 0);
     if (hasContent && !window.confirm(de.letters.templateLoadConfirm)) return;
-    updateDoc((prev) => ({ ...parsed.data, senderAddressId: prev.senderAddressId }));
+    updateDoc((prev) =>
+      modernizeMarginStyle({ ...parsed.data, senderAddressId: prev.senderAddressId }),
+    );
     if (!title.trim()) setTitle(template.name);
     setSelectedId(null);
     toast.success(de.letters.templateLoaded);
@@ -179,11 +197,66 @@ export function LetterEditor({
   );
 
   const updateDocFields = useCallback(
-    (patch: Partial<Pick<LetterDocument, "logoStoragePath" | "showDate" | "senderAddressId">>) => {
+    (
+      patch: Partial<
+        Pick<
+          LetterDocument,
+          "logoStoragePath" | "header" | "footer" | "showDate" | "senderAddressId"
+        >
+      >,
+    ) => {
       updateDoc((prev) => ({ ...prev, ...patch }));
     },
     [updateDoc],
   );
+
+  /**
+   * Applies a saved letterhead: typography, logo, header/footer and date
+   * switch — content blocks and the sender address stay. The pagination
+   * gates (legacyLayout, marginStyle) of the CURRENT document are preserved
+   * so applying a letterhead can never silently re-price a legacy letter.
+   */
+  const applyLetterhead = (id: string) => {
+    const letterhead = letterheads.find((l) => l.id === id);
+    if (!letterhead) return;
+    const parsed = safeParseLetterDocument(letterhead.editor_document);
+    if (!parsed.success) {
+      toast.error(de.letters.saveFailed);
+      return;
+    }
+    const source = parsed.data;
+    updateDoc((prev) => ({
+      ...prev,
+      theme: {
+        ...source.theme,
+        legacyLayout: prev.theme.legacyLayout,
+        marginStyle: prev.theme.marginStyle,
+      },
+      logoStoragePath: source.logoStoragePath,
+      header: source.header,
+      footer: source.footer,
+      showDate: source.showDate,
+    }));
+    toast.success(de.letters.letterheadApplied);
+  };
+
+  const saveLetterhead = (name: string) => {
+    startSaving(async () => {
+      // A letterhead is a content-free document: theme + logo + header/footer.
+      const letterheadDoc: LetterDocument = { ...doc, blocks: [] };
+      const result = await saveTemplateAction(null, {
+        name,
+        document: letterheadDoc,
+        kind: "letterhead",
+      });
+      if (result.ok) {
+        toast.success(de.letters.letterheadSaved);
+        router.refresh();
+      } else {
+        toast.error(result.error);
+      }
+    });
+  };
 
   /** Inserts after the selected block (or at the end) and selects the new block. */
   const insertBlock = (block: LetterBlock) => {
@@ -561,9 +634,12 @@ export function LetterEditor({
             doc={doc}
             selected={selectedBlock}
             senderAddresses={senderAddresses}
+            letterheads={letterheads.map((l) => ({ id: l.id, name: l.name }))}
             onChangeBlock={updateBlock}
             onChangeTheme={updateTheme}
             onChangeDoc={updateDocFields}
+            onApplyLetterhead={applyLetterhead}
+            onSaveLetterhead={saveLetterhead}
           />
         </div>
       </div>
