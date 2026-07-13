@@ -32,12 +32,21 @@ import { de } from "@/lib/i18n/de";
 export function AiDraftDialog({
   mock,
   onDraft,
+  open: controlledOpen,
+  onOpenChange,
+  hideTrigger = false,
 }: {
   /** True when no AI key is configured — the MockDraftProvider will answer. */
   mock: boolean;
   onDraft: (draft: { betreff: string; absaetze: string[] }) => void;
+  /** Controlled mode: open state lifted so other UI can launch the dialog. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  hideTrigger?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = controlledOpen ?? internalOpen;
+  const setOpen = onOpenChange ?? setInternalOpen;
   const [anlass, setAnlass] = useState("");
   const [stichpunkte, setStichpunkte] = useState("");
   const [tonalitaet, setTonalitaet] = useState<"formell" | "freundlich" | "verbindlich">("formell");
@@ -64,10 +73,12 @@ export function AiDraftDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button variant="outline" />}>
-        <Sparkles className="size-4" aria-hidden />
-        {de.letters.aiButton}
-      </DialogTrigger>
+      {!hideTrigger ? (
+        <DialogTrigger render={<Button variant="outline" />}>
+          <Sparkles className="size-4" aria-hidden />
+          {de.letters.aiButton}
+        </DialogTrigger>
+      ) : null}
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{de.letters.aiDialogTitle}</DialogTitle>

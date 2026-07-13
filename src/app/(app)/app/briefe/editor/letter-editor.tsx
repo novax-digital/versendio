@@ -1,15 +1,20 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import {
+  Ellipsis,
   Eye,
-  Heading,
-  ImagePlus,
-  Minus,
-  MoveVertical,
-  Type,
+  FileText,
+  Frame,
+  Info,
+  LayoutTemplate,
+  PenLine,
+  Plus,
+  Sparkles,
+  Users,
 } from "lucide-react";
 import { saveEditorLetterAction, saveTemplateAction, uploadAssetAction } from "../actions";
 import { safeParseLetterDocument } from "@/lib/shared/letter-document";
@@ -17,6 +22,7 @@ import type { LetterBlock, LetterDocument, LetterTheme } from "@/lib/shared/lett
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -25,33 +31,27 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { LetterPreview } from "@/components/letters/letter-preview";
 import { LetterCanvas } from "@/components/letters/letter-canvas";
 import { BlockInspector } from "@/components/letters/block-inspector";
+import { BlockInsertMenuContent } from "@/components/letters/block-insert-menu";
 import { AiDraftDialog } from "@/components/letters/ai-draft-dialog";
 import { PLACEHOLDER_KEYS, PLACEHOLDER_LABELS, unknownPlaceholders } from "@/lib/shared/placeholders";
 import { sheetsFromPages } from "@/lib/shared/sheets";
+import { cn } from "@/lib/utils";
 import { de } from "@/lib/i18n/de";
 
 type SenderAddress = { id: string; label: string; sender_line: string; is_default: boolean };
 type Template = { id: string; name: string; editor_document: unknown };
-
-/**
- * Non-legacy documents are upgraded to the DIN 5008 content frame on open so
- * the body aligns with the address block. Legacy (v1) documents keep their
- * frozen metrics — their stored pagination equals the booked price.
- */
-function modernizeMarginStyle(doc: LetterDocument): LetterDocument {
-  if (doc.theme.legacyLayout || doc.theme.marginStyle === "din") return doc;
-  return { ...doc, theme: { ...doc.theme, marginStyle: "din" } };
-}
 
 let blockCounter = 0;
 const nextId = () => `b${Date.now()}-${blockCounter++}`;
@@ -71,6 +71,16 @@ function newBlock(type: LetterBlock["type"]): LetterBlock {
     case "image":
       return { type: "image", id: nextId(), storagePath: "", widthMm: 80, align: "left" };
   }
+}
+
+/**
+ * Non-legacy documents are upgraded to the DIN 5008 content frame on open so
+ * the body aligns with the address block. Legacy (v1) documents keep their
+ * frozen metrics — their stored pagination equals the booked price.
+ */
+function modernizeMarginStyle(doc: LetterDocument): LetterDocument {
+  if (doc.theme.legacyLayout || doc.theme.marginStyle === "din") return doc;
+  return { ...doc, theme: { ...doc.theme, marginStyle: "din" } };
 }
 
 export function LetterEditor({
@@ -100,27 +110,33 @@ export function LetterEditor({
   const [isSaving, startSaving] = useTransition();
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
   const [templateName, setTemplateName] = useState("");
+  const [pendingTemplate, setPendingTemplate] = useState<Template | null>(null);
+  const [aiOpen, setAiOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   // A margin-style upgrade counts as an unsaved change (the stored letter
   // still renders with the old frame until re-saved).
   const [dirty, setDirty] = useState(
     letterId !== null && modernizeMarginStyle(initialDocument) !== initialDocument,
   );
+  const [titleInvalid, setTitleInvalid] = useState(false);
   const [showZones, setShowZones] = useState(false);
   const [showSampleData, setShowSampleData] = useState(false);
   const [zoom, setZoom] = useState<"fit" | "full">("fit");
   const [estimatedPages, setEstimatedPages] = useState(1);
+  const [forceOpenHeaderFooter, setForceOpenHeaderFooter] = useState(0);
+  const [leaveHref, setLeaveHref] = useState<string | null>(null);
+  const bypassGuardRef = useRef(false);
   const activeTextRef = useRef<
     | { kind: "block"; blockId: string; el: HTMLTextAreaElement }
     | { kind: "header" | "footer"; el: HTMLTextAreaElement }
     | null
   >(null);
-  // Shown while an auto-upgrade to the DIN frame is unsaved — the stored
-  // letter still renders (and is priced) with the old frame until re-saved.
+  const titleRef = useRef<HTMLInputElement>(null);
+  const wellImageRef = useRef<HTMLInputElement>(null);
   const marginUpgraded =
-    letterId !== null && initialDocument.theme.marginStyle === "classic" && !initialDocument.theme.legacyLayout;
-  const imageFileRef = useRef<HTMLInputElement>(null);
-  const [isUploadingImage, startImageUpload] = useTransition();
+    letterId !== null &&
+    initialDocument.theme.marginStyle === "classic" &&
+    !initialDocument.theme.legacyLayout;
 
   const hasSender = senderAddresses.length > 0;
 
@@ -129,7 +145,7 @@ export function LetterEditor({
     setDirty(true);
   }, []);
 
-  // Unsaved-changes guard.
+  // Unsaved-changes guard for hard navigation.
   useEffect(() => {
     if (!dirty) return;
     const handler = (e: BeforeUnloadEvent) => {
@@ -137,6 +153,30 @@ export function LetterEditor({
     };
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
+  }, [dirty]);
+
+  // In-app navigation guard: App Router has no route-change event, so a
+  // capture-phase click listener intercepts same-origin link clicks while
+  // dirty and offers save-and-leave.
+  useEffect(() => {
+    if (!dirty) return;
+    const handler = (e: MouseEvent) => {
+      if (bypassGuardRef.current) return;
+      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey)
+        return;
+      const anchor = (e.target as HTMLElement | null)?.closest?.("a[href]");
+      if (!anchor) return;
+      const href = anchor.getAttribute("href");
+      if (!href || href.startsWith("#")) return;
+      if (anchor.getAttribute("target") === "_blank" || anchor.hasAttribute("download")) return;
+      const url = new URL(href, window.location.origin);
+      if (url.origin !== window.location.origin) return;
+      e.preventDefault();
+      e.stopPropagation();
+      setLeaveHref(url.pathname + url.search);
+    };
+    document.addEventListener("click", handler, true);
+    return () => document.removeEventListener("click", handler, true);
   }, [dirty]);
 
   const senderLine = useMemo(() => {
@@ -154,20 +194,35 @@ export function LetterEditor({
 
   const selectedBlock = doc.blocks.find((b) => b.id === selectedId) ?? null;
 
+  // Pristine document → Schnellstart card (gated on !dirty per jury verdict).
+  const pristine =
+    !dirty &&
+    !savedId &&
+    doc.blocks.every((b) => !("text" in b) || b.text.trim() === "") &&
+    !doc.blocks.some((b) => b.type === "image");
+
   const loadTemplate = (template: Template) => {
     const parsed = safeParseLetterDocument(template.editor_document);
     if (!parsed.success) {
       toast.error(de.letters.templateLoadFailed);
       return;
     }
-    const hasContent = doc.blocks.some((b) => "text" in b && b.text.trim().length > 0);
-    if (hasContent && !window.confirm(de.letters.templateLoadConfirm)) return;
     updateDoc((prev) =>
       modernizeMarginStyle({ ...parsed.data, senderAddressId: prev.senderAddressId }),
     );
     if (!title.trim()) setTitle(template.name);
     setSelectedId(null);
+    setPendingTemplate(null);
     toast.success(de.letters.templateLoaded);
+  };
+
+  const requestTemplate = (template: Template) => {
+    const hasContent = doc.blocks.some((b) => "text" in b && b.text.trim().length > 0);
+    if (hasContent) {
+      setPendingTemplate(template);
+    } else {
+      loadTemplate(template);
+    }
   };
 
   const saveTemplate = () => {
@@ -181,6 +236,47 @@ export function LetterEditor({
         toast.success(de.letters.saved);
         setTemplateDialogOpen(false);
         setTemplateName("");
+      } else {
+        toast.error(result.error);
+      }
+    });
+  };
+
+  const applyLetterhead = (id: string) => {
+    const letterhead = letterheads.find((l) => l.id === id);
+    if (!letterhead) return;
+    const parsed = safeParseLetterDocument(letterhead.editor_document);
+    if (!parsed.success) {
+      toast.error(de.letters.letterheadLoadFailed);
+      return;
+    }
+    const source = parsed.data;
+    updateDoc((prev) => ({
+      ...prev,
+      theme: {
+        ...source.theme,
+        legacyLayout: prev.theme.legacyLayout,
+        marginStyle: prev.theme.marginStyle,
+      },
+      logoStoragePath: source.logoStoragePath,
+      header: source.header,
+      footer: source.footer,
+      showDate: source.showDate,
+    }));
+    toast.success(de.letters.letterheadApplied);
+  };
+
+  const saveLetterhead = (name: string) => {
+    startSaving(async () => {
+      const letterheadDoc: LetterDocument = { ...doc, blocks: [] };
+      const result = await saveTemplateAction(null, {
+        name,
+        document: letterheadDoc,
+        kind: "letterhead",
+      });
+      if (result.ok) {
+        toast.success(de.letters.letterheadSaved);
+        router.refresh();
       } else {
         toast.error(result.error);
       }
@@ -218,80 +314,36 @@ export function LetterEditor({
     [updateDoc],
   );
 
-  /**
-   * Applies a saved letterhead: typography, logo, header/footer and date
-   * switch — content blocks and the sender address stay. The pagination
-   * gates (legacyLayout, marginStyle) of the CURRENT document are preserved
-   * so applying a letterhead can never silently re-price a legacy letter.
-   */
-  const applyLetterhead = (id: string) => {
-    const letterhead = letterheads.find((l) => l.id === id);
-    if (!letterhead) return;
-    const parsed = safeParseLetterDocument(letterhead.editor_document);
-    if (!parsed.success) {
-      toast.error(de.letters.letterheadLoadFailed);
-      return;
-    }
-    const source = parsed.data;
-    updateDoc((prev) => ({
-      ...prev,
-      theme: {
-        ...source.theme,
-        legacyLayout: prev.theme.legacyLayout,
-        marginStyle: prev.theme.marginStyle,
-      },
-      logoStoragePath: source.logoStoragePath,
-      header: source.header,
-      footer: source.footer,
-      showDate: source.showDate,
-    }));
-    toast.success(de.letters.letterheadApplied);
-  };
-
-  const saveLetterhead = (name: string) => {
-    startSaving(async () => {
-      // A letterhead is a content-free document: theme + logo + header/footer.
-      const letterheadDoc: LetterDocument = { ...doc, blocks: [] };
-      const result = await saveTemplateAction(null, {
-        name,
-        document: letterheadDoc,
-        kind: "letterhead",
-      });
-      if (result.ok) {
-        toast.success(de.letters.letterheadSaved);
-        router.refresh();
-      } else {
-        toast.error(result.error);
-      }
-    });
-  };
-
   /** Inserts after the selected block (or at the end) and selects the new block. */
-  const insertBlock = (block: LetterBlock) => {
+  const insertBlock = (block: LetterBlock, at?: number) => {
     updateDoc((prev) => {
-      const idx = prev.blocks.findIndex((b) => b.id === selectedId);
-      const at = idx >= 0 ? idx + 1 : prev.blocks.length;
+      const idx = at ?? (() => {
+        const selIdx = prev.blocks.findIndex((b) => b.id === selectedId);
+        return selIdx >= 0 ? selIdx + 1 : prev.blocks.length;
+      })();
       const blocks = [...prev.blocks];
-      blocks.splice(at, 0, block);
+      blocks.splice(Math.min(idx, blocks.length), 0, block);
       return { ...prev, blocks };
     });
     setSelectedId(block.id);
     requestAnimationFrame(() => {
-      document
-        .querySelector(`[data-block-id="${block.id}"]`)
-        ?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      const el = document.querySelector(`[data-block-id="${block.id}"]`);
+      el?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      el?.querySelector("textarea")?.focus();
     });
   };
 
   const addBlock = (type: Exclude<LetterBlock["type"], "image">) => insertBlock(newBlock(type));
+  const appendBlock = (type: Exclude<LetterBlock["type"], "image">) =>
+    insertBlock(newBlock(type), doc.blocks.length);
 
-  const addImageBlock = (file: File) => {
-    startImageUpload(async () => {
+  const addImageBlock = (file: File, at?: number) => {
+    startSaving(async () => {
       const formData = new FormData();
       formData.append("file", file);
       const result = await uploadAssetAction(null, formData);
       if (result.ok && result.data) {
-        insertBlock({ ...newBlock("image"), storagePath: result.data.path } as LetterBlock);
+        insertBlock({ ...newBlock("image"), storagePath: result.data.path } as LetterBlock, at);
       } else {
         toast.error(result.ok ? de.common.genericError : result.error);
       }
@@ -299,8 +351,22 @@ export function LetterEditor({
   };
 
   const removeBlock = (id: string) => {
+    const idx = doc.blocks.findIndex((b) => b.id === id);
+    if (idx < 0) return;
+    const removed = doc.blocks[idx];
     updateDoc((prev) => ({ ...prev, blocks: prev.blocks.filter((b) => b.id !== id) }));
     if (selectedId === id) setSelectedId(null);
+    toast(de.letters.blockRemoved, {
+      action: {
+        label: de.letters.undo,
+        onClick: () =>
+          updateDoc((prev) => {
+            const blocks = [...prev.blocks];
+            blocks.splice(Math.min(idx, blocks.length), 0, removed);
+            return { ...prev, blocks };
+          }),
+      },
+    });
   };
 
   const duplicateBlock = (id: string) => {
@@ -350,8 +416,6 @@ export function LetterEditor({
         footer: { text: doc.footer.text.slice(0, start) + token + doc.footer.text.slice(end) },
       });
     }
-    // Restore focus and place the caret after the inserted token so a second
-    // insert lands at the right position instead of the text end.
     requestAnimationFrame(() => {
       el.focus();
       const pos = start + token.length;
@@ -367,7 +431,6 @@ export function LetterEditor({
     if (draft.absaetze.length === 0 && !draft.betreff.trim()) return;
     updateDoc((prev) => {
       const blocks = [...prev.blocks];
-      // Fill the existing empty subject (default doc) instead of duplicating it.
       const subjectIdx = blocks.findIndex((b) => b.type === "subject" && !b.text.trim());
       if (subjectIdx >= 0) {
         blocks[subjectIdx] = { ...blocks[subjectIdx], text: draft.betreff } as LetterBlock;
@@ -401,278 +464,547 @@ export function LetterEditor({
     return [...found];
   }, [doc.blocks, doc.header.text, doc.footer.text]);
 
-  const save = (onSaved?: (id: string) => void) => {
-    if (!title.trim()) {
-      toast.error(de.validation.fieldRequired);
-      return;
-    }
-    startSaving(async () => {
-      const result = await saveEditorLetterAction(null, { id: savedId, title, document: doc });
-      if (result.ok && result.data) {
-        setSavedId(result.data.letterId);
-        setPreviewVersion((v) => v + 1);
-        setDirty(false);
-        toast.success(de.letters.saved);
-        onSaved?.(result.data.letterId);
-      } else {
-        toast.error(result.ok ? de.letters.saveFailed : result.error);
+  const save = useCallback(
+    (onSaved?: (id: string) => void) => {
+      if (!title.trim()) {
+        toast.error(de.validation.fieldRequired);
+        setTitleInvalid(true);
+        titleRef.current?.focus();
+        return;
       }
+      startSaving(async () => {
+        const result = await saveEditorLetterAction(null, { id: savedId, title, document: doc });
+        if (result.ok && result.data) {
+          setSavedId(result.data.letterId);
+          setPreviewVersion((v) => v + 1);
+          setDirty(false);
+          toast.success(de.letters.saved);
+          onSaved?.(result.data.letterId);
+        } else {
+          toast.error(result.ok ? de.letters.saveFailed : result.error);
+        }
+      });
+    },
+    [title, savedId, doc],
+  );
+
+  // Keyboard shortcuts: Cmd/Ctrl+S save, Escape deselect; outside text fields:
+  // Alt+arrows move, Cmd/Ctrl+D duplicate, Delete removes non-text blocks.
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        save();
+        return;
+      }
+      if (e.key === "Escape") {
+        setSelectedId(null);
+        return;
+      }
+      const target = e.target as HTMLElement | null;
+      const inText =
+        target && (target.tagName === "TEXTAREA" || target.tagName === "INPUT" || target.isContentEditable);
+      if (inText || !selectedId) return;
+      if (e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
+        e.preventDefault();
+        moveBlock(selectedId, e.key === "ArrowUp" ? -1 : 1);
+      } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "d") {
+        e.preventDefault();
+        duplicateBlock(selectedId);
+      } else if (e.key === "Delete" || e.key === "Backspace") {
+        const block = doc.blocks.find((b) => b.id === selectedId);
+        if (block && (block.type === "divider" || block.type === "spacer" || block.type === "image")) {
+          e.preventDefault();
+          removeBlock(selectedId);
+        }
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  });
+
+  const onEditChrome = (kind: "header" | "footer") => {
+    setForceOpenHeaderFooter((n) => n + 1);
+    requestAnimationFrame(() => {
+      const el = document.getElementById(kind === "header" ? "header-text" : "footer-text");
+      el?.scrollIntoView({ block: "center", behavior: "smooth" });
+      (el as HTMLTextAreaElement | null)?.focus();
     });
   };
 
+  const leave = (href: string, viaSave: boolean) => {
+    bypassGuardRef.current = true;
+    if (viaSave) {
+      save(() => router.push(href));
+    } else {
+      router.push(href);
+    }
+    setLeaveHref(null);
+  };
+
   const estimatedSheets = sheetsFromPages(estimatedPages, false);
+  const canvasProps = {
+    doc,
+    senderLine,
+    recipientLines,
+    selectedId,
+    showZones,
+    showSampleData,
+    onSelect: setSelectedId,
+    onChangeBlock: updateBlock,
+    onMoveBlock: moveBlock,
+    onRemoveBlock: removeBlock,
+    onDuplicateBlock: duplicateBlock,
+    onEstimate: setEstimatedPages,
+  };
 
   return (
-    <div className="mx-auto max-w-[1400px] space-y-4">
-      {/* Top bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold">{de.letters.editorTitle}</h1>
-          <p className="text-muted-foreground text-sm">{de.letters.editorSubtitle}</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {dirty ? (
-            <Badge variant="outline" className="border-warning text-warning">
-              {de.letters.unsavedChanges}
-            </Badge>
-          ) : null}
-          {aiEnabled ? <AiDraftDialog mock={aiMock} onDraft={insertAiDraft} /> : null}
-          {templates.length > 0 ? (
+    <div className="-mx-4 -mt-4 md:-mx-8 md:-mt-8">
+      {/* Sticky top bar */}
+      <div className="bg-background/95 sticky top-0 z-30 border-b backdrop-blur">
+        <div className="mx-auto flex h-14 max-w-[1400px] items-center gap-2 px-4 md:px-8">
+          <Link
+            href="/app/briefe"
+            className="text-muted-foreground hover:text-foreground shrink-0 text-sm transition-colors"
+          >
+            {de.nav.letters}
+          </Link>
+          <span className="text-muted-foreground/60 text-sm" aria-hidden>
+            /
+          </span>
+          <Label htmlFor="letter-title" className="sr-only">
+            {de.letters.letterName}
+          </Label>
+          <Input
+            ref={titleRef}
+            id="letter-title"
+            value={title}
+            aria-invalid={titleInvalid || undefined}
+            onChange={(e) => {
+              setTitle(e.target.value);
+              setTitleInvalid(false);
+              setDirty(true);
+            }}
+            placeholder={de.letters.letterNamePlaceholder}
+            className={cn(
+              "font-heading hover:bg-muted/60 focus-visible:bg-background h-9 w-[22rem] max-w-full border-transparent bg-transparent px-2 text-lg font-medium shadow-none",
+              titleInvalid && "border-destructive ring-destructive/30 ring-2",
+            )}
+          />
+          <span className="text-muted-foreground hidden shrink-0 items-center gap-1.5 text-xs lg:flex">
+            {isSaving ? (
+              de.common.saving
+            ) : dirty ? (
+              <>
+                <span className="bg-warning size-1.5 rounded-full" aria-hidden />
+                {de.letters.unsavedChanges}
+              </>
+            ) : savedId ? (
+              de.letters.savedStatus
+            ) : null}
+          </span>
+
+          <div className="ml-auto flex shrink-0 items-center gap-2">
+            {aiEnabled ? (
+              <Button
+                variant="secondary"
+                className="hidden md:inline-flex"
+                onClick={() => setAiOpen(true)}
+              >
+                <Sparkles className="size-4" aria-hidden />
+                {de.letters.aiButton}
+              </Button>
+            ) : null}
             <DropdownMenu>
-              <DropdownMenuTrigger render={<Button variant="ghost" />}>
-                {de.letters.useTemplate}
+              <DropdownMenuTrigger
+                render={
+                  <Button variant="ghost" size="icon" aria-label={de.letters.moreActions} />
+                }
+              >
+                <Ellipsis className="size-4" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                {templates.map((t) => (
-                  <DropdownMenuItem key={t.id} onSelect={() => loadTemplate(t)}>
-                    {t.name}
-                  </DropdownMenuItem>
-                ))}
+                {templates.length > 0 ? (
+                  <>
+                    <DropdownMenuLabel>{de.letters.useTemplate}</DropdownMenuLabel>
+                    {templates.map((t) => (
+                      <DropdownMenuItem key={t.id} onSelect={() => requestTemplate(t)}>
+                        <LayoutTemplate className="size-4" aria-hidden />
+                        {t.name}
+                      </DropdownMenuItem>
+                    ))}
+                    <DropdownMenuSeparator />
+                  </>
+                ) : null}
+                <DropdownMenuItem onSelect={() => setTemplateDialogOpen(true)}>
+                  {de.letters.saveAsTemplate}
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-          ) : null}
-          <Dialog open={templateDialogOpen} onOpenChange={setTemplateDialogOpen}>
-            <DialogTrigger render={<Button variant="ghost" disabled={!hasSender} />}>
-              {de.letters.saveAsTemplate}
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-sm">
-              <DialogHeader>
-                <DialogTitle>{de.letters.saveAsTemplate}</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-3">
-                <Input
-                  value={templateName}
-                  onChange={(e) => setTemplateName(e.target.value)}
-                  placeholder={de.letters.templates}
-                />
-                <Button onClick={saveTemplate} disabled={isSaving} className="w-full">
-                  {de.common.save}
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
-          <Button variant="outline" onClick={() => save()} disabled={isSaving || !hasSender}>
-            {isSaving ? de.common.saving : de.common.save}
-          </Button>
-          <Button
-            onClick={() => save((id) => router.push(`/app/briefe/${id}`))}
-            disabled={isSaving || !hasSender}
-          >
-            {de.common.next}
-          </Button>
-        </div>
-      </div>
-
-      {!hasSender ? (
-        <p className="bg-destructive/10 text-destructive rounded-md p-3 text-sm">
-          {de.letters.noSenderAddress}
-        </p>
-      ) : null}
-
-      {marginUpgraded && dirty ? (
-        <p className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
-          {de.letters.marginUpgradeNotice}
-        </p>
-      ) : null}
-
-      <div className="space-y-1.5">
-        <Label htmlFor="letter-title">{de.letters.letterName}</Label>
-        <Input
-          id="letter-title"
-          value={title}
-          onChange={(e) => {
-            setTitle(e.target.value);
-            setDirty(true);
-          }}
-          placeholder={de.letters.letterNamePlaceholder}
-          className="max-w-md"
-        />
-      </div>
-
-      <p className="bg-muted text-muted-foreground rounded-md p-2 text-xs md:hidden">
-        {de.letters.mobileReadOnlyHint}
-      </p>
-
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_300px]">
-        {/* Canvas column */}
-        <div className="min-w-0 space-y-3">
-          {/* Block palette + canvas toolbar (editing is desktop-only) */}
-          <div className="hidden flex-wrap items-center gap-2 md:flex">
-            <span className="text-muted-foreground text-xs font-medium">{de.letters.addBlock}:</span>
-            <Button variant="outline" size="sm" onClick={() => addBlock("subject")}>
-              <Heading className="size-3.5" aria-hidden /> {de.letters.blockSubject}
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => addBlock("heading")}>
-              <Heading className="size-3.5" aria-hidden /> {de.letters.blockHeading}
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => addBlock("text")}>
-              <Type className="size-3.5" aria-hidden /> {de.letters.blockText}
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => addBlock("divider")}>
-              <Minus className="size-3.5" aria-hidden /> {de.letters.blockDivider}
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => addBlock("spacer")}>
-              <MoveVertical className="size-3.5" aria-hidden /> {de.letters.blockSpacer}
-            </Button>
-            <input
-              ref={imageFileRef}
-              type="file"
-              accept="image/png,image/jpeg"
-              className="hidden"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) addImageBlock(file);
-                e.target.value = "";
-              }}
-            />
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={isUploadingImage}
-              onClick={() => imageFileRef.current?.click()}
+            <span
+              className="hidden md:inline-flex"
+              title={!savedId ? de.letters.firstSaveRequired : undefined}
             >
-              <ImagePlus className="size-3.5" aria-hidden /> {de.letters.blockImage}
-            </Button>
-          </div>
-
-          <div className="text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
-            <span>
-              {de.letters.estimateLabel}: ca. {estimatedPages}{" "}
-              {estimatedPages === 1 ? "Seite" : de.letters.pageCount} · {estimatedSheets}{" "}
-              {de.letters.sheetCount}
-            </span>
-            <label className="flex items-center gap-1.5">
-              <Switch checked={showZones} onCheckedChange={setShowZones} />
-              {de.letters.showZones}
-            </label>
-            <label className="flex items-center gap-1.5">
-              <Switch checked={showSampleData} onCheckedChange={setShowSampleData} />
-              {de.letters.sampleDataToggle}
-            </label>
-            <Button
-              variant="ghost"
-              size="xs"
-              onClick={() => setZoom(zoom === "fit" ? "full" : "fit")}
-            >
-              {zoom === "fit" ? de.letters.zoom100 : de.letters.zoomFit}
-            </Button>
-            {savedId ? (
               <Dialog>
-                <DialogTrigger render={<Button variant="ghost" size="xs" />}>
-                  <Eye className="size-3.5" aria-hidden /> {de.letters.pdfPreviewButton}
+                <DialogTrigger render={<Button variant="ghost" disabled={!savedId} />}>
+                  <Eye className="size-4" aria-hidden />
+                  <span className="hidden xl:inline">{de.letters.pdfPreviewButton}</span>
                 </DialogTrigger>
                 <DialogContent className="sm:max-w-xl">
                   <DialogHeader>
                     <DialogTitle>{de.letters.pdfPreviewButton}</DialogTitle>
                   </DialogHeader>
-                  <LetterPreview letterId={savedId} version={previewVersion} />
+                  {savedId ? <LetterPreview letterId={savedId} version={previewVersion} /> : null}
                   <p className="text-muted-foreground text-xs">{de.letters.estimateDisclaimer}</p>
                 </DialogContent>
               </Dialog>
-            ) : null}
+            </span>
+            <Button variant="outline" onClick={() => save()} disabled={isSaving || !hasSender}>
+              {isSaving ? de.common.saving : de.common.save}
+            </Button>
+            <Button
+              onClick={() => save((id) => {
+                bypassGuardRef.current = true;
+                router.push(`/app/briefe/${id}`);
+              })}
+              disabled={isSaving || !hasSender}
+            >
+              {de.common.next}
+            </Button>
           </div>
+        </div>
+      </div>
 
-          <div className="hidden md:block">
-            <LetterCanvas
-              doc={doc}
-              senderLine={senderLine}
-              recipientLines={recipientLines}
-              selectedId={selectedId}
-              readOnly={false}
-              showZones={showZones}
-              showSampleData={showSampleData}
-              zoom={zoom}
-              onSelect={setSelectedId}
-              onChangeBlock={updateBlock}
-              onMoveBlock={moveBlock}
-              onRemoveBlock={removeBlock}
-              onDuplicateBlock={duplicateBlock}
-              onFocusText={(blockId, el) => (activeTextRef.current = { kind: "block", blockId, el })}
-              onEstimate={setEstimatedPages}
-            />
+      {/* Notice banners */}
+      <div className="mx-auto max-w-[1400px] px-4 md:px-8">
+        {!hasSender ? (
+          <div className="border-destructive/40 bg-destructive/10 text-destructive mt-4 flex flex-wrap items-center justify-between gap-2 rounded-md border p-3 text-sm">
+            <span>{de.letters.noSenderAddress}</span>
+            <Link
+              href="/app/einstellungen/absenderadressen"
+              className="font-medium underline underline-offset-4"
+            >
+              {de.letters.createSenderAddress}
+            </Link>
           </div>
-          <div className="md:hidden">
-            <LetterCanvas
-              doc={doc}
-              senderLine={senderLine}
-              recipientLines={recipientLines}
-              selectedId={selectedId}
-              readOnly
-              showZones={false}
-              showSampleData={showSampleData}
-              zoom="fit"
-              onSelect={setSelectedId}
-              onChangeBlock={updateBlock}
-              onMoveBlock={moveBlock}
-              onRemoveBlock={removeBlock}
-              onDuplicateBlock={duplicateBlock}
-              onFocusText={() => undefined}
-              onEstimate={setEstimatedPages}
-            />
-          </div>
+        ) : null}
+        {marginUpgraded && dirty ? (
+          <p className="border-warning/40 bg-warning/10 text-foreground mt-4 rounded-md border p-3 text-sm">
+            {de.letters.marginUpgradeNotice}
+          </p>
+        ) : null}
+        <p className="bg-muted text-muted-foreground mt-4 rounded-md p-2 text-xs md:hidden">
+          {de.letters.mobileReadOnlyHint}
+        </p>
 
-          {/* Placeholder chips (Serienbrief) */}
-          <div className="space-y-2">
-            <p className="text-muted-foreground text-xs">{de.letters.placeholdersHint}</p>
-            <div className="hidden flex-wrap gap-2 md:flex">
+        <div className="grid gap-6 py-4 xl:grid-cols-[minmax(0,1fr)_320px]">
+          {/* Canvas column */}
+          <div className="min-w-0">
+            {/* Canvas chrome bar */}
+            <div className="mb-2 hidden items-center justify-between gap-2 md:flex">
+              <Tooltip>
+                <TooltipTrigger render={<Badge variant="outline" className="cursor-default" />}>
+                  <FileText className="size-3.5" aria-hidden />
+                  ca. {estimatedPages} {estimatedPages === 1 ? "Seite" : de.letters.pageCount} ·{" "}
+                  {estimatedSheets} {de.letters.sheetCount}
+                </TooltipTrigger>
+                <TooltipContent className="max-w-64">
+                  {de.letters.estimateDisclaimer} {de.letters.perRecipientHint}
+                </TooltipContent>
+              </Tooltip>
+              <div className="bg-muted flex items-center gap-0.5 rounded-lg p-0.5">
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={de.letters.showZones}
+                        aria-pressed={showZones}
+                        className={cn(showZones && "bg-background text-primary shadow-sm hover:bg-background")}
+                        onClick={() => setShowZones((v) => !v)}
+                      />
+                    }
+                  >
+                    <Frame className="size-3.5" />
+                  </TooltipTrigger>
+                  <TooltipContent>{de.letters.showZones}</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={de.letters.sampleDataToggle}
+                        aria-pressed={showSampleData}
+                        className={cn(showSampleData && "bg-background text-primary shadow-sm hover:bg-background")}
+                        onClick={() => setShowSampleData((v) => !v)}
+                      />
+                    }
+                  >
+                    <Users className="size-3.5" />
+                  </TooltipTrigger>
+                  <TooltipContent>{de.letters.sampleDataToggle}</TooltipContent>
+                </Tooltip>
+                <span className="bg-border mx-0.5 h-4 w-px" aria-hidden />
+                {(["fit", "full"] as const).map((z) => (
+                  <Button
+                    key={z}
+                    variant="ghost"
+                    size="sm"
+                    aria-pressed={zoom === z}
+                    className={cn(
+                      "h-6.5 px-2 text-xs",
+                      zoom === z && "bg-background text-foreground shadow-sm hover:bg-background",
+                    )}
+                    onClick={() => setZoom(z)}
+                  >
+                    {z === "fit" ? de.letters.zoomFit : de.letters.zoom100}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            {/* Placeholder strip (Serienbrief) */}
+            <div className="bg-background/95 sticky top-14 z-20 mb-3 hidden flex-wrap items-center gap-1.5 py-2 backdrop-blur md:flex">
+              <span className="text-muted-foreground mr-1 text-xs font-medium">
+                {de.letters.placeholdersLabel}:
+              </span>
               {PLACEHOLDER_KEYS.map((key) => (
                 <Button
                   key={key}
                   type="button"
                   variant="secondary"
-                  size="sm"
+                  size="xs"
+                  className="h-6 rounded-full px-2.5"
                   onClick={() => insertPlaceholder(key)}
                 >
+                  <span aria-hidden className="text-primary/60">
+                    {"{}"}
+                  </span>
                   {PLACEHOLDER_LABELS[key]}
                 </Button>
               ))}
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <button
+                      type="button"
+                      aria-label={de.letters.placeholdersHint}
+                      className="text-muted-foreground ml-1"
+                    />
+                  }
+                >
+                  <Info className="size-3.5" aria-hidden />
+                </TooltipTrigger>
+                <TooltipContent className="max-w-72">
+                  {de.letters.placeholdersHint} {de.letters.perRecipientHint}
+                </TooltipContent>
+              </Tooltip>
+              {unknownTokens.length > 0 ? (
+                <Tooltip>
+                  <TooltipTrigger
+                    render={<Badge variant="outline" className="border-warning text-warning ml-auto cursor-default" />}
+                  >
+                    {de.letters.unknownPlaceholderBadge}
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-72">
+                    {de.letters.unknownPlaceholderWarning}{" "}
+                    {unknownTokens.map((t) => `{{${t}}}`).join(", ")}
+                  </TooltipContent>
+                </Tooltip>
+              ) : null}
             </div>
-            {unknownTokens.length > 0 ? (
-              <p className="text-warning text-xs">
-                {de.letters.unknownPlaceholderWarning}{" "}
-                {unknownTokens.map((t) => `{{${t}}}`).join(", ")}
-              </p>
-            ) : null}
-            <p className="text-muted-foreground text-xs">{de.letters.perRecipientHint}</p>
+
+            {/* Workspace well */}
+            <div className="bg-workspace overflow-hidden rounded-xl p-4 md:p-10">
+              {pristine ? (
+                <div className="bg-background mx-auto mb-6 hidden max-w-xl rounded-lg border p-4 md:block">
+                  <p className="font-heading mb-3 text-sm font-medium">{de.letters.starterTitle}</p>
+                  <div className="flex flex-wrap gap-2">
+                    {aiEnabled ? (
+                      <Button variant="outline" size="sm" onClick={() => setAiOpen(true)}>
+                        <Sparkles className="size-3.5" aria-hidden />
+                        {de.letters.startAi}
+                      </Button>
+                    ) : null}
+                    {templates.length > 0 ? (
+                      <Button variant="outline" size="sm" onClick={() => requestTemplate(templates[0])}>
+                        <LayoutTemplate className="size-3.5" aria-hidden />
+                        {de.letters.useTemplate}
+                      </Button>
+                    ) : null}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const first = doc.blocks.find((b) => b.type === "subject") ?? doc.blocks[0];
+                        if (first) {
+                          setSelectedId(first.id);
+                          (
+                            document.querySelector(
+                              `[data-block-id="${first.id}"] textarea`,
+                            ) as HTMLTextAreaElement | null
+                          )?.focus();
+                        }
+                      }}
+                    >
+                      <PenLine className="size-3.5" aria-hidden />
+                      {de.letters.startBlank}
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
+
+              <div className="hidden md:block">
+                <LetterCanvas
+                  {...canvasProps}
+                  readOnly={false}
+                  zoom={zoom}
+                  onFocusText={(blockId, el) =>
+                    (activeTextRef.current = { kind: "block", blockId, el })
+                  }
+                  onEditChrome={onEditChrome}
+                />
+              </div>
+              <div className="md:hidden">
+                <LetterCanvas
+                  {...canvasProps}
+                  readOnly
+                  showZones={false}
+                  zoom="fit"
+                  onFocusText={() => undefined}
+                />
+              </div>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  render={
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="bg-background mx-auto mt-4 hidden md:flex"
+                    />
+                  }
+                >
+                  <Plus className="size-3.5" aria-hidden />
+                  {de.letters.addBlock}
+                </DropdownMenuTrigger>
+                <BlockInsertMenuContent
+                  align="center"
+                  onInsert={appendBlock}
+                  onInsertImage={() => wellImageRef.current?.click()}
+                />
+              </DropdownMenu>
+              <input
+                ref={wellImageRef}
+                type="file"
+                accept="image/png,image/jpeg"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) addImageBlock(file, doc.blocks.length);
+                  e.target.value = "";
+                }}
+              />
+            </div>
+          </div>
+
+          {/* Inspector column */}
+          <div className="min-w-0 xl:sticky xl:top-[4.5rem] xl:max-h-[calc(100vh-5.5rem)] xl:self-start xl:overflow-y-auto xl:pr-1">
+            <BlockInspector
+              doc={doc}
+              selected={selectedBlock}
+              senderAddresses={senderAddresses}
+              letterheads={letterheads.map((l) => ({ id: l.id, name: l.name }))}
+              onChangeBlock={updateBlock}
+              onChangeTheme={updateTheme}
+              onChangeDoc={updateDocFields}
+              onApplyLetterhead={applyLetterhead}
+              onSaveLetterhead={saveLetterhead}
+              onFocusChromeText={(kind, el) => (activeTextRef.current = { kind, el })}
+              onAddBlock={addBlock}
+              onAddImage={(file) => addImageBlock(file)}
+              onDuplicateBlock={duplicateBlock}
+              onRemoveBlock={removeBlock}
+              forceOpenHeaderFooter={forceOpenHeaderFooter}
+            />
           </div>
         </div>
-
-        {/* Inspector column */}
-        <div className="min-w-0 xl:sticky xl:top-4 xl:self-start">
-          <BlockInspector
-            doc={doc}
-            selected={selectedBlock}
-            senderAddresses={senderAddresses}
-            letterheads={letterheads.map((l) => ({ id: l.id, name: l.name }))}
-            onChangeBlock={updateBlock}
-            onChangeTheme={updateTheme}
-            onChangeDoc={updateDocFields}
-            onApplyLetterhead={applyLetterhead}
-            onSaveLetterhead={saveLetterhead}
-            onFocusChromeText={(kind, el) => (activeTextRef.current = { kind, el })}
-          />
-        </div>
       </div>
+
+      {/* AI draft dialog (controlled — opened from top bar or starter card) */}
+      {aiEnabled ? (
+        <AiDraftDialog
+          mock={aiMock}
+          onDraft={insertAiDraft}
+          open={aiOpen}
+          onOpenChange={setAiOpen}
+          hideTrigger
+        />
+      ) : null}
+
+      {/* Save-as-template dialog */}
+      <Dialog open={templateDialogOpen} onOpenChange={setTemplateDialogOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{de.letters.saveAsTemplate}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Input
+              value={templateName}
+              onChange={(e) => setTemplateName(e.target.value)}
+              placeholder={de.letters.templates}
+            />
+            <Button onClick={saveTemplate} disabled={isSaving} className="w-full">
+              {de.common.save}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Template-load confirmation (replaces window.confirm) */}
+      <Dialog open={pendingTemplate !== null} onOpenChange={(o) => !o && setPendingTemplate(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{de.letters.useTemplate}</DialogTitle>
+          </DialogHeader>
+          <p className="text-muted-foreground text-sm">{de.letters.templateLoadConfirm}</p>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setPendingTemplate(null)}>
+              {de.common.cancel}
+            </Button>
+            <Button onClick={() => pendingTemplate && loadTemplate(pendingTemplate)}>
+              {de.letters.templateLoadConfirmAction}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Leave-while-dirty dialog (in-app navigation guard) */}
+      <Dialog open={leaveHref !== null} onOpenChange={(o) => !o && setLeaveHref(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{de.letters.unsavedChanges}</DialogTitle>
+          </DialogHeader>
+          <p className="text-muted-foreground text-sm">{de.letters.leaveConfirmBody}</p>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setLeaveHref(null)}>
+              {de.common.cancel}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => leaveHref && leave(leaveHref, false)}
+            >
+              {de.letters.leaveWithoutSaving}
+            </Button>
+            <Button onClick={() => leaveHref && leave(leaveHref, true)}>
+              {de.letters.saveAndLeave}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

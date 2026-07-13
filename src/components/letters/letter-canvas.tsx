@@ -64,6 +64,8 @@ export type CanvasProps = {
   onDuplicateBlock: (id: string) => void;
   onFocusText: (blockId: string, el: HTMLTextAreaElement) => void;
   onEstimate?: (pages: number) => void;
+  /** Sheet chrome-zone click (header/footer band) → open the matching inspector section. */
+  onEditChrome?: (kind: "header" | "footer") => void;
 };
 
 export function LetterCanvas({
@@ -82,6 +84,7 @@ export function LetterCanvas({
   onDuplicateBlock,
   onFocusText,
   onEstimate,
+  onEditChrome,
 }: CanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -156,10 +159,16 @@ export function LetterCanvas({
 
   return (
     <div ref={containerRef} className={cn("w-full", zoom === "full" && "overflow-x-auto")}>
-      <div style={{ height: sheetHeight * scale }}>
+      {/* Width-clamped wrapper so the scaled sheet centers in the well. */}
+      <div className="mx-auto" style={{ height: sheetHeight * scale, width: SHEET_W_PX * scale }}>
         <div
-          className="letter-canvas-text relative origin-top-left bg-white text-black shadow-lg ring-1 ring-black/10"
-          style={{ width: SHEET_W_PX, height: sheetHeight, transform: `scale(${scale})` }}
+          className="letter-canvas-text relative origin-top-left bg-white text-black ring-1 ring-black/5 dark:ring-white/10"
+          style={{
+            width: SHEET_W_PX,
+            height: sheetHeight,
+            transform: `scale(${scale})`,
+            boxShadow: "0 1px 2px rgba(16,24,40,.06), 0 16px 40px -12px rgba(16,24,40,.22)",
+          }}
           onClick={() => onSelect(null)}
         >
           {/* Logo */}
@@ -317,6 +326,59 @@ export function LetterCanvas({
             />
           ) : null}
 
+          {/* Clickable letterhead chrome zones — screen-only overlays that open
+              the "Kopf & Fuß" inspector section and focus the matching field. */}
+          {!readOnly && onEditChrome ? (
+            <>
+              <button
+                type="button"
+                aria-label={de.letters.editHeaderZone}
+                className="group/chrome absolute z-[5] cursor-pointer rounded-sm hover:outline-dashed hover:outline-1 hover:outline-primary/50"
+                style={{
+                  left: mm(frame.leftMm),
+                  top: mm(6),
+                  width: mm(frame.widthMm),
+                  height: mm(LETTERHEAD.header.topMm + 26),
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEditChrome("header");
+                }}
+              >
+                <span
+                  className="bg-background text-foreground absolute top-1 left-1 hidden rounded border px-1.5 py-0.5 text-xs shadow-sm group-hover/chrome:block"
+                  style={{ transform: `scale(${Math.min(1.6, Math.max(1, 1 / scale))})`, transformOrigin: "top left" }}
+                >
+                  {de.letters.editHeaderZone}
+                </span>
+              </button>
+              {sheetHeight <= SHEET_H_PX + 1 ? (
+                <button
+                  type="button"
+                  aria-label={de.letters.editFooterZone}
+                  className="group/chrome absolute z-[5] cursor-pointer rounded-sm hover:outline-dashed hover:outline-1 hover:outline-primary/50"
+                  style={{
+                    left: mm(frame.leftMm),
+                    top: mm(LETTERHEAD.footer.topMm - 2),
+                    width: mm(frame.widthMm),
+                    height: mm(16),
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onEditChrome("footer");
+                  }}
+                >
+                  <span
+                    className="bg-background text-foreground absolute top-1 left-1 hidden rounded border px-1.5 py-0.5 text-xs shadow-sm group-hover/chrome:block"
+                    style={{ transform: `scale(${Math.min(1.6, Math.max(1, 1 / scale))})`, transformOrigin: "top left" }}
+                  >
+                    {de.letters.editFooterZone}
+                  </span>
+                </button>
+              ) : null}
+            </>
+          ) : null}
+
           <ZoneOverlay show={showZones} />
         </div>
       </div>
@@ -464,58 +526,65 @@ function CanvasBlock({
       data-block-id={block.id}
     >
       {body}
-      {!readOnly && selected ? (
+      {!readOnly ? (
         <div
-          className="absolute -top-3 right-0 z-10 origin-top-right"
-          style={{ transform: `scale(${Math.min(2, 1 / scale)})` }}
+          className={cn(
+            "absolute top-0 -left-12 z-10 origin-top-right transition-opacity",
+            selected ? "opacity-100" : "opacity-0 group-hover/block:opacity-70",
+          )}
+          style={{ transform: `scale(${Math.min(1.6, Math.max(1, 1 / scale))})` }}
         >
-          <div className="bg-background flex items-center gap-0.5 rounded-md border p-0.5 shadow-sm">
+          <div className="bg-background flex flex-col items-center gap-0.5 rounded-md border p-0.5 shadow-sm">
             <Button
               variant="ghost"
-              size="icon-xs"
+              size="icon-sm"
               disabled={index === 0}
               aria-label={de.letters.moveUp}
+              title={de.letters.moveUp}
               onClick={(e) => {
                 e.stopPropagation();
                 onMoveBlock(block.id, -1);
               }}
             >
-              <ArrowUp className="size-3" />
+              <ArrowUp className="size-3.5" />
             </Button>
             <Button
               variant="ghost"
-              size="icon-xs"
+              size="icon-sm"
               disabled={index === total - 1}
               aria-label={de.letters.moveDown}
+              title={de.letters.moveDown}
               onClick={(e) => {
                 e.stopPropagation();
                 onMoveBlock(block.id, 1);
               }}
             >
-              <ArrowDown className="size-3" />
+              <ArrowDown className="size-3.5" />
             </Button>
             <Button
               variant="ghost"
-              size="icon-xs"
+              size="icon-sm"
               aria-label={de.letters.duplicateBlock}
+              title={de.letters.duplicateBlock}
               onClick={(e) => {
                 e.stopPropagation();
                 onDuplicateBlock(block.id);
               }}
             >
-              <Copy className="size-3" />
+              <Copy className="size-3.5" />
             </Button>
             <Button
               variant="ghost"
-              size="icon-xs"
+              size="icon-sm"
               className="text-destructive"
               aria-label={de.letters.removeBlock}
+              title={de.letters.removeBlock}
               onClick={(e) => {
                 e.stopPropagation();
                 onRemoveBlock(block.id);
               }}
             >
-              <Trash2 className="size-3" />
+              <Trash2 className="size-3.5" />
             </Button>
           </div>
         </div>
@@ -582,7 +651,7 @@ function AutoGrowTextarea({
       placeholder={placeholder}
       rows={1}
       spellCheck={false}
-      className="block w-full resize-none overflow-hidden border-0 bg-transparent p-0 outline-none placeholder:text-slate-300 focus:ring-0 [overflow-wrap:anywhere]"
+      className="block w-full resize-none overflow-hidden border-0 bg-transparent p-0 outline-none placeholder:text-slate-400 focus:ring-0 [overflow-wrap:anywhere]"
       style={style}
       onChange={(e) => onChange(e.target.value)}
       onFocus={(e) => onFocus(e.currentTarget)}
