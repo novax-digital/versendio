@@ -205,8 +205,10 @@ export function LetterCanvas({
             </div>
           ) : null}
 
-          {/* Footer small print (page 1, fixed band below the body flow) */}
-          {doc.footer.text.trim() ? (
+          {/* Footer small print (page 1, fixed band below the body flow).
+              Hidden once the sheet grows past page 1 — the band belongs to
+              page 1 and would otherwise overlay flowing body text. */}
+          {doc.footer.text.trim() && sheetHeight <= SHEET_H_PX + 1 ? (
             <div
               className="absolute overflow-hidden text-center whitespace-pre-wrap"
               style={{

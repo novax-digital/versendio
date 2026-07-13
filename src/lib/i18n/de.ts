@@ -183,6 +183,7 @@ export const de = {
       "Ihr PDF wird beim Hochladen automatisch technisch geprüft (Format, Adresszonen, druckfreie Ränder). Halten Sie den Adressbereich auf Seite 1 gemäß Muster ein – oder lassen Sie ihn komplett frei und aktivieren Sie das Deckblatt: Dann erzeugt Versendio die Seite mit Absenderzeile und Empfängeradresse automatisch.",
     uploadMusterDownload: "Muster-PDF mit Adresszonen herunterladen",
     musterTitle: "Muster: PDF-Layout für den Briefversand (Schablone V3)",
+    musterViewOnly: "Dieses Muster dient nur zur Ansicht und kann nicht versendet werden.",
     musterZoneSender: "Absenderzeile (1 Zeile)",
     musterZoneDvf: "Muss vollständig frei bleiben (DV-Freimachung)",
     musterZoneRecipient: "Empfängeradresse (max. 6 Zeilen)",
@@ -318,6 +319,15 @@ export const de = {
     letterheadNamePlaceholder: "Name des Briefpapiers",
     letterheadSaved: "Das Briefpapier wurde gespeichert.",
     letterheadApplied: "Das Briefpapier wurde übernommen.",
+    letterheadLoadFailed:
+      "Das Briefpapier konnte nicht angewendet werden. Es ist möglicherweise beschädigt oder veraltet.",
+    templateLoadFailed:
+      "Die Vorlage konnte nicht geladen werden. Sie ist möglicherweise beschädigt oder veraltet.",
+    tooManyTemplates: "Sie haben die maximale Anzahl an Vorlagen und Briefpapieren erreicht.",
+    activeSendJobsBlockSave:
+      "Dieser Brief ist Teil einer laufenden Sendung und kann erst nach deren Abschluss oder Storno geändert werden.",
+    marginUpgradeNotice:
+      "Dieser Brief wurde auf den neuen DIN-5008-Satzspiegel aktualisiert. Der Umbruch und die Seitenzahl können sich ändern – speichern Sie, um die Aktualisierung zu übernehmen.",
     letterheadHint:
       "Briefpapier bündelt Schrift, Farben, Logo sowie Kopf- und Fußbereich – für ein einheitliches Erscheinungsbild aller Briefe.",
     noLetterheads: "Noch kein Briefpapier gespeichert.",

@@ -16,10 +16,14 @@ export default async function UploadLetterPage() {
       </div>
       <div className="bg-muted/50 space-y-2 rounded-md border p-3 text-sm">
         <p className="text-muted-foreground">{de.letters.uploadZoneNotice}</p>
+        {/* Plain anchor to a file-download route handler (not a page). No
+            `download` attribute: the route sends Content-Disposition itself;
+            with an expired session the redirect must navigate to the login
+            page instead of downloading its HTML as a file. */}
+        {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
         <a
           href="/app/briefe/hochladen/muster"
           className="text-primary inline-flex items-center gap-1.5 font-medium hover:underline"
-          download
         >
           <FileDown className="size-4" aria-hidden />
           {de.letters.uploadMusterDownload}

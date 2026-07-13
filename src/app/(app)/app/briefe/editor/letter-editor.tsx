@@ -110,7 +110,15 @@ export function LetterEditor({
   const [showSampleData, setShowSampleData] = useState(false);
   const [zoom, setZoom] = useState<"fit" | "full">("fit");
   const [estimatedPages, setEstimatedPages] = useState(1);
-  const activeTextRef = useRef<{ blockId: string; el: HTMLTextAreaElement } | null>(null);
+  const activeTextRef = useRef<
+    | { kind: "block"; blockId: string; el: HTMLTextAreaElement }
+    | { kind: "header" | "footer"; el: HTMLTextAreaElement }
+    | null
+  >(null);
+  // Shown while an auto-upgrade to the DIN frame is unsaved — the stored
+  // letter still renders (and is priced) with the old frame until re-saved.
+  const marginUpgraded =
+    letterId !== null && initialDocument.theme.marginStyle === "classic" && !initialDocument.theme.legacyLayout;
   const imageFileRef = useRef<HTMLInputElement>(null);
   const [isUploadingImage, startImageUpload] = useTransition();
 
@@ -149,7 +157,7 @@ export function LetterEditor({
   const loadTemplate = (template: Template) => {
     const parsed = safeParseLetterDocument(template.editor_document);
     if (!parsed.success) {
-      toast.error(de.letters.saveFailed);
+      toast.error(de.letters.templateLoadFailed);
       return;
     }
     const hasContent = doc.blocks.some((b) => "text" in b && b.text.trim().length > 0);
@@ -221,7 +229,7 @@ export function LetterEditor({
     if (!letterhead) return;
     const parsed = safeParseLetterDocument(letterhead.editor_document);
     if (!parsed.success) {
-      toast.error(de.letters.saveFailed);
+      toast.error(de.letters.letterheadLoadFailed);
       return;
     }
     const source = parsed.data;
@@ -326,10 +334,22 @@ export function LetterEditor({
     const el = active.el;
     const start = el.selectionStart ?? el.value.length;
     const end = el.selectionEnd ?? el.value.length;
-    const block = doc.blocks.find((b) => b.id === active.blockId);
-    if (!block || !("text" in block)) return;
-    const nextText = block.text.slice(0, start) + token + block.text.slice(end);
-    updateBlock(active.blockId, { text: nextText });
+
+    if (active.kind === "block") {
+      const block = doc.blocks.find((b) => b.id === active.blockId);
+      if (!block || !("text" in block)) return;
+      updateBlock(active.blockId, {
+        text: block.text.slice(0, start) + token + block.text.slice(end),
+      });
+    } else if (active.kind === "header") {
+      updateDocFields({
+        header: { ...doc.header, text: doc.header.text.slice(0, start) + token + doc.header.text.slice(end) },
+      });
+    } else {
+      updateDocFields({
+        footer: { text: doc.footer.text.slice(0, start) + token + doc.footer.text.slice(end) },
+      });
+    }
     // Restore focus and place the caret after the inserted token so a second
     // insert lands at the right position instead of the text end.
     requestAnimationFrame(() => {
@@ -370,13 +390,16 @@ export function LetterEditor({
 
   const unknownTokens = useMemo(() => {
     const found = new Set<string>();
-    for (const b of doc.blocks) {
-      if ("text" in b) {
-        for (const t of unknownPlaceholders(b.text)) found.add(t);
-      }
+    const texts = [
+      ...doc.blocks.filter((b) => "text" in b).map((b) => (b as { text: string }).text),
+      doc.header.text,
+      doc.footer.text,
+    ];
+    for (const text of texts) {
+      for (const t of unknownPlaceholders(text)) found.add(t);
     }
     return [...found];
-  }, [doc.blocks]);
+  }, [doc.blocks, doc.header.text, doc.footer.text]);
 
   const save = (onSaved?: (id: string) => void) => {
     if (!title.trim()) {
@@ -463,6 +486,12 @@ export function LetterEditor({
       {!hasSender ? (
         <p className="bg-destructive/10 text-destructive rounded-md p-3 text-sm">
           {de.letters.noSenderAddress}
+        </p>
+      ) : null}
+
+      {marginUpgraded && dirty ? (
+        <p className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
+          {de.letters.marginUpgradeNotice}
         </p>
       ) : null}
 
@@ -578,7 +607,7 @@ export function LetterEditor({
               onMoveBlock={moveBlock}
               onRemoveBlock={removeBlock}
               onDuplicateBlock={duplicateBlock}
-              onFocusText={(blockId, el) => (activeTextRef.current = { blockId, el })}
+              onFocusText={(blockId, el) => (activeTextRef.current = { kind: "block", blockId, el })}
               onEstimate={setEstimatedPages}
             />
           </div>
@@ -640,6 +669,7 @@ export function LetterEditor({
             onChangeDoc={updateDocFields}
             onApplyLetterhead={applyLetterhead}
             onSaveLetterhead={saveLetterhead}
+            onFocusChromeText={(kind, el) => (activeTextRef.current = { kind, el })}
           />
         </div>
       </div>

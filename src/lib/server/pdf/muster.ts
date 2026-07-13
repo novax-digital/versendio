@@ -19,6 +19,9 @@ const INK = rgb(0.06, 0.09, 0.16);
  */
 export async function buildMusterPdf(): Promise<Uint8Array> {
   const pdf = await PDFDocument.create();
+  // Marker keyword: validateLetterPdf rejects uploads of the sample itself —
+  // its zone illustrations are vector ink the carrier would refuse to print.
+  pdf.setKeywords(["versendio-muster"]);
   const font = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
   const page = pdf.addPage([A4.widthPt, A4.heightPt]);
@@ -84,7 +87,15 @@ export async function buildMusterPdf(): Promise<Uint8Array> {
     font: bold,
     color: INK,
   });
-  yMm += 10;
+  yMm += 8;
+  page.drawText(de.letters.musterViewOnly, {
+    x: left,
+    y: A4.heightPt - mmToPt(yMm) - 9 * 0.8,
+    size: 9,
+    font: bold,
+    color: RED,
+  });
+  yMm += 9;
 
   const wrap = (text: string, size: number): string[] => {
     const words = text.split(" ");

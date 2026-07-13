@@ -43,7 +43,9 @@ export async function exportUserData(userId: string): Promise<Record<string, unk
         .then((r) => r.data ?? []),
       admin
         .from("letter_templates")
-        .select("id, name, created_at")
+        // editor_document included: letterheads carry the user's own
+        // header/footer text (personal data under Art. 20 GDPR).
+        .select("id, name, kind, editor_document, created_at")
         .eq("user_id", userId)
         .then((r) => r.data ?? []),
       admin

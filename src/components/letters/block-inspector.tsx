@@ -46,6 +46,7 @@ export function BlockInspector({
   onChangeDoc,
   onApplyLetterhead,
   onSaveLetterhead,
+  onFocusChromeText,
 }: {
   doc: LetterDocument;
   selected: LetterBlock | null;
@@ -56,6 +57,7 @@ export function BlockInspector({
   onChangeDoc: (patch: DocPatch) => void;
   onApplyLetterhead: (id: string) => void;
   onSaveLetterhead: (name: string) => void;
+  onFocusChromeText: (kind: "header" | "footer", el: HTMLTextAreaElement) => void;
 }) {
   const [tab, setTab] = useState<string>(selected ? "block" : "letter");
   // Auto-switch to the block tab when the selection changes (React's
@@ -86,7 +88,9 @@ export function BlockInspector({
         )}
       </TabsContent>
 
-      <TabsContent value="letter" className="space-y-4 pt-3">
+      {/* keepMounted: switching to a block must not discard panel-local state
+          (letterhead selection, half-typed letterhead name). */}
+      <TabsContent value="letter" className="space-y-4 pt-3" keepMounted>
         <LetterControls
           doc={doc}
           senderAddresses={senderAddresses}
@@ -95,6 +99,7 @@ export function BlockInspector({
           onChangeDoc={onChangeDoc}
           onApplyLetterhead={onApplyLetterhead}
           onSaveLetterhead={onSaveLetterhead}
+          onFocusChromeText={onFocusChromeText}
         />
       </TabsContent>
     </Tabs>
@@ -348,6 +353,7 @@ function LetterControls({
   onChangeDoc,
   onApplyLetterhead,
   onSaveLetterhead,
+  onFocusChromeText,
 }: {
   doc: LetterDocument;
   senderAddresses: SenderAddress[];
@@ -356,6 +362,7 @@ function LetterControls({
   onChangeDoc: (patch: DocPatch) => void;
   onApplyLetterhead: (id: string) => void;
   onSaveLetterhead: (name: string) => void;
+  onFocusChromeText: (kind: "header" | "footer", el: HTMLTextAreaElement) => void;
 }) {
   const theme = doc.theme;
   const fileRef = useRef<HTMLInputElement>(null);
@@ -495,6 +502,7 @@ function LetterControls({
           maxLength={400}
           placeholder={de.letters.headerTextPlaceholder}
           onChange={(e) => onChangeDoc({ header: { ...doc.header, text: e.target.value } })}
+          onFocus={(e) => onFocusChromeText("header", e.currentTarget)}
         />
         <p className="text-muted-foreground text-xs">{de.letters.headerTextHint}</p>
       </div>
@@ -529,6 +537,7 @@ function LetterControls({
           maxLength={600}
           placeholder={de.letters.footerTextPlaceholder}
           onChange={(e) => onChangeDoc({ footer: { text: e.target.value } })}
+          onFocus={(e) => onFocusChromeText("footer", e.currentTarget)}
         />
         <p className="text-muted-foreground text-xs">{de.letters.footerTextHint}</p>
       </div>
@@ -568,7 +577,7 @@ function LetterControls({
         ) : (
           <p className="text-muted-foreground text-xs">{de.letters.noLetterheads}</p>
         )}
-        <div className="flex gap-2">
+        <div className="space-y-2">
           <Input
             value={letterheadName}
             placeholder={de.letters.letterheadNamePlaceholder}
@@ -578,13 +587,14 @@ function LetterControls({
             type="button"
             variant="outline"
             size="sm"
+            className="w-full"
             disabled={!letterheadName.trim()}
             onClick={() => {
               onSaveLetterhead(letterheadName.trim());
               setLetterheadName("");
             }}
           >
-            {de.common.save}
+            {de.letters.saveAsLetterhead}
           </Button>
         </div>
       </div>

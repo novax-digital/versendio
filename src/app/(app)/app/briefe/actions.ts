@@ -112,6 +112,11 @@ export async function saveEditorLetterAction(
   const blocked = blockedActionError(profile);
   if (blocked) return { ok: false, error: blocked };
 
+  const ip = await clientIp();
+  if (!(await checkRateLimit("upload", `${profile.id}:${ip}`))) {
+    return { ok: false, error: de.common.rateLimited };
+  }
+
   const parsed = saveEditorLetterSchema.safeParse(input);
   if (!parsed.success) {
     return { ok: false, error: de.letters.saveFailed, fieldErrors: fieldErrorsFromZod(parsed.error.issues) };
@@ -122,7 +127,9 @@ export async function saveEditorLetterAction(
     (b): b is Extract<typeof b, { text: string }> =>
       b.type === "text" || b.type === "subject" || b.type === "heading",
   );
-  const placeholders = textBlocks.some((b) => hasPlaceholders(b.text));
+  // Header/footer are placeholder- and glyph-bearing surfaces like body blocks.
+  const allTexts = [...textBlocks.map((b) => b.text), doc.header.text, doc.footer.text];
+  const placeholders = allTexts.some((t) => hasPlaceholders(t));
 
   // One shared validation path (ADR-0006): render with a sample recipient and
   // validate exactly like an upload — catches page/size overruns early.
@@ -153,10 +160,7 @@ export async function saveEditorLetterAction(
   // Glyph coverage: fonts render missing characters silently (tofu / "?"),
   // so surface them as a save-time warning in the validation report.
   try {
-    const unsupported = await findUnsupportedChars(
-      doc.theme.fontFamily,
-      textBlocks.map((b) => b.text).join("\n"),
-    );
+    const unsupported = await findUnsupportedChars(doc.theme.fontFamily, allTexts.join("\n"));
     if (unsupported.length > 0) {
       validation.rules.push({
         id: "font_coverage",
@@ -184,6 +188,18 @@ export async function saveEditorLetterAction(
   };
 
   if (parsed.data.id) {
+    // A queued send renders the LIVE document at dispatch time (ADR-0006 §4);
+    // changing the letter now could silently re-price already-confirmed items.
+    const { data: activeItems } = await supabase
+      .from("send_job_items")
+      .select("id, send_jobs!inner(letter_id)")
+      .eq("send_jobs.letter_id", parsed.data.id)
+      .in("status", ["pending", "on_hold_funds", "submitting"])
+      .limit(1);
+    if (activeItems && activeItems.length > 0) {
+      return { ok: false, error: de.letters.activeSendJobsBlockSave };
+    }
+
     // Guard the source so an upload letter can't be flipped into an editor one.
     const { data: updated, error } = await supabase
       .from("letters")
@@ -253,12 +269,23 @@ export async function saveTemplateAction(
   const blocked = blockedActionError(profile);
   if (blocked) return { ok: false, error: blocked };
 
+  const ip = await clientIp();
+  if (!(await checkRateLimit("upload", `${profile.id}:${ip}`))) {
+    return { ok: false, error: de.common.rateLimited };
+  }
+
   const parsed = saveTemplateSchema.safeParse(input);
   if (!parsed.success) {
     return { ok: false, error: de.letters.saveFailed, fieldErrors: fieldErrorsFromZod(parsed.error.issues) };
   }
 
   const supabase = await createClient();
+  const { count } = await supabase
+    .from("letter_templates")
+    .select("id", { count: "exact", head: true });
+  if ((count ?? 0) >= 100) {
+    return { ok: false, error: de.letters.tooManyTemplates };
+  }
   const { data, error } = await supabase
     .from("letter_templates")
     .insert({

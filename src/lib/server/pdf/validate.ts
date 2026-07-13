@@ -56,6 +56,21 @@ export async function validateLetterPdf(bytes: Uint8Array): Promise<PdfValidatio
     });
   }
 
+  // Our downloadable sample carries a keyword marker: it deliberately draws
+  // the blocked zones (vector ink the text-based zone analysis cannot see),
+  // so the carrier would reject it — fail fast with a clear message instead.
+  try {
+    if (doc.getKeywords()?.includes("versendio-muster")) {
+      rules.push({
+        id: "muster_sample",
+        severity: "error",
+        message: "Das Muster-PDF dient nur zur Ansicht und kann nicht versendet werden.",
+      });
+    }
+  } catch {
+    // Metadata parsing is best-effort; a corrupt info dict must not block validation.
+  }
+
   const pageCount = doc.getPageCount();
   const sheetCountSimplex = sheetsFromPages(pageCount, false);
 
