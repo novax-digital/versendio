@@ -323,6 +323,17 @@ export async function deleteLetterAction(_prev: unknown, formData: FormData): Pr
     return { ok: false, error: de.letters.activeSendJobsBlockDelete };
   }
 
+  // A letter referenced by a flow is protected by an ON DELETE RESTRICT FK —
+  // surface a friendly hint instead of a raw FK violation.
+  const { data: flowsUsing } = await supabase
+    .from("flows")
+    .select("id")
+    .eq("letter_id", parsed.data.id)
+    .limit(1);
+  if (flowsUsing && flowsUsing.length > 0) {
+    return { ok: false, error: de.flows.letterInUse };
+  }
+
   const { data: letter } = await supabase
     .from("letters")
     .select("storage_path")

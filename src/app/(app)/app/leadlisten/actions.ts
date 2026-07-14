@@ -55,6 +55,18 @@ export async function deleteLeadListAction(
   if (!parsed.success) return { ok: false, error: de.common.genericError };
 
   const supabase = await createClient();
+
+  // A list bound to a flow is protected by an ON DELETE RESTRICT FK — give a
+  // friendly hint instead of a raw FK violation.
+  const { data: flowsUsing } = await supabase
+    .from("flows")
+    .select("id")
+    .eq("list_id", parsed.data.id)
+    .limit(1);
+  if (flowsUsing && flowsUsing.length > 0) {
+    return { ok: false, error: de.flows.listInUse };
+  }
+
   const { error } = await supabase.from("lead_lists").delete().eq("id", parsed.data.id);
   if (error) {
     console.error("lead_list_delete_failed", { error: error.message });

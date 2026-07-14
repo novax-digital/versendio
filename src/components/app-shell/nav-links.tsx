@@ -8,6 +8,7 @@ import {
   FileText,
   Users,
   History,
+  Workflow,
   Wallet,
   Settings,
   Shield,
@@ -46,6 +47,7 @@ const items: NavItem[] = [
     ],
   },
   { href: "/app/sendungen", label: de.nav.sendJobs, icon: History, exact: false },
+  { href: "/app/flows", label: de.nav.flows, icon: Workflow, exact: false },
   { href: "/app/guthaben", label: de.nav.credits, icon: Wallet, exact: false },
   { href: "/app/einstellungen", label: de.nav.settings, icon: Settings, exact: false },
 ];
