@@ -21,6 +21,7 @@ import { de } from "@/lib/i18n/de";
 import { TopupSection } from "./topup-section";
 import { AutoTopupSection } from "./auto-topup-section";
 import { BillingAddressCard } from "./billing-address-card";
+import { ReviewRewardsSection, type RewardRequest } from "./review-rewards-section";
 import { StatusToast } from "./status-toast";
 
 export const metadata: Metadata = { title: de.credits.title };
@@ -34,7 +35,7 @@ export default async function CreditsPage({
   const params = await searchParams;
   const supabase = await createClient();
 
-  const [transactions, amounts, minCents, bonusTiers] = await Promise.all([
+  const [transactions, amounts, minCents, bonusTiers, rewardRequests] = await Promise.all([
     supabase
       .from("credit_transactions")
       .select(
@@ -49,6 +50,11 @@ export default async function CreditsPage({
     getJsonSetting<number[]>("topup_amounts_cents", [1000, 2500, 5000, 10000]),
     getNumberSetting("topup_min_cents", 1000),
     getJsonSetting<BonusTier[]>("topup_bonus_tiers", []),
+    supabase
+      .from("review_rewards")
+      .select("platform, status")
+      .eq("user_id", profile.id)
+      .then((r) => r.data ?? []),
   ]);
 
   const stripeOn = stripeEnabled();
@@ -130,6 +136,8 @@ export default async function CreditsPage({
           hasPaymentMethod={autoTopup.hasPaymentMethod}
         />
       ) : null}
+
+      <ReviewRewardsSection requests={rewardRequests as RewardRequest[]} />
 
       <Card>
         <CardHeader>
