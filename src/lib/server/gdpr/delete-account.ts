@@ -51,6 +51,7 @@ export async function deleteAccount(
     return { ok: false, error: "anonymize_failed" };
   }
   await admin.rpc("purge_user_rate_limits", { p_user_id: userId });
+  await admin.rpc("delete_user_api_keys", { p_user_id: userId });
 
   // 4) External identities last.
   if (billing?.stripe_customer_id && stripeEnabled()) {

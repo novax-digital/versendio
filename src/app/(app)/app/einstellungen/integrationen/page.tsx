@@ -1,0 +1,31 @@
+import type { Metadata } from "next";
+import { requireProfile } from "@/lib/server/auth-context";
+import { createClient } from "@/lib/supabase/server";
+import { serverEnv } from "@/lib/server/env";
+import { de } from "@/lib/i18n/de";
+import { ApiKeysManager, type ApiKey } from "./api-keys-manager";
+import { ApiDocs } from "./api-docs";
+
+export const metadata: Metadata = { title: de.integrations.title };
+
+export default async function IntegrationsSettingsPage() {
+  await requireProfile();
+  const supabase = await createClient();
+  // key_hash is intentionally NOT selected — it never leaves the server.
+  const { data: keys } = await supabase
+    .from("api_keys")
+    .select("id, name, key_prefix, last_used_at, revoked_at, created_at")
+    .order("created_at", { ascending: false });
+
+  const base = (serverEnv().APP_URL ?? "https://app.versendio.de").replace(/\/$/, "");
+
+  return (
+    <div className="space-y-8">
+      <div>
+        <p className="text-muted-foreground text-sm">{de.integrations.subtitle}</p>
+      </div>
+      <ApiKeysManager keys={(keys ?? []) as ApiKey[]} />
+      <ApiDocs baseUrl={base} />
+    </div>
+  );
+}

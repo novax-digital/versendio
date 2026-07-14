@@ -2,7 +2,14 @@ import "server-only";
 import { headers } from "next/headers";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-export type RateLimitScope = "login" | "register" | "forgot_password" | "upload" | "send" | "ai";
+export type RateLimitScope =
+  | "login"
+  | "register"
+  | "forgot_password"
+  | "upload"
+  | "send"
+  | "ai"
+  | "api";
 
 const LIMITS: Record<RateLimitScope, { limit: number; windowSeconds: number }> = {
   login: { limit: 10, windowSeconds: 300 },
@@ -11,6 +18,7 @@ const LIMITS: Record<RateLimitScope, { limit: number; windowSeconds: number }> =
   upload: { limit: 30, windowSeconds: 3600 },
   send: { limit: 20, windowSeconds: 3600 },
   ai: { limit: 5, windowSeconds: 60 },
+  api: { limit: 120, windowSeconds: 60 },
 };
 
 /**
