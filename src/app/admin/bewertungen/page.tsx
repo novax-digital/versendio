@@ -54,15 +54,19 @@ export default async function AdminReviewRewardsPage() {
   await requireAdmin();
   const admin = createAdminClient();
 
-  const { data } = await admin
+  const { data, error } = await admin
     .from("review_rewards")
+    // review_rewards has two FKs to profiles (user_id, reviewed_by), so the
+    // embed must name the constraint — a bare profiles(...) is ambiguous and
+    // PostgREST rejects the whole query (PGRST201), leaving the queue empty.
     .select(
-      "id, platform, amount_cents, url, status, created_at, reviewed_at, profiles(email, display_name)",
+      "id, platform, amount_cents, url, status, created_at, reviewed_at, profiles!review_rewards_user_id_fkey(email, display_name)",
     )
     // Pending first (oldest first within pending), then the processed history.
     .order("status", { ascending: true })
     .order("created_at", { ascending: false })
     .limit(300);
+  if (error) console.error("admin_review_rewards_query_failed", { error: error.message });
   const rows = (data ?? []) as unknown as ReviewRow[];
   const pending = rows.filter((r) => r.status === "pending");
   const processed = rows.filter((r) => r.status !== "pending");
