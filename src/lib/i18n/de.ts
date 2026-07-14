@@ -841,6 +841,9 @@ export const de = {
       "Laden Sie ein PDF hoch oder erstellen Sie Ihren Brief im Editor. Wir drucken, kuvertieren und versenden über die Deutsche Post – Sie zahlen nur pro Brief.",
     ctaRegister: "Kostenlos registrieren",
     ctaLogin: "Anmelden",
+    trustGermany: "Entwickelt und gehostet in Deutschland",
+    trustPost: "Versand über die Deutsche Post",
+    trustBuilder: "Einfacher Brief-Builder zum sofortigen Versand",
     featurePdfTitle: "PDF hochladen oder Editor nutzen",
     featurePdfText:
       "Fertige PDFs werden automatisch auf Versandtauglichkeit geprüft. Oder Sie erstellen Serienbriefe mit Platzhaltern direkt im Editor.",

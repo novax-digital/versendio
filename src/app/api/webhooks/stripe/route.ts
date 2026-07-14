@@ -5,7 +5,8 @@ import { getStripe } from "@/lib/server/stripe";
 import { serverEnv } from "@/lib/server/env";
 import { getJsonSetting } from "@/lib/server/settings";
 import { enqueueJob } from "@/lib/server/queue/enqueue";
-import { sendMail, escapeHtml } from "@/lib/server/mail";
+import { sendMail } from "@/lib/server/mail";
+import { renderBrandedEmail } from "@/lib/server/mail-template";
 import { computeBonusCents, type BonusTier } from "@/lib/shared/topup-bonus";
 import { de } from "@/lib/i18n/de";
 
@@ -299,13 +300,19 @@ async function handleAutoTopupFailure(userId: string): Promise<void> {
   if (!profile?.email) return;
 
   const appName = serverEnv().APP_NAME;
-  const greeting = profile.display_name
-    ? `Guten Tag ${escapeHtml(profile.display_name)},`
-    : "Guten Tag,";
+  const appUrl = (serverEnv().APP_URL ?? "").replace(/\/$/, "");
+  const { html, text } = renderBrandedEmail({
+    displayName: profile.display_name,
+    paragraphs: [
+      "Ihre automatische Guthaben-Aufladung konnte nicht durchgeführt werden (z. B. wegen einer erforderlichen Bestätigung Ihrer Bank). Bitte laden Sie Ihr Guthaben manuell auf oder hinterlegen Sie eine andere Zahlungsmethode.",
+    ],
+    cta: appUrl ? { label: "Zum Guthaben", url: `${appUrl}/app/guthaben` } : undefined,
+  });
   await sendMail({
     to: profile.email,
     subject: `Automatische Aufladung fehlgeschlagen – ${appName}`,
-    html: `<p>${greeting}</p><p>Ihre automatische Guthaben-Aufladung konnte nicht durchgeführt werden (z. B. wegen einer erforderlichen Bestätigung Ihrer Bank). Bitte laden Sie Ihr Guthaben manuell auf oder hinterlegen Sie eine andere Zahlungsmethode.</p><p>Mit freundlichen Grüßen<br/>${appName}</p>`,
+    html,
+    text,
   });
 }
 

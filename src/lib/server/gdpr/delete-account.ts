@@ -2,7 +2,8 @@ import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { BUCKETS } from "@/lib/server/storage";
 import { getStripe, stripeEnabled } from "@/lib/server/stripe";
-import { sendMail, escapeHtml } from "@/lib/server/mail";
+import { sendMail } from "@/lib/server/mail";
+import { renderBrandedEmail } from "@/lib/server/mail-template";
 import { serverEnv } from "@/lib/server/env";
 
 /**
@@ -73,11 +74,17 @@ export async function deleteAccount(
 
   if (emailForFarewell) {
     const appName = serverEnv().APP_NAME;
-    const greeting = displayName ? `Guten Tag ${escapeHtml(displayName)},` : "Guten Tag,";
+    const { html, text } = renderBrandedEmail({
+      displayName,
+      paragraphs: [
+        "Ihr Konto wurde gelöscht. Ihre persönlichen Daten, Briefe und Kontakte wurden entfernt. Abrechnungsdaten bewahren wir gesetzeskonform in anonymisierter Form auf.",
+      ],
+    });
     await sendMail({
       to: emailForFarewell,
       subject: `Ihr Konto wurde gelöscht – ${appName}`,
-      html: `<p>${greeting}</p><p>Ihr Konto wurde gelöscht. Ihre persönlichen Daten, Briefe und Kontakte wurden entfernt. Abrechnungsdaten bewahren wir gesetzeskonform in anonymisierter Form auf.</p><p>Mit freundlichen Grüßen<br/>${appName}</p>`,
+      html,
+      text,
     });
   }
 

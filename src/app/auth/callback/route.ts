@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { enqueueJob } from "@/lib/server/queue/enqueue";
 
 /**
  * Allow-lists `next` to a relative, same-origin path. Rejects protocol-relative
@@ -24,8 +26,25 @@ export async function GET(request: Request) {
 
   if (code) {
     const supabase = await createClient();
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
+      // Send the welcome mail exactly once, at first confirmation. The
+      // conditional update makes the enqueue idempotent across callback hits
+      // (also fired by password-recovery links, where the flag is already set).
+      const userId = data.user?.id;
+      if (userId) {
+        const admin = createAdminClient();
+        const { data: flagged } = await admin
+          .from("profiles")
+          .update({ welcome_sent_at: new Date().toISOString() })
+          .eq("id", userId)
+          .is("welcome_sent_at", null)
+          .select("id")
+          .maybeSingle();
+        if (flagged) {
+          await enqueueJob("send_email", { template: "welcome", userId }).catch(() => {});
+        }
+      }
       return NextResponse.redirect(new URL(next, url.origin));
     }
     console.error("auth_callback_failed", { code: error.code });

@@ -1,6 +1,7 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { sendMail, escapeHtml } from "@/lib/server/mail";
+import { sendMail } from "@/lib/server/mail";
+import { renderBrandedEmail } from "@/lib/server/mail-template";
 import { serverEnv } from "@/lib/server/env";
 
 type EmailTemplate = "job_completed" | "job_completed_with_errors" | "items_on_hold" | "welcome";
@@ -23,25 +24,40 @@ export async function processSendEmail(payload: {
   if (!profile?.email) return;
 
   const appName = serverEnv().APP_NAME;
-  const appUrl = serverEnv().APP_URL ?? "";
-  const jobLink = payload.jobId && appUrl ? `${appUrl}/app/sendungen/${payload.jobId}` : null;
+  const appUrl = (serverEnv().APP_URL ?? "").replace(/\/$/, "");
+  const jobUrl = payload.jobId && appUrl ? `${appUrl}/app/sendungen/${payload.jobId}` : null;
+  const toSend = jobUrl ? { label: "Zur Sendung", url: jobUrl } : undefined;
+  const toApp = appUrl ? { label: "Zum Dashboard", url: `${appUrl}/app` } : undefined;
 
-  const templates: Record<EmailTemplate, { subject: string; body: string }> = {
+  const templates: Record<
+    EmailTemplate,
+    { subject: string; paragraphs: string[]; cta?: { label: string; url: string } }
+  > = {
     job_completed: {
       subject: `Ihre Sendung wurde abgeschlossen – ${appName}`,
-      body: `alle Briefe Ihrer Sendung wurden erfolgreich verarbeitet und versendet.`,
+      paragraphs: ["alle Briefe Ihrer Sendung wurden erfolgreich verarbeitet und versendet."],
+      cta: toSend,
     },
     job_completed_with_errors: {
       subject: `Ihre Sendung wurde mit Fehlern abgeschlossen – ${appName}`,
-      body: `Ihre Sendung wurde abgeschlossen, einzelne Briefe konnten jedoch nicht zugestellt werden. Die betroffenen Beträge wurden Ihrem Guthaben automatisch wieder gutgeschrieben.`,
+      paragraphs: [
+        "Ihre Sendung wurde abgeschlossen, einzelne Briefe konnten jedoch nicht zugestellt werden. Die betroffenen Beträge wurden Ihrem Guthaben automatisch wieder gutgeschrieben.",
+      ],
+      cta: toSend,
     },
     items_on_hold: {
       subject: `Briefe zurückgestellt: Guthaben reicht nicht aus – ${appName}`,
-      body: `einige Briefe Ihrer Sendung benötigen mehr Blätter als geschätzt, Ihr Guthaben reicht für die Differenz derzeit nicht aus. Bitte laden Sie Guthaben auf – die Briefe werden danach automatisch versendet. Alternativ können Sie die zurückgestellten Briefe stornieren.`,
+      paragraphs: [
+        "einige Briefe Ihrer Sendung benötigen mehr Blätter als geschätzt, Ihr Guthaben reicht für die Differenz derzeit nicht aus. Bitte laden Sie Guthaben auf – die Briefe werden danach automatisch versendet. Alternativ können Sie die zurückgestellten Briefe stornieren.",
+      ],
+      cta: toSend,
     },
     welcome: {
       subject: `Willkommen bei ${appName}`,
-      body: `herzlich willkommen! Legen Sie eine Absenderadresse an, laden Sie Guthaben auf und versenden Sie Ihren ersten Brief in wenigen Minuten.`,
+      paragraphs: [
+        "herzlich willkommen! Legen Sie eine Absenderadresse an, laden Sie Guthaben auf und versenden Sie Ihren ersten Brief in wenigen Minuten.",
+      ],
+      cta: toApp,
     },
   };
 
@@ -51,16 +67,11 @@ export async function processSendEmail(payload: {
     return;
   }
 
-  const safeName = profile.display_name ? escapeHtml(profile.display_name) : null;
-  const greeting = safeName ? `Guten Tag ${safeName},` : "Guten Tag,";
-  const linkHtml = jobLink
-    ? `<p><a href="${jobLink}">Zur Sendung</a></p>`
-    : "";
-
-  await sendMail({
-    to: profile.email,
-    subject: template.subject,
-    html: `<p>${greeting}</p><p>${template.body}</p>${linkHtml}<p>Mit freundlichen Grüßen<br/>${appName}</p>`,
-    text: `${greeting}\n\n${template.body}\n${jobLink ?? ""}\n\nMit freundlichen Grüßen\n${appName}`,
+  const { html, text } = renderBrandedEmail({
+    displayName: profile.display_name,
+    paragraphs: template.paragraphs,
+    cta: template.cta,
   });
+
+  await sendMail({ to: profile.email, subject: template.subject, html, text });
 }
