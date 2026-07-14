@@ -112,16 +112,22 @@ export async function createSetupSessionAction(): Promise<
 
   const stripe = getStripe();
   const customerId = await getOrCreateCustomer(profile.id, profile.email);
+  const base = await appBaseUrl();
   try {
-    // No payment_method_types → Stripe offers the methods activated in the
-    // dashboard (card now; SEPA appears automatically once enabled). Setup
-    // mode with dynamic methods requires a currency.
+    // Explicit methods so PayPal shows: Stripe's dynamic list drops PayPal for
+    // off-session setup, but it is valid when listed. (Add "sepa_debit" here
+    // once SEPA is activated in the dashboard.) PayPal requires a redirect, so
+    // redirect_on_completion is "if_required": card completes in-dialog
+    // (onComplete → sync), PayPal redirects out and back to return_url where
+    // the webhook stores the method.
     const session = await stripe.checkout.sessions.create({
       mode: "setup",
       ui_mode: "embedded_page",
       currency: "eur",
       customer: customerId,
-      redirect_on_completion: "never",
+      payment_method_types: ["card", "paypal"],
+      redirect_on_completion: "if_required",
+      return_url: `${base}/app/guthaben?setup=erfolgreich`,
       metadata: { user_id: profile.id, purpose: "auto_topup_setup" },
     });
     if (!session.client_secret || !session.id) {
