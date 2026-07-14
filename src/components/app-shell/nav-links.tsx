@@ -79,8 +79,11 @@ function NavGroup({ item, onNavigate }: { item: NavItem; onNavigate?: () => void
   const childHrefs = item.children ?? [];
   const sectionActive =
     pathname.startsWith(item.href) || childHrefs.some((c) => pathname.startsWith(c.href));
-  // Collapsed by default; auto-open only when the section is currently active.
-  const [expanded, setExpanded] = useState(sectionActive);
+  // Open iff you're in this section; a manual toggle sticks only until the next
+  // navigation (it is keyed to the route it was made on), so leaving the section
+  // auto-collapses it.
+  const [override, setOverride] = useState<{ path: string; open: boolean } | null>(null);
+  const expanded = override && override.path === pathname ? override.open : sectionActive;
   const Icon = item.icon;
 
   return (
@@ -90,10 +93,7 @@ function NavGroup({ item, onNavigate }: { item: NavItem; onNavigate?: () => void
       <div className={cn(linkClass(sectionActive), "w-full pr-1")}>
         <Link
           href={item.href}
-          onClick={() => {
-            setExpanded(true);
-            onNavigate?.();
-          }}
+          onClick={onNavigate}
           aria-current={pathname === item.href ? "page" : undefined}
           className="-my-2 -ml-3 flex min-w-0 flex-1 items-center gap-3 py-2 pl-3"
         >
@@ -104,7 +104,7 @@ function NavGroup({ item, onNavigate }: { item: NavItem; onNavigate?: () => void
           type="button"
           aria-expanded={expanded}
           aria-label={expanded ? de.nav.collapseSection : de.nav.expandSection}
-          onClick={() => setExpanded((v) => !v)}
+          onClick={() => setOverride({ path: pathname, open: !expanded })}
           className="hover:bg-sidebar-accent/60 -my-2 ml-1 shrink-0 rounded p-1.5"
         >
           <ChevronDown
