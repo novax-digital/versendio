@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { sanitizeSearchTerm } from "@/lib/shared/search-term";
 import { de } from "@/lib/i18n/de";
 import { ContactList, type Contact } from "./contact-list";
+import { CreateContactButton } from "./create-contact-button";
 import { SearchInput } from "./search-input";
 import { ButtonLink } from "@/components/ui-ext/button-link";
 
@@ -54,6 +55,7 @@ export default async function ContactsPage({
             <Upload className="size-4" aria-hidden />
             {de.contacts.importButton}
           </ButtonLink>
+          <CreateContactButton />
         </div>
       </div>
 
@@ -61,10 +63,11 @@ export default async function ContactsPage({
 
       {(count ?? 0) === 0 && !q ? (
         <Card>
-          <CardContent className="text-muted-foreground flex flex-col items-center gap-2 py-12 text-center text-sm">
+          <CardContent className="text-muted-foreground flex flex-col items-center gap-3 py-12 text-center text-sm">
             <Users className="size-8" aria-hidden />
             <p className="text-foreground font-medium">{de.contacts.empty}</p>
             <p>{de.contacts.emptyCta}</p>
+            <CreateContactButton />
           </CardContent>
         </Card>
       ) : (

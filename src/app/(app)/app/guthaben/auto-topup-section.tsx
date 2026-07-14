@@ -2,8 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { CreditCard } from "lucide-react";
-import { startSetupAction, updateAutoTopupAction } from "./actions";
+import { CreditCard, Trash2 } from "lucide-react";
+import { removePaymentMethodAction, startSetupAction, updateAutoTopupAction } from "./actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -44,6 +44,18 @@ export function AutoTopupSection({
     startTransition(async () => {
       const result = await startSetupAction();
       if (result && !result.ok) toast.error(result.error);
+    });
+  };
+
+  const remove = () => {
+    startTransition(async () => {
+      const result = await removePaymentMethodAction();
+      if (result.ok) {
+        toast.success(de.credits.paymentMethodRemoved);
+        setIsEnabled(false);
+      } else {
+        toast.error(result.error);
+      }
     });
   };
 
@@ -97,9 +109,21 @@ export function AutoTopupSection({
                 </div>
               </div>
             ) : null}
-            <Button onClick={save} disabled={pending}>
-              {pending ? de.common.saving : de.common.save}
-            </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button onClick={save} disabled={pending}>
+                {pending ? de.common.saving : de.common.save}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-destructive"
+                onClick={remove}
+                disabled={pending}
+              >
+                <Trash2 className="size-3.5" aria-hidden />
+                {de.credits.removePaymentMethod}
+              </Button>
+            </div>
           </>
         )}
       </CardContent>

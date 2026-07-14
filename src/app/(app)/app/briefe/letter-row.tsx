@@ -2,6 +2,7 @@ import Link from "next/link";
 import { FileText, Pencil, Send } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui-ext/button-link";
+import { LetterRowMenu } from "./letter-row-menu";
 import { de } from "@/lib/i18n/de";
 
 type LetterListItem = {
@@ -48,6 +49,7 @@ export function LetterRow({ letter }: { letter: LetterListItem }) {
           {de.letters.sendAction}
         </ButtonLink>
       ) : null}
+      <LetterRowMenu letterId={letter.id} />
     </li>
   );
 }

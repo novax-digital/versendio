@@ -19,6 +19,7 @@ import { formatCents } from "@/lib/shared/money";
 import { de } from "@/lib/i18n/de";
 import { TopupSection } from "./topup-section";
 import { AutoTopupSection } from "./auto-topup-section";
+import { BillingAddressCard } from "./billing-address-card";
 import { StatusToast } from "./status-toast";
 
 export const metadata: Metadata = { title: de.credits.title };
@@ -107,6 +108,17 @@ export default async function CreditsPage({
           </CardContent>
         </Card>
       </div>
+
+      <BillingAddressCard
+        defaults={{
+          displayName: profile.display_name ?? "",
+          company: profile.company ?? "",
+          billingStreet: profile.billing_street ?? "",
+          billingZip: profile.billing_zip ?? "",
+          billingCity: profile.billing_city ?? "",
+          billingCountry: profile.billing_country ?? "DE",
+        }}
+      />
 
       {stripeOn && autoTopup ? (
         <AutoTopupSection

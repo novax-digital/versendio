@@ -305,18 +305,36 @@ export async function saveTemplateAction(
 }
 
 export async function deleteLetterAction(_prev: unknown, formData: FormData): Promise<ActionResult> {
-  await requireProfile();
+  const profile = await requireProfile();
   const parsed = z.object({ id: z.string().uuid() }).safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { ok: false, error: de.common.genericError };
 
   const supabase = await createClient();
+
+  // A letter tied to an in-flight send must not be deleted — the FK is
+  // ON DELETE SET NULL, so the DB would silently orphan the job.
+  const { data: activeItems } = await supabase
+    .from("send_job_items")
+    .select("id, send_jobs!inner(letter_id)")
+    .eq("send_jobs.letter_id", parsed.data.id)
+    .in("status", ["pending", "on_hold_funds", "submitting"])
+    .limit(1);
+  if (activeItems && activeItems.length > 0) {
+    return { ok: false, error: de.letters.activeSendJobsBlockDelete };
+  }
+
   const { data: letter } = await supabase
     .from("letters")
     .select("storage_path")
     .eq("id", parsed.data.id)
     .single();
 
-  const { error } = await supabase.from("letters").delete().eq("id", parsed.data.id);
+  // Defence-in-depth: RLS already scopes this, but pin the owner explicitly.
+  const { error } = await supabase
+    .from("letters")
+    .delete()
+    .eq("id", parsed.data.id)
+    .eq("user_id", profile.id);
   if (error) {
     console.error("letter_delete_failed", { error: error.message });
     return { ok: false, error: de.common.genericError };

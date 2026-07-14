@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useActionState, useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 import { deleteContactAction, upsertContactAction } from "./actions";
 import { FormField } from "@/components/forms/form-field";
 import { Button } from "@/components/ui/button";
@@ -20,7 +20,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -60,37 +59,23 @@ export function ContactList({
   totalPages: number;
   searchTerm: string;
 }) {
-  const [dialogOpen, setDialogOpen] = useState(false);
+  // Dialog is edit-only here; creating a contact lives in CreateContactButton
+  // (page header + empty state) so it is reachable in every list state.
   const [editing, setEditing] = useState<Contact | null>(null);
-  const handleSaved = useCallback(() => setDialogOpen(false), []);
+  const handleSaved = useCallback(() => setEditing(null), []);
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger
-            render={
-              <Button
-                onClick={() => {
-                  setEditing(null);
-                  setDialogOpen(true);
-                }}
-              />
-            }
-          >
-            <Plus className="size-4" aria-hidden />
-            {de.contacts.addContact}
-          </DialogTrigger>
-          <DialogContent className="max-h-[90svh] overflow-y-auto sm:max-w-lg">
-            <DialogHeader>
-              <DialogTitle>
-                {editing ? de.contacts.editContact : de.contacts.addContact}
-              </DialogTitle>
-            </DialogHeader>
-            <ContactForm key={editing?.id ?? "new"} contact={editing} onSaved={handleSaved} />
-          </DialogContent>
-        </Dialog>
-      </div>
+      <Dialog open={editing !== null} onOpenChange={(open) => !open && setEditing(null)}>
+        <DialogContent className="max-h-[90svh] overflow-y-auto sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{de.contacts.editContact}</DialogTitle>
+          </DialogHeader>
+          {editing ? (
+            <ContactForm key={editing.id} contact={editing} onSaved={handleSaved} />
+          ) : null}
+        </DialogContent>
+      </Dialog>
 
       {contacts.length === 0 ? (
         <p className="text-muted-foreground py-8 text-center text-sm">
@@ -124,10 +109,7 @@ export function ContactList({
                         variant="ghost"
                         size="icon-sm"
                         aria-label={de.common.edit}
-                        onClick={() => {
-                          setEditing(contact);
-                          setDialogOpen(true);
-                        }}
+                        onClick={() => setEditing(contact)}
                       >
                         <Pencil className="size-3.5" />
                       </Button>
@@ -209,7 +191,13 @@ function DeleteContactButton({ contactId }: { contactId: string }) {
   );
 }
 
-function ContactForm({ contact, onSaved }: { contact: Contact | null; onSaved: () => void }) {
+export function ContactForm({
+  contact,
+  onSaved,
+}: {
+  contact: Contact | null;
+  onSaved: () => void;
+}) {
   const [state, formAction, pending] = useActionState(upsertContactAction, null);
   const fieldErrors = state && !state.ok ? state.fieldErrors : undefined;
 

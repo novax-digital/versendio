@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { LogOut, Wallet } from "lucide-react";
+import { LogOut, Wallet, User, ShieldCheck } from "lucide-react";
 import { logoutAction } from "@/app/(auth)/actions";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -57,6 +57,19 @@ export function UserMenu({
             <Wallet className="size-3.5" aria-hidden />
             {formatCents(balanceCents)}
           </DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem render={<Link href="/app/einstellungen" />}>
+            <User className="size-4" aria-hidden />
+            {de.profile.title}
+          </DropdownMenuItem>
+          <DropdownMenuItem render={<Link href="/app/einstellungen/sicherheit" />}>
+            <ShieldCheck className="size-4" aria-hidden />
+            {de.profile.security}
+          </DropdownMenuItem>
+          <DropdownMenuItem render={<Link href="/app/guthaben" />}>
+            <Wallet className="size-4" aria-hidden />
+            {de.nav.credits}
+          </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem
             variant="destructive"

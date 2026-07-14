@@ -16,14 +16,24 @@ type ProfileDefaults = {
   billingCountry: string;
 };
 
-export function ProfileForm({ defaults }: { defaults: ProfileDefaults }) {
+export function ProfileForm({
+  defaults,
+  onSaved,
+}: {
+  defaults: ProfileDefaults;
+  onSaved?: () => void;
+}) {
   const [state, formAction, pending] = useActionState(updateProfileAction, null);
   const fieldErrors = state && !state.ok ? state.fieldErrors : undefined;
 
   useEffect(() => {
-    if (state?.ok) toast.success(de.profile.saved);
-    else if (state && !state.ok && state.error) toast.error(state.error);
-  }, [state]);
+    if (state?.ok) {
+      toast.success(de.profile.saved);
+      onSaved?.();
+    } else if (state && !state.ok && state.error) {
+      toast.error(state.error);
+    }
+  }, [state, onSaved]);
 
   return (
     <form action={formAction} className="space-y-4" noValidate>

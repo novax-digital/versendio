@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { blockedActionError, requireProfile } from "@/lib/server/auth-context";
@@ -170,5 +171,42 @@ export async function updateAutoTopupAction(
     console.error("auto_topup_update_failed", { error: error.message });
     return { ok: false, error: de.common.genericError };
   }
+  return { ok: true };
+}
+
+/** Detaches the saved card at Stripe and clears it locally; disables auto top-up. */
+export async function removePaymentMethodAction(): Promise<ActionResult> {
+  const profile = await requireProfile();
+  const blocked = blockedActionError(profile);
+  if (blocked) return { ok: false, error: blocked };
+  if (!stripeEnabled()) return { ok: false, error: de.credits.stripeDisabled };
+
+  const admin = createAdminClient();
+  const { data: account } = await admin
+    .from("billing_accounts")
+    .select("default_payment_method_id")
+    .eq("user_id", profile.id)
+    .maybeSingle();
+
+  if (account?.default_payment_method_id) {
+    try {
+      await getStripe().paymentMethods.detach(account.default_payment_method_id);
+    } catch (err) {
+      // Already detached / unknown at Stripe — clear locally regardless.
+      console.error("payment_method_detach_failed", {
+        error: err instanceof Error ? err.message : "unknown",
+      });
+    }
+  }
+
+  const { error } = await admin
+    .from("billing_accounts")
+    .update({ default_payment_method_id: null, auto_topup_enabled: false })
+    .eq("user_id", profile.id);
+  if (error) {
+    console.error("payment_method_remove_failed", { error: error.message });
+    return { ok: false, error: de.common.genericError };
+  }
+  revalidatePath("/app/guthaben");
   return { ok: true };
 }

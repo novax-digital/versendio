@@ -34,7 +34,8 @@ export const de = {
     dashboard: "Übersicht",
     letters: "Briefe",
     contacts: "Kontakte",
-    leadLists: "Leadlisten",
+    allContacts: "Alle Kontakte",
+    leadLists: "Kontaktlisten",
     sendJobs: "Sendungen",
     credits: "Guthaben",
     settings: "Einstellungen",
@@ -332,6 +333,8 @@ export const de = {
     tooManyTemplates: "Sie haben die maximale Anzahl an Vorlagen und Briefpapieren erreicht.",
     activeSendJobsBlockSave:
       "Dieser Brief ist Teil einer laufenden Sendung und kann erst nach deren Abschluss oder Storno geändert werden.",
+    activeSendJobsBlockDelete:
+      "Dieser Brief ist Teil einer laufenden Sendung und kann erst nach deren Abschluss oder Storno gelöscht werden.",
     marginUpgradeNotice:
       "Dieser Brief wurde auf den neuen DIN-5008-Satzspiegel aktualisiert. Der Umbruch und die Seitenzahl können sich ändern – speichern Sie, um die Aktualisierung zu übernehmen.",
     letterheadHint:
@@ -608,6 +611,8 @@ export const de = {
     autoAmount: "Aufladebetrag (€)",
     savePaymentMethod: "Zahlungsmethode hinterlegen",
     paymentMethodSaved: "Zahlungsmethode hinterlegt",
+    removePaymentMethod: "Zahlungsmethode entfernen",
+    paymentMethodRemoved: "Die Zahlungsmethode wurde entfernt.",
     noPaymentMethod: "Bitte hinterlegen Sie zuerst eine Zahlungsmethode.",
     autoTopupSaved: "Die Einstellungen wurden gespeichert.",
     transactionsTitle: "Transaktionen",
