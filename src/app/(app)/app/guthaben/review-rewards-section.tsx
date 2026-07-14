@@ -20,7 +20,7 @@ import { de } from "@/lib/i18n/de";
 export type RewardRequest = { platform: ReviewPlatform; status: "pending" | "approved" | "rejected" };
 
 const PLATFORM_LINKS: Record<ReviewPlatform, string> = {
-  trustpilot: "https://www.trustpilot.com/evaluate/versendio.de",
+  trustpilot: "https://de.trustpilot.com/evaluate/versendio.de",
   linkedin: "https://www.linkedin.com/feed/",
 };
 
