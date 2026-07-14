@@ -15,7 +15,12 @@ import { uploadObject, removeObject, BUCKETS } from "@/lib/server/storage";
 import { validateLetterPdf } from "@/lib/server/pdf/validate";
 import { isSubmittable } from "@/lib/shared/validation-result";
 import type { PdfValidation } from "@/lib/shared/validation-result";
-import { saveEditorLetterSchema, saveTemplateSchema, letterTitleSchema } from "@/lib/shared/schemas/letter";
+import {
+  saveEditorLetterSchema,
+  saveTemplateSchema,
+  saveTemplateDocSchema,
+  letterTitleSchema,
+} from "@/lib/shared/schemas/letter";
 import { hasPlaceholders } from "@/lib/shared/placeholders";
 import { LIMITS } from "@/lib/shared/schablone";
 import { de } from "@/lib/i18n/de";
@@ -302,6 +307,92 @@ export async function saveTemplateAction(
     return { ok: false, error: de.letters.saveFailed };
   }
   return { ok: true, data: { templateId: data.id } };
+}
+
+/**
+ * Creates (id null) or updates (id set) a full letter template from the editor's
+ * template mode. Unlike letters, templates are stored as-is without rendering or
+ * PDF validation — they may be partial and are only validated when a letter is
+ * built from them. Updates are pinned to the owner and kind='template' so a
+ * letterhead can never be flipped into a template.
+ */
+export async function saveTemplateDocAction(
+  _prev: unknown,
+  input: unknown,
+): Promise<ActionResult<{ templateId: string }>> {
+  const profile = await requireProfile();
+  const blocked = blockedActionError(profile);
+  if (blocked) return { ok: false, error: blocked };
+
+  const ip = await clientIp();
+  if (!(await checkRateLimit("upload", `${profile.id}:${ip}`))) {
+    return { ok: false, error: de.common.rateLimited };
+  }
+
+  const parsed = saveTemplateDocSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: de.letters.saveFailed, fieldErrors: fieldErrorsFromZod(parsed.error.issues) };
+  }
+
+  const supabase = await createClient();
+  const document = parsed.data.document as unknown as Record<string, unknown>;
+
+  if (parsed.data.id) {
+    const { data: updated, error } = await supabase
+      .from("letter_templates")
+      .update({ name: parsed.data.name, editor_document: document })
+      .eq("id", parsed.data.id)
+      .eq("user_id", profile.id)
+      .eq("kind", "template")
+      .select("id")
+      .maybeSingle();
+    if (error || !updated) {
+      console.error("template_update_failed", { error: error?.message ?? "not_found_or_wrong_kind" });
+      return { ok: false, error: de.letters.saveFailed };
+    }
+    revalidatePath("/app/briefe/vorlagen");
+    return { ok: true, data: { templateId: parsed.data.id } };
+  }
+
+  const { count } = await supabase
+    .from("letter_templates")
+    .select("id", { count: "exact", head: true });
+  if ((count ?? 0) >= 100) {
+    return { ok: false, error: de.letters.tooManyTemplates };
+  }
+  const { data, error } = await supabase
+    .from("letter_templates")
+    .insert({ user_id: profile.id, name: parsed.data.name, editor_document: document, kind: "template" })
+    .select("id")
+    .single();
+  if (error || !data) {
+    console.error("template_insert_failed", { error: error?.message });
+    return { ok: false, error: de.letters.saveFailed };
+  }
+  revalidatePath("/app/briefe/vorlagen");
+  return { ok: true, data: { templateId: data.id } };
+}
+
+export async function deleteTemplateAction(_prev: unknown, formData: FormData): Promise<ActionResult> {
+  const profile = await requireProfile();
+  const parsed = z.object({ id: z.string().uuid() }).safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { ok: false, error: de.common.genericError };
+
+  const supabase = await createClient();
+  // letters.template_id is ON DELETE SET NULL, so existing letters are kept.
+  // Pin owner and kind so this never removes a letterhead.
+  const { error } = await supabase
+    .from("letter_templates")
+    .delete()
+    .eq("id", parsed.data.id)
+    .eq("user_id", profile.id)
+    .eq("kind", "template");
+  if (error) {
+    console.error("template_delete_failed", { error: error.message });
+    return { ok: false, error: de.common.genericError };
+  }
+  revalidatePath("/app/briefe/vorlagen");
+  return { ok: true };
 }
 
 export async function deleteLetterAction(_prev: unknown, formData: FormData): Promise<ActionResult> {

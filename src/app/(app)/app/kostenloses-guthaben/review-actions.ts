@@ -56,6 +56,6 @@ export async function submitReviewRewardAction(
     return { ok: false, error: de.common.genericError };
   }
 
-  revalidatePath("/app/guthaben");
+  revalidatePath("/app/kostenloses-guthaben");
   return { ok: true };
 }

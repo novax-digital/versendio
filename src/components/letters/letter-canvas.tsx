@@ -53,6 +53,16 @@ const MM_PX = 96 / 25.4; // 3.7795 px per mm at CSS 96dpi
 const SHEET_W_PX = A4.widthMm * MM_PX; // 793.7
 const SHEET_H_PX = A4.heightMm * MM_PX; // 1122.5
 const PT_PX = 96 / 72; // 1.3333 px per typographic point
+// Gap between page sheets in the Word-like multi-page view.
+const PAGE_GAP_PX = 28;
+
+/** Shallow numeric equality for the per-block page offset map. */
+function sameOffsets(a: Record<string, number>, b: Record<string, number>) {
+  const ak = Object.keys(a);
+  if (ak.length !== Object.keys(b).length) return false;
+  for (const k of ak) if (a[k] !== b[k]) return false;
+  return true;
+}
 
 export const SAMPLE_PLACEHOLDERS: PlaceholderContext = {
   anrede: "Frau",
@@ -121,7 +131,10 @@ export function LetterCanvas({
   const containerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0.75);
-  const [sheetHeight, setSheetHeight] = useState(SHEET_H_PX);
+  // Word-like pagination: how many A4 sheets to draw, plus the extra top margin
+  // pushed onto each block that starts a new page so content lands on its sheet.
+  const [pageCount, setPageCount] = useState(1);
+  const [blockOffsets, setBlockOffsets] = useState<Record<string, number>>({});
   // Bumped when @font-face letter fonts finish loading so textarea heights
   // and the page estimate re-measure with real metrics.
   const [fontTick, setFontTick] = useState(0);
@@ -148,33 +161,57 @@ export function LetterCanvas({
   const theme = doc.theme;
   const frame = contentFrame(theme);
 
-  // Page estimate + sheet growth: measure rendered block heights (layout px
-  // are unaffected by the transform) and replay the renderer's cursor math.
+  // Word-like pagination. Measure rendered block heights (layout px are
+  // unaffected by the sheet transform) and replay the renderer's cursor math,
+  // but in the multi-sheet coordinate space: each block that starts a new page
+  // gets an extra top margin that pushes it down onto the next sheet (across the
+  // inter-page gap). Because margins are excluded from offsetHeight, adding them
+  // never changes the measured heights — so this converges in one extra pass.
   const measure = useCallback(() => {
     const content = contentRef.current;
     // A display:none instance (responsive twin) measures 0 heights — skip.
     if (!content || content.offsetParent === null) return;
     const children = Array.from(content.children) as HTMLElement[];
-    let cursorMm = frame.bodyStartMm;
-    let pages = 1;
+
+    const bodyStartPx = frame.bodyStartMm * MM_PX;
+    const followTopPx = frame.followTopMm * MM_PX;
+    const bottomPx = frame.bottomMm * MM_PX;
+    const step = SHEET_H_PX + PAGE_GAP_PX;
+    // Column-offset (px, 0 = column top which sits at bodyStartPx on sheet 0).
+    const pageBottomO = (p: number) => p * step + bottomPx - bodyStartPx;
+    const pageTopO = (p: number) => p * step + followTopPx - bodyStartPx;
+
+    let page = 0;
+    let o = 0; // column-offset of the current block's top (offsets applied)
+    let cardTopO = 0; // column-offset of the current sheet's content top
+    let pendingBreak = false;
+    const offsets: Record<string, number> = {};
+
     for (const child of children) {
-      let hMm = child.offsetHeight / MM_PX;
-      if (hMm <= 0) continue;
-      if (cursorMm + hMm > frame.bottomMm && cursorMm > frame.followTopMm) {
-        pages += 1;
-        cursorMm = frame.followTopMm;
+      const h = child.offsetHeight;
+      if (h <= 0) continue;
+      const id = child.dataset.blockId;
+      const mb = parseFloat(getComputedStyle(child).marginBottom) || 0;
+
+      if (pendingBreak || (o + h > pageBottomO(page) && o > cardTopO)) {
+        page += 1;
+        const push = Math.max(0, pageTopO(page) - o);
+        if (id && push > 0.5) offsets[id] = push;
+        o += push;
+        cardTopO = o;
+        pendingBreak = false;
       }
-      // A single block taller than a page spills across several pages.
-      while (cursorMm + hMm > frame.bottomMm) {
-        hMm -= frame.bottomMm - cursorMm;
-        pages += 1;
-        cursorMm = frame.followTopMm;
-      }
-      cursorMm += hMm;
+      // A single block taller than a page: add sheets to cover it.
+      while (o + h > pageBottomO(page)) page += 1;
+
+      o += h + mb;
+      if (child.dataset.blockType === "pagebreak") pendingBreak = true;
     }
-    onEstimate?.(pages);
-    const contentBottomPx = frame.bodyStartMm * MM_PX + content.offsetHeight;
-    setSheetHeight(Math.max(SHEET_H_PX, contentBottomPx + 20 * MM_PX));
+
+    const nextCount = page + 1;
+    setPageCount((prev) => (prev === nextCount ? prev : nextCount));
+    setBlockOffsets((prev) => (sameOffsets(prev, offsets) ? prev : offsets));
+    onEstimate?.(nextCount);
   }, [onEstimate, frame]);
 
   useEffect(() => {
@@ -189,20 +226,36 @@ export function LetterCanvas({
     ? frame.widthMm - LETTERHEAD.logo.maxWidthMm - LETTERHEAD.gapMm
     : frame.widthMm;
 
+  const totalHeight = pageCount * SHEET_H_PX + (pageCount - 1) * PAGE_GAP_PX;
+
   return (
     <div ref={containerRef} className={cn("w-full", zoom === "full" && "overflow-x-auto")}>
-      {/* Width-clamped wrapper so the scaled sheet centers in the well. */}
-      <div className="mx-auto" style={{ height: sheetHeight * scale, width: SHEET_W_PX * scale }}>
+      {/* Width-clamped wrapper so the scaled sheet stack centers in the well. */}
+      <div className="mx-auto" style={{ height: totalHeight * scale, width: SHEET_W_PX * scale }}>
         <div
-          className="letter-canvas-text relative origin-top-left bg-white text-black ring-1 ring-black/5 dark:ring-white/10"
+          className="letter-canvas-text relative origin-top-left text-black"
           style={{
             width: SHEET_W_PX,
-            height: sheetHeight,
+            height: totalHeight,
             transform: `scale(${scale})`,
-            boxShadow: "0 1px 2px rgba(16,24,40,.06), 0 16px 40px -12px rgba(16,24,40,.22)",
           }}
           onClick={() => onSelect(null)}
         >
+          {/* Page sheets: one white A4 card per page, stacked with a gap so a
+              multi-page letter reads like separate sheets (Word-style). */}
+          {Array.from({ length: pageCount }, (_, i) => (
+            <div
+              key={i}
+              className="absolute left-0 bg-white ring-1 ring-black/5 dark:ring-white/10"
+              style={{
+                top: i * (SHEET_H_PX + PAGE_GAP_PX),
+                width: SHEET_W_PX,
+                height: SHEET_H_PX,
+                boxShadow: "0 1px 2px rgba(16,24,40,.06), 0 16px 40px -12px rgba(16,24,40,.22)",
+              }}
+            />
+          ))}
+
           {/* Logo */}
           {doc.logoStoragePath ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -249,7 +302,7 @@ export function LetterCanvas({
           {/* Footer small print (page 1, fixed band below the body flow).
               Hidden once the sheet grows past page 1 — the band belongs to
               page 1 and would otherwise overlay flowing body text. */}
-          {doc.footer.text.trim() && sheetHeight <= SHEET_H_PX + 1 ? (
+          {doc.footer.text.trim() && pageCount <= 1 ? (
             <div
               className="absolute overflow-hidden text-center whitespace-pre-wrap"
               style={{
@@ -359,6 +412,7 @@ export function LetterCanvas({
                     doc={doc}
                     index={index}
                     total={doc.blocks.length}
+                    offset={blockOffsets[block.id] ?? 0}
                     selected={selectedId === block.id}
                     readOnly={readOnly}
                     showSampleData={showSampleData}
@@ -377,14 +431,6 @@ export function LetterCanvas({
               </div>
             </SortableContext>
           </DndContext>
-
-          {/* Page-1 boundary hint when the sheet grew */}
-          {sheetHeight > SHEET_H_PX + 1 ? (
-            <div
-              className="pointer-events-none absolute left-0 w-full border-t border-dashed border-slate-300"
-              style={{ top: SHEET_H_PX }}
-            />
-          ) : null}
 
           {/* Clickable letterhead chrome zones — screen-only overlays that open
               the "Kopf & Fuß" inspector section and focus the matching field. */}
@@ -412,7 +458,7 @@ export function LetterCanvas({
                   {de.letters.editHeaderZone}
                 </span>
               </button>
-              {sheetHeight <= SHEET_H_PX + 1 ? (
+              {pageCount <= 1 ? (
                 <button
                   type="button"
                   aria-label={de.letters.editFooterZone}
@@ -451,6 +497,7 @@ function CanvasBlock({
   doc,
   index,
   total,
+  offset,
   selected,
   readOnly,
   showSampleData,
@@ -469,6 +516,7 @@ function CanvasBlock({
   doc: LetterDocument;
   index: number;
   total: number;
+  offset: number;
   selected: boolean;
   readOnly: boolean;
   showSampleData: boolean;
@@ -619,9 +667,10 @@ function CanvasBlock({
           ? "ring-primary/70 ring-2"
           : "hover:ring-1 hover:ring-slate-300",
       )}
-      style={{ marginBottom: marginBottomPx, ...dragStyle }}
+      style={{ marginTop: offset || undefined, marginBottom: marginBottomPx, ...dragStyle }}
       onClick={select}
       data-block-id={block.id}
+      data-block-type={block.type}
     >
       {body}
       {/* Gap inserter: zero-height hover zones straddling the block edges. */}

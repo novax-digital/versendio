@@ -35,12 +35,15 @@ export const de = {
   nav: {
     dashboard: "Übersicht",
     letters: "Briefe",
+    allLetters: "Alle Briefe",
+    templates: "Vorlagen",
     contacts: "Kontakte",
     allContacts: "Alle Kontakte",
     leadLists: "Kontaktlisten",
     sendJobs: "Sendungen",
     flows: "Flows",
     credits: "Guthaben",
+    freeCredit: "Kostenloses Guthaben",
     settings: "Einstellungen",
     admin: "Administration",
     logout: "Abmelden",
@@ -259,6 +262,7 @@ export const de = {
     editorTitle: "Brief-Editor",
     editorSubtitle: "Erstellen Sie Ihren Brief. Platzhalter wie {{vorname}} werden beim Versand je Empfänger ersetzt.",
     addBlock: "Baustein hinzufügen",
+    addPage: "Seite hinzufügen",
     blockSubject: "Betreff",
     blockText: "Textabsatz",
     blockSpacer: "Abstand",
@@ -358,6 +362,27 @@ export const de = {
     templateLoadFailed:
       "Die Vorlage konnte nicht geladen werden. Sie ist möglicherweise beschädigt oder veraltet.",
     tooManyTemplates: "Sie haben die maximale Anzahl an Vorlagen und Briefpapieren erreicht.",
+
+    // Vorlagen-Verwaltung (eigene Seite)
+    templatesTitle: "Vorlagen",
+    templatesSubtitle:
+      "Wiederverwendbare Brief-Vorlagen – erstellen Sie daraus mit einem Klick einen neuen Brief oder bearbeiten Sie die Vorlage.",
+    templatesEmpty: "Sie haben noch keine Vorlagen gespeichert.",
+    templatesEmptyHint:
+      "Speichern Sie im Brief-Editor einen Brief über „Als Vorlage speichern“ – oder legen Sie hier direkt eine neue Vorlage an.",
+    newTemplate: "Neue Vorlage",
+    templateEditTitle: "Vorlage bearbeiten",
+    templateNameLabel: "Name der Vorlage",
+    templateNamePlaceholder: "z. B. Standard-Angebot",
+    templateCreateLetter: "Brief erstellen",
+    templateEdit: "Bearbeiten",
+    templateDelete: "Vorlage löschen",
+    templateDeleteConfirm:
+      "Möchten Sie diese Vorlage wirklich löschen? Bereits erstellte Briefe bleiben erhalten.",
+    templateDeleted: "Die Vorlage wurde gelöscht.",
+    templateSaved: "Die Vorlage wurde gespeichert.",
+    templateColName: "Name",
+    templateColUpdated: "Zuletzt geändert",
     activeSendJobsBlockSave:
       "Dieser Brief ist Teil einer laufenden Sendung und kann erst nach deren Abschluss oder Storno geändert werden.",
     activeSendJobsBlockDelete:
@@ -752,6 +777,14 @@ export const de = {
     paymentMethodRemoved: "Die Zahlungsmethode wurde entfernt.",
     bonusComment: "Bonus-Guthaben",
     bonusHint: (amount: string) => `zzgl. ${amount} Bonus-Guthaben gratis obendrauf`,
+    // Kostenloses Guthaben (eigene Seite)
+    freeCreditTitle: "Kostenloses Guthaben",
+    freeCreditSubtitle:
+      "Sammeln Sie Guthaben für Ihren Briefversand – ganz ohne Aufladung.",
+    referTitle: "Freunde werben",
+    referTeaser:
+      "Bald verfügbar: Empfehlen Sie Versendio weiter und sichern Sie sich zusätzliches Guthaben, sobald geworbene Freunde ihren ersten Brief versenden.",
+    comingSoon: "Bald verfügbar",
     // Guthaben verdienen (Bewertungen)
     rewardsTitle: "Guthaben verdienen",
     rewardsHint:

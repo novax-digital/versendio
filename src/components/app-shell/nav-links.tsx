@@ -14,6 +14,7 @@ import {
   Shield,
   Menu,
   ChevronDown,
+  Gift,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/brand/logo";
@@ -35,7 +36,16 @@ type NavItem = NavLeaf & {
 // letter ("Versenden" in the list) or the dashboard CTA.
 const items: NavItem[] = [
   { href: "/app", label: de.nav.dashboard, icon: LayoutDashboard, exact: true },
-  { href: "/app/briefe", label: de.nav.letters, icon: FileText, exact: false },
+  {
+    href: "/app/briefe",
+    label: de.nav.letters,
+    icon: FileText,
+    exact: false,
+    children: [
+      { href: "/app/briefe", label: de.nav.allLetters, exact: true },
+      { href: "/app/briefe/vorlagen", label: de.nav.templates, exact: false },
+    ],
+  },
   {
     href: "/app/kontakte",
     label: de.nav.contacts,
@@ -114,6 +124,7 @@ function NavGroup({ item, onNavigate }: { item: NavItem; onNavigate?: () => void
 function LinkList({ isAdmin, onNavigate }: { isAdmin: boolean; onNavigate?: () => void }) {
   const pathname = usePathname();
   const allItems = isAdmin ? [...items, adminItem] : items;
+  const freeCreditActive = pathname.startsWith("/app/kostenloses-guthaben");
 
   return (
     <>
@@ -136,6 +147,20 @@ function LinkList({ isAdmin, onNavigate }: { isAdmin: boolean; onNavigate?: () =
           </Link>
         );
       })}
+
+      {/* Highlighted promo entry — earn credit via reviews / (soon) referrals. */}
+      <Link
+        href="/app/kostenloses-guthaben"
+        onClick={onNavigate}
+        aria-current={freeCreditActive ? "page" : undefined}
+        className={cn(
+          "border-primary/30 text-primary hover:bg-primary/10 mt-2 flex items-center gap-3 rounded-md border border-dashed px-3 py-2 text-sm font-medium transition-colors",
+          freeCreditActive ? "bg-primary/10" : "bg-primary/5",
+        )}
+      >
+        <Gift className="size-4" aria-hidden />
+        {de.nav.freeCredit}
+      </Link>
     </>
   );
 }

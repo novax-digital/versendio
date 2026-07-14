@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import {
   Ellipsis,
   Eye,
+  FileStack,
   FileText,
   Frame,
   Info,
@@ -16,7 +17,12 @@ import {
   Sparkles,
   Users,
 } from "lucide-react";
-import { saveEditorLetterAction, saveTemplateAction, uploadAssetAction } from "../actions";
+import {
+  saveEditorLetterAction,
+  saveTemplateAction,
+  saveTemplateDocAction,
+  uploadAssetAction,
+} from "../actions";
 import { safeParseLetterDocument } from "@/lib/shared/letter-document";
 import type { LetterBlock, LetterDocument, LetterTheme } from "@/lib/shared/letter-document";
 import type { DraftBlock } from "@/lib/server/ai/draft-provider";
@@ -101,6 +107,8 @@ export function LetterEditor({
   letterheads,
   aiMock,
   aiEnabled,
+  templateMode = false,
+  templateId = null,
 }: {
   letterId: string | null;
   initialTitle: string;
@@ -110,11 +118,19 @@ export function LetterEditor({
   letterheads: Template[];
   aiMock: boolean;
   aiEnabled: boolean;
+  /** When true the editor edits a reusable template, not a sendable letter:
+   *  Save writes to letter_templates and the send/preview affordances are hidden. */
+  templateMode?: boolean;
+  /** Existing template id when editing; null when creating a new template. */
+  templateId?: string | null;
 }) {
   const router = useRouter();
   const [title, setTitle] = useState(initialTitle);
   const [doc, setDoc] = useState<LetterDocument>(() => modernizeMarginStyle(initialDocument));
   const [savedId, setSavedId] = useState<string | null>(letterId);
+  const [savedTemplateId, setSavedTemplateId] = useState<string | null>(templateId);
+  // The id of the persisted record for the current mode (letter or template).
+  const persistedId = templateMode ? savedTemplateId : savedId;
   const [previewVersion, setPreviewVersion] = useState(0);
   const [isSaving, startSaving] = useTransition();
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
@@ -206,7 +222,7 @@ export function LetterEditor({
   // Pristine document → Schnellstart card (gated on !dirty per jury verdict).
   const pristine =
     !dirty &&
-    !savedId &&
+    !persistedId &&
     doc.blocks.every((b) => !("text" in b) || b.text.trim() === "") &&
     !doc.blocks.some((b) => b.type === "image");
 
@@ -353,6 +369,20 @@ export function LetterEditor({
     insertBlock(newBlock(type), doc.blocks.length);
   const insertBlockAt = (type: Exclude<LetterBlock["type"], "image">, at: number) =>
     insertBlock(newBlock(type), at);
+
+  /** Appends a page break plus an empty text block, so the user gets a fresh
+   *  page to type on (Word-style "insert page"). Focuses the new text block. */
+  const addPage = () => {
+    const pageBreak = newBlock("pagebreak");
+    const text = newBlock("text");
+    updateDoc((prev) => ({ ...prev, blocks: [...prev.blocks, pageBreak, text] }));
+    setSelectedId(text.id);
+    requestAnimationFrame(() => {
+      const el = document.querySelector(`[data-block-id="${text.id}"]`);
+      el?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      el?.querySelector("textarea")?.focus();
+    });
+  };
 
   const [pendingImageAt, setPendingImageAt] = useState<number | null>(null);
   const gapImageRef = useRef<HTMLInputElement>(null);
@@ -523,6 +553,22 @@ export function LetterEditor({
         return;
       }
       startSaving(async () => {
+        if (templateMode) {
+          const result = await saveTemplateDocAction(null, {
+            id: savedTemplateId,
+            name: title,
+            document: doc,
+          });
+          if (result.ok && result.data) {
+            setSavedTemplateId(result.data.templateId);
+            setDirty(false);
+            toast.success(de.letters.templateSaved);
+            onSaved?.(result.data.templateId);
+          } else {
+            toast.error(result.ok ? de.letters.saveFailed : result.error);
+          }
+          return;
+        }
         const result = await saveEditorLetterAction(null, { id: savedId, title, document: doc });
         if (result.ok && result.data) {
           setSavedId(result.data.letterId);
@@ -535,7 +581,7 @@ export function LetterEditor({
         }
       });
     },
-    [title, savedId, doc],
+    [title, savedId, savedTemplateId, templateMode, doc],
   );
 
   // Keyboard shortcuts: Cmd/Ctrl+S save, Escape deselect; outside text fields:
@@ -548,7 +594,7 @@ export function LetterEditor({
         e.preventDefault();
         if (
           !isSaving &&
-          hasSender &&
+          (templateMode || hasSender) &&
           !aiOpen &&
           !templateDialogOpen &&
           !pendingTemplate &&
@@ -629,18 +675,18 @@ export function LetterEditor({
     <div className="-mx-4 -mt-4 md:-mx-8 md:-mt-8">
       {/* Sticky top bar */}
       <div className="bg-background/95 sticky top-0 z-30 border-b backdrop-blur">
-        <div className="mx-auto flex h-14 max-w-[1400px] items-center gap-2 px-4 md:px-8">
+        <div className="mx-auto flex h-14 max-w-[1400px] items-center gap-2 overflow-x-hidden px-4 md:px-8">
           <Link
-            href="/app/briefe"
+            href={templateMode ? "/app/briefe/vorlagen" : "/app/briefe"}
             className="text-muted-foreground hover:text-foreground shrink-0 text-sm transition-colors"
           >
-            {de.nav.letters}
+            {templateMode ? de.nav.templates : de.nav.letters}
           </Link>
           <span className="text-muted-foreground/60 text-sm" aria-hidden>
             /
           </span>
           <Label htmlFor="letter-title" className="sr-only">
-            {de.letters.letterName}
+            {templateMode ? de.letters.templateNameLabel : de.letters.letterName}
           </Label>
           <Input
             ref={titleRef}
@@ -652,9 +698,9 @@ export function LetterEditor({
               setTitleInvalid(false);
               setDirty(true);
             }}
-            placeholder={de.letters.letterNamePlaceholder}
+            placeholder={templateMode ? de.letters.templateNamePlaceholder : de.letters.letterNamePlaceholder}
             className={cn(
-              "font-heading hover:bg-muted/60 focus-visible:bg-background h-9 w-[22rem] max-w-full border-transparent bg-transparent px-2 text-lg font-medium shadow-none",
+              "font-heading hover:bg-muted/60 focus-visible:bg-background h-9 w-full min-w-0 flex-1 border-transparent bg-transparent px-2 text-lg font-medium shadow-none sm:max-w-[22rem]",
               titleInvalid && "border-destructive ring-destructive/30 ring-2",
             )}
           />
@@ -666,7 +712,7 @@ export function LetterEditor({
                 <span className="bg-warning size-1.5 rounded-full" aria-hidden />
                 {de.letters.unsavedChanges}
               </>
-            ) : savedId ? (
+            ) : persistedId ? (
               de.letters.savedStatus
             ) : null}
           </span>
@@ -682,69 +728,79 @@ export function LetterEditor({
                 {de.letters.aiButton}
               </Button>
             ) : null}
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={
-                  <Button variant="ghost" size="icon" aria-label={de.letters.moreActions} />
-                }
+            {templateMode ? null : (
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  render={
+                    <Button variant="ghost" size="icon" aria-label={de.letters.moreActions} />
+                  }
+                >
+                  <Ellipsis className="size-4" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {templates.length > 0 ? (
+                    <>
+                      <DropdownMenuLabel>{de.letters.useTemplate}</DropdownMenuLabel>
+                      {templates.map((t) => (
+                        <DropdownMenuItem key={t.id} onClick={() => requestTemplate(t)}>
+                          <LayoutTemplate className="size-4" aria-hidden />
+                          {t.name}
+                        </DropdownMenuItem>
+                      ))}
+                      <DropdownMenuSeparator />
+                    </>
+                  ) : null}
+                  <DropdownMenuItem onClick={() => setTemplateDialogOpen(true)}>
+                    {de.letters.saveAsTemplate}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+            {templateMode ? null : (
+              <span
+                className="hidden md:inline-flex"
+                title={!savedId ? de.letters.firstSaveRequired : undefined}
               >
-                <Ellipsis className="size-4" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                {templates.length > 0 ? (
-                  <>
-                    <DropdownMenuLabel>{de.letters.useTemplate}</DropdownMenuLabel>
-                    {templates.map((t) => (
-                      <DropdownMenuItem key={t.id} onClick={() => requestTemplate(t)}>
-                        <LayoutTemplate className="size-4" aria-hidden />
-                        {t.name}
-                      </DropdownMenuItem>
-                    ))}
-                    <DropdownMenuSeparator />
-                  </>
-                ) : null}
-                <DropdownMenuItem onClick={() => setTemplateDialogOpen(true)}>
-                  {de.letters.saveAsTemplate}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <span
-              className="hidden md:inline-flex"
-              title={!savedId ? de.letters.firstSaveRequired : undefined}
+                <Dialog>
+                  <DialogTrigger render={<Button variant="ghost" disabled={!savedId} />}>
+                    <Eye className="size-4" aria-hidden />
+                    <span className="hidden xl:inline">{de.letters.pdfPreviewButton}</span>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-xl">
+                    <DialogHeader>
+                      <DialogTitle>{de.letters.pdfPreviewButton}</DialogTitle>
+                    </DialogHeader>
+                    {savedId ? <LetterPreview letterId={savedId} version={previewVersion} /> : null}
+                    <p className="text-muted-foreground text-xs">{de.letters.estimateDisclaimer}</p>
+                  </DialogContent>
+                </Dialog>
+              </span>
+            )}
+            <Button
+              variant={templateMode ? "default" : "outline"}
+              onClick={() => save()}
+              disabled={isSaving || (!templateMode && !hasSender)}
             >
-              <Dialog>
-                <DialogTrigger render={<Button variant="ghost" disabled={!savedId} />}>
-                  <Eye className="size-4" aria-hidden />
-                  <span className="hidden xl:inline">{de.letters.pdfPreviewButton}</span>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-xl">
-                  <DialogHeader>
-                    <DialogTitle>{de.letters.pdfPreviewButton}</DialogTitle>
-                  </DialogHeader>
-                  {savedId ? <LetterPreview letterId={savedId} version={previewVersion} /> : null}
-                  <p className="text-muted-foreground text-xs">{de.letters.estimateDisclaimer}</p>
-                </DialogContent>
-              </Dialog>
-            </span>
-            <Button variant="outline" onClick={() => save()} disabled={isSaving || !hasSender}>
               {isSaving ? de.common.saving : de.common.save}
             </Button>
-            <Button
-              onClick={() => save((id) => {
-                bypassGuardRef.current = true;
-                router.push(`/app/briefe/${id}`);
-              })}
-              disabled={isSaving || !hasSender}
-            >
-              {de.common.next}
-            </Button>
+            {templateMode ? null : (
+              <Button
+                onClick={() => save((id) => {
+                  bypassGuardRef.current = true;
+                  router.push(`/app/briefe/${id}`);
+                })}
+                disabled={isSaving || !hasSender}
+              >
+                {de.common.next}
+              </Button>
+            )}
           </div>
         </div>
       </div>
 
       {/* Notice banners */}
       <div className="mx-auto max-w-[1400px] px-4 md:px-8">
-        {!hasSender ? (
+        {!templateMode && !hasSender ? (
           <div className="border-destructive/40 bg-destructive/10 text-destructive mt-4 flex flex-wrap items-center justify-between gap-2 rounded-md border p-3 text-sm">
             <span>{de.letters.noSenderAddress}</span>
             <Link
@@ -960,25 +1016,30 @@ export function LetterEditor({
                 />
               </div>
 
-              <DropdownMenu>
-                <DropdownMenuTrigger
-                  render={
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="bg-background mx-auto mt-4 hidden md:flex"
-                    />
-                  }
+              <div className="mt-4 hidden items-center justify-center gap-2 md:flex">
+                <DropdownMenu>
+                  <DropdownMenuTrigger
+                    render={<Button variant="outline" size="sm" className="bg-background" />}
+                  >
+                    <Plus className="size-3.5" aria-hidden />
+                    {de.letters.addBlock}
+                  </DropdownMenuTrigger>
+                  <BlockInsertMenuContent
+                    align="center"
+                    onInsert={appendBlock}
+                    onInsertImage={() => wellImageRef.current?.click()}
+                  />
+                </DropdownMenu>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="bg-background"
+                  onClick={addPage}
                 >
-                  <Plus className="size-3.5" aria-hidden />
-                  {de.letters.addBlock}
-                </DropdownMenuTrigger>
-                <BlockInsertMenuContent
-                  align="center"
-                  onInsert={appendBlock}
-                  onInsertImage={() => wellImageRef.current?.click()}
-                />
-              </DropdownMenu>
+                  <FileStack className="size-3.5" aria-hidden />
+                  {de.letters.addPage}
+                </Button>
+              </div>
               <input
                 ref={wellImageRef}
                 type="file"
