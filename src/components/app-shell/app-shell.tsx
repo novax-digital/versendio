@@ -7,6 +7,14 @@ import type { Profile } from "@/lib/server/auth-context";
 import { NavLinks, MobileNav } from "./nav-links";
 import { UserMenu } from "./user-menu";
 
+// Legal pages live on the public marketing site (versendio.de), opened in a new
+// tab so the app session stays put.
+const legalLinks = [
+  { href: "https://versendio.de/impressum", label: de.legal.imprint },
+  { href: "https://versendio.de/datenschutz", label: de.legal.privacy },
+  { href: "https://versendio.de/agb", label: de.legal.terms },
+];
+
 export function AppShell({
   profile,
   mockMode,
@@ -16,6 +24,7 @@ export function AppShell({
   mockMode: boolean;
   children: React.ReactNode;
 }) {
+  const year = new Date().getFullYear();
   return (
     <div className="flex min-h-svh">
       <aside className="bg-sidebar text-sidebar-foreground border-sidebar-border hidden w-60 shrink-0 flex-col border-r md:flex">
@@ -64,6 +73,26 @@ export function AppShell({
           </div>
         ) : null}
         <main className="flex-1 p-4 md:p-8">{children}</main>
+        <footer className="text-muted-foreground border-t px-4 py-4 md:px-8">
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+            <p>
+              © {year} {de.common.appName}
+            </p>
+            <nav className="flex flex-wrap gap-4">
+              {legalLinks.map((link) => (
+                <a
+                  key={link.href}
+                  href={link.href}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="hover:text-foreground transition-colors hover:underline"
+                >
+                  {link.label}
+                </a>
+              ))}
+            </nav>
+          </div>
+        </footer>
       </div>
     </div>
   );
