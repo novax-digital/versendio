@@ -761,6 +761,8 @@ export const de = {
       "Die Standard-Kondition kann nicht gelöscht werden. Legen Sie zuerst eine andere als Standard fest.",
     planInUse:
       "Diese Kondition ist noch Kunden zugewiesen und kann nicht gelöscht werden.",
+    planDefaultRequired:
+      "Es muss immer eine Standard-Kondition geben. Legen Sie zuerst eine andere als Standard fest.",
     unknownSetting: "Unbekannte Einstellung.",
     invalidSettingValue: "Der Wert hat nicht das erwartete Format für diese Einstellung.",
     settingsTitle: "Einstellungen",

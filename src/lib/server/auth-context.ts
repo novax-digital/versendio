@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
@@ -38,10 +39,32 @@ export async function getCurrentProfile(): Promise<Profile | null> {
   return profile as Profile;
 }
 
+/**
+ * Optional 2FA enforcement (choke point for BOTH page renders and Server
+ * Actions — a layout-only gate would leave POST actions ungated). Once a user
+ * has a verified TOTP factor, the session must be stepped up to AAL2; an
+ * enrolled-but-unverified session (aal1 + next aal2) is sent to /mfa. Cached
+ * per request so multiple requireProfile() calls make at most one MFA lookup.
+ * Fail-open on error so a transient MFA outage never locks users out.
+ */
+const enforceMfaStepUp = cache(async (): Promise<void> => {
+  try {
+    const supabase = await createClient();
+    const { data } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    if (data && data.currentLevel === "aal1" && data.nextLevel === "aal2") {
+      redirect("/mfa");
+    }
+  } catch (err) {
+    // redirect() throws a control-flow signal — re-throw it, swallow the rest.
+    if (err && typeof err === "object" && "digest" in err) throw err;
+  }
+});
+
 /** Requires a logged-in, non-deleted user; redirects to /login otherwise. */
 export async function requireProfile(): Promise<Profile> {
   const profile = await getCurrentProfile();
   if (!profile || profile.status === "deleted") redirect("/login");
+  await enforceMfaStepUp();
   return profile;
 }
 

@@ -166,36 +166,23 @@ export async function upsertPlanAction(_prev: unknown, formData: FormData): Prom
   const admin = createAdminClient();
   const makeDefault = parsed.data.isDefault === "true";
 
-  // Only one row may carry is_default (partial unique index) — clear it first.
-  if (makeDefault) {
-    const { error: clearError } = await admin
-      .from("plans")
-      .update({ is_default: false })
-      .eq("is_default", true);
-    if (clearError) {
-      console.error("plan_clear_default_failed", { error: clearError.message });
-      return { ok: false, error: de.common.genericError };
+  // Atomic: clear+set the default in one transaction so a name collision rolls
+  // back without ever leaving zero (or two) defaults (admin_upsert_plan RPC).
+  const { error } = await admin.rpc("admin_upsert_plan", {
+    p_id: parsed.data.id ?? null,
+    p_name: parsed.data.name,
+    p_discount: parsed.data.discountPercent,
+    p_make_default: makeDefault,
+  });
+  if (error) {
+    if (error.message.includes("last_default")) {
+      return { ok: false, error: de.admin.planDefaultRequired };
     }
-  }
-
-  const values = {
-    name: parsed.data.name,
-    discount_percent: parsed.data.discountPercent,
-    is_default: makeDefault,
-  };
-
-  if (parsed.data.id) {
-    const { error } = await admin.from("plans").update(values).eq("id", parsed.data.id);
-    if (error) {
-      console.error("plan_update_failed", { error: error.message });
+    if (error.code === "23505" || error.message.includes("duplicate key")) {
       return { ok: false, error: de.admin.planNameTaken };
     }
-  } else {
-    const { error } = await admin.from("plans").insert(values);
-    if (error) {
-      console.error("plan_insert_failed", { error: error.message });
-      return { ok: false, error: de.admin.planNameTaken };
-    }
+    console.error("plan_upsert_failed", { error: error.message });
+    return { ok: false, error: de.common.genericError };
   }
 
   await writeAuditLog({
