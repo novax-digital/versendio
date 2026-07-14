@@ -188,12 +188,26 @@ export async function renderEditorLetter(input: EditorRenderInput): Promise<Uint
   // Spacer advances are deferred until the next drawable block so a trailing
   // spacer never produces a paid blank page; a spacer never spans pages.
   let pendingSpacerMm = 0;
+  // A page break is likewise deferred to the next drawable block, and only
+  // applied when the current page already has content — so a leading or
+  // trailing break (or two in a row) never adds a paid blank page.
+  let pendingPageBreak = false;
+  let pageHasContent = false;
 
   const newPage = () => {
     page = pdf.addPage([A4.widthPt, A4.heightPt]);
     cursorMm = frame.followTopMm;
+    pageHasContent = false;
   };
   const applyPendingSpace = () => {
+    // A pending break wins over pending spacing (whitespace before a forced
+    // page start is dropped).
+    if (pendingPageBreak) {
+      pendingSpacerMm = 0;
+      pendingPageBreak = false;
+      if (pageHasContent) newPage();
+      return;
+    }
     if (pendingSpacerMm > 0) {
       cursorMm += pendingSpacerMm;
       pendingSpacerMm = 0;
@@ -242,6 +256,13 @@ export async function renderEditorLetter(input: EditorRenderInput): Promise<Uint
       continue;
     }
 
+    if (block.type === "pagebreak") {
+      // Deferred + guarded by pageHasContent in applyPendingSpace(); legacy docs
+      // never contain this block so their pagination stays bit-identical.
+      if (!legacy) pendingPageBreak = true;
+      continue;
+    }
+
     if (block.type === "subject" || block.type === "heading" || block.type === "text") {
       const text = resolvePlaceholders(block.text, ctx);
       if ((block.type === "subject" || block.type === "heading") && !text.trim()) continue;
@@ -275,6 +296,7 @@ export async function renderEditorLetter(input: EditorRenderInput): Promise<Uint
         cursorMm += style.lineMm;
       });
       cursorMm += style.spacingAfterMm;
+      pageHasContent = true;
       continue;
     }
 
@@ -290,6 +312,7 @@ export async function renderEditorLetter(input: EditorRenderInput): Promise<Uint
         color: block.color === "accent" ? hexToRgb(theme.accentColor) : hexToRgb("#94A3B8"),
       });
       cursorMm += metrics.spacingMm * 2 + metrics.thicknessMm;
+      pageHasContent = true;
       continue;
     }
 
@@ -322,6 +345,7 @@ export async function renderEditorLetter(input: EditorRenderInput): Promise<Uint
         height: hPt,
       });
       cursorMm += hMm + 2;
+      pageHasContent = true;
     }
   }
 

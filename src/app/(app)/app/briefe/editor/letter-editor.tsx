@@ -19,6 +19,7 @@ import {
 import { saveEditorLetterAction, saveTemplateAction, uploadAssetAction } from "../actions";
 import { safeParseLetterDocument } from "@/lib/shared/letter-document";
 import type { LetterBlock, LetterDocument, LetterTheme } from "@/lib/shared/letter-document";
+import type { DraftBlock } from "@/lib/server/ai/draft-provider";
 import {
   Dialog,
   DialogContent,
@@ -74,6 +75,8 @@ function newBlock(type: LetterBlock["type"]): LetterBlock {
       return { type: "divider", id: nextId(), widthPct: 100, thicknessPt: 0.75, color: "muted" };
     case "spacer":
       return { type: "spacer", id: nextId(), heightMm: 8 };
+    case "pagebreak":
+      return { type: "pagebreak", id: nextId() };
     case "image":
       return { type: "image", id: nextId(), storagePath: "", widthMm: 80, align: "left" };
   }
@@ -458,24 +461,30 @@ export function LetterEditor({
     });
   };
 
-  const insertAiDraft = (draft: { betreff: string; absaetze: string[] }) => {
-    if (draft.absaetze.length === 0 && !draft.betreff.trim()) return;
+  const insertAiDraft = (draft: { betreff: string; bloecke: DraftBlock[] }) => {
+    if (draft.bloecke.length === 0 && !draft.betreff.trim()) return;
     updateDoc((prev) => {
       const blocks = [...prev.blocks];
+      // Subject: fill the first empty subject block, otherwise append one.
       const subjectIdx = blocks.findIndex((b) => b.type === "subject" && !b.text.trim());
       if (subjectIdx >= 0) {
         blocks[subjectIdx] = { ...blocks[subjectIdx], text: draft.betreff } as LetterBlock;
-      } else {
+      } else if (draft.betreff.trim()) {
         blocks.push({ ...newBlock("subject"), text: draft.betreff } as LetterBlock);
       }
+      // Map each generated module to its editor block.
+      const draftBlocks: LetterBlock[] = draft.bloecke.map((b) => {
+        if (b.kind === "heading") return { ...newBlock("heading"), text: b.text } as LetterBlock;
+        if (b.kind === "paragraph") return { ...newBlock("text"), text: b.text } as LetterBlock;
+        if (b.kind === "divider") return newBlock("divider");
+        return newBlock("spacer");
+      });
+      // Replace the first empty text block with the modules, else append them.
       const emptyTextIdx = blocks.findIndex((b) => b.type === "text" && !b.text.trim());
-      const paragraphBlocks = draft.absaetze.map(
-        (text) => ({ ...newBlock("text"), text }) as LetterBlock,
-      );
-      if (emptyTextIdx >= 0 && paragraphBlocks.length > 0) {
-        blocks.splice(emptyTextIdx, 1, ...paragraphBlocks);
+      if (emptyTextIdx >= 0 && draftBlocks.length > 0) {
+        blocks.splice(emptyTextIdx, 1, ...draftBlocks);
       } else {
-        blocks.push(...paragraphBlocks);
+        blocks.push(...draftBlocks);
       }
       return { ...prev, blocks };
     });

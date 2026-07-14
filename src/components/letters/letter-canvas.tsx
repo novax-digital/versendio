@@ -580,6 +580,20 @@ function CanvasBlock({
         {de.letters.blockSpacer} · {block.heightMm} mm
       </div>
     );
+  } else if (block.type === "pagebreak") {
+    marginBottomPx = 0;
+    body = (
+      <div
+        className={cn(
+          "flex items-center gap-2 py-2 text-[10px] font-medium tracking-wide uppercase",
+          selected ? "text-primary/70" : "text-slate-400",
+        )}
+      >
+        <span className="flex-1 border-t border-dashed border-current" />
+        {de.letters.blockPageBreak}
+        <span className="flex-1 border-t border-dashed border-current" />
+      </div>
+    );
   } else if (block.type === "image") {
     marginBottomPx = 2 * MM_PX;
     const width = Math.min(block.widthMm, contentFrame(theme).widthMm) * MM_PX;

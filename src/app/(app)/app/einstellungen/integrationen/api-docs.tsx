@@ -1,10 +1,14 @@
+import { CopyButton } from "@/components/ui-ext/copy-button";
 import { de } from "@/lib/i18n/de";
 
-function Code({ children }: { children: React.ReactNode }) {
+function Code({ children }: { children: string }) {
   return (
-    <pre className="bg-muted overflow-x-auto rounded-md p-3 font-mono text-xs leading-relaxed">
-      {children}
-    </pre>
+    <div className="relative">
+      <pre className="bg-muted overflow-x-auto rounded-md p-3 pr-10 font-mono text-xs leading-relaxed">
+        {children}
+      </pre>
+      <CopyButton value={children} className="absolute top-1 right-1" />
+    </div>
   );
 }
 
@@ -16,7 +20,7 @@ export function ApiDocs({ baseUrl }: { baseUrl: string }) {
 
       <div className="space-y-1.5 text-sm">
         <p className="text-muted-foreground">{de.integrations.docsBaseUrl}</p>
-        <Code>{baseUrl}/api/v1</Code>
+        <Code>{`${baseUrl}/api/v1`}</Code>
         <p className="text-muted-foreground">{de.integrations.docsAuthHeader}</p>
         <Code>Authorization: Bearer vk_live_…</Code>
       </div>

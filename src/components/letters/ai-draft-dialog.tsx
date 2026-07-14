@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Sparkles } from "lucide-react";
 import { generateLetterDraftAction } from "@/app/(app)/app/briefe/ai-actions";
+import type { DraftBlock } from "@/lib/server/ai/draft-provider";
 import {
   Dialog,
   DialogContent,
@@ -38,7 +39,7 @@ export function AiDraftDialog({
 }: {
   /** True when no AI key is configured — the MockDraftProvider will answer. */
   mock: boolean;
-  onDraft: (draft: { betreff: string; absaetze: string[] }) => void;
+  onDraft: (draft: { betreff: string; bloecke: DraftBlock[] }) => void;
   /** Controlled mode: open state lifted so other UI can launch the dialog. */
   open?: boolean;
   onOpenChange?: (open: boolean) => void;

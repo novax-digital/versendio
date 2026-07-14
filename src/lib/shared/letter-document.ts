@@ -122,6 +122,12 @@ export const imageBlockSchema = z.object({
   align: z.enum(["left", "center", "right"]).default("left"),
 });
 
+/** Forces the following content onto a new A4 page (only in v2 / non-legacy docs). */
+export const pageBreakBlockSchema = z.object({
+  type: z.literal("pagebreak"),
+  id: z.string(),
+});
+
 export const blockSchema = z.discriminatedUnion("type", [
   subjectBlockSchema,
   headingBlockSchema,
@@ -129,6 +135,7 @@ export const blockSchema = z.discriminatedUnion("type", [
   dividerBlockSchema,
   spacerBlockSchema,
   imageBlockSchema,
+  pageBreakBlockSchema,
 ]);
 
 export type LetterBlock = z.infer<typeof blockSchema>;

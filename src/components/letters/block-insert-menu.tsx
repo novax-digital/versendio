@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  FileStack,
   Heading2,
   ImagePlus,
   Pilcrow,
@@ -21,10 +22,19 @@ export const BLOCK_TYPE_META: Record<
   text: { label: de.letters.blockText, icon: Pilcrow },
   divider: { label: de.letters.blockDivider, icon: SeparatorHorizontal },
   spacer: { label: de.letters.blockSpacer, icon: UnfoldVertical },
+  pagebreak: { label: de.letters.blockPageBreak, icon: FileStack },
   image: { label: de.letters.blockImage, icon: ImagePlus },
 };
 
-const ORDER: LetterBlock["type"][] = ["subject", "heading", "text", "divider", "spacer", "image"];
+const ORDER: LetterBlock["type"][] = [
+  "subject",
+  "heading",
+  "text",
+  "divider",
+  "spacer",
+  "pagebreak",
+  "image",
+];
 
 /** Shared dropdown content listing the six block types with distinct icons. */
 export function BlockInsertMenuContent({

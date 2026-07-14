@@ -7,7 +7,7 @@ import { serverEnv } from "@/lib/server/env";
 import { getJsonSetting, getNumberSetting } from "@/lib/server/settings";
 import { checkCustomLimit, checkRateLimit } from "@/lib/server/rate-limit";
 import { loadPricingRows } from "@/lib/server/pricing/load";
-import { getDraftProvider, type DraftResult } from "@/lib/server/ai/draft-provider";
+import { getDraftProvider, type DraftBlock, type DraftResult } from "@/lib/server/ai/draft-provider";
 import { type ActionResult, fieldErrorsFromZod } from "@/lib/server/action-result";
 import { de } from "@/lib/i18n/de";
 
@@ -35,7 +35,7 @@ const draftInputSchema = z.object({
 
 export type GenerateDraftData = {
   betreff: string;
-  absaetze: string[];
+  bloecke: DraftBlock[];
   provider: "anthropic" | "mock";
 };
 
@@ -99,7 +99,9 @@ export async function generateLetterDraftAction(
     provider: provider.name,
     model: result.usage.model,
     input_chars: parsed.data.anlass.length + parsed.data.stichpunkte.length,
-    output_chars: result.betreff.length + result.absaetze.join("").length,
+    output_chars:
+      result.betreff.length +
+      result.bloecke.reduce((n, b) => n + ("text" in b ? b.text.length : 0), 0),
     input_tokens: result.usage.inputTokens,
     output_tokens: result.usage.outputTokens,
   });
@@ -109,6 +111,6 @@ export async function generateLetterDraftAction(
 
   return {
     ok: true,
-    data: { betreff: result.betreff, absaetze: result.absaetze, provider: provider.name },
+    data: { betreff: result.betreff, bloecke: result.bloecke, provider: provider.name },
   };
 }

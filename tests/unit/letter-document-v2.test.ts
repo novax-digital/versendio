@@ -102,6 +102,40 @@ describe("letter document v1 → v2 migration", () => {
   });
 });
 
+describe("page break (v2)", () => {
+  const text = (id: string, t: string) =>
+    ({ type: "text", id, text: t, align: "left", sizeDeltaPt: 0, color: "default" }) as const;
+  const brk = (id: string) => ({ type: "pagebreak", id }) as const;
+
+  it("forces the following content onto a new page", async () => {
+    const doc = emptyLetterDocument();
+    doc.blocks = [text("a", "Seite eins"), brk("pb"), text("b", "Seite zwei")];
+    const pdf = await PDFDocument.load(await render(doc));
+    expect(pdf.getPageCount()).toBe(2);
+  });
+
+  it("ignores a trailing page break (no blank page)", async () => {
+    const doc = emptyLetterDocument();
+    doc.blocks = [text("a", "Nur eine Seite"), brk("pb")];
+    const pdf = await PDFDocument.load(await render(doc));
+    expect(pdf.getPageCount()).toBe(1);
+  });
+
+  it("ignores a leading page break (no blank first page)", async () => {
+    const doc = emptyLetterDocument();
+    doc.blocks = [brk("pb"), text("a", "Inhalt ab Seite eins")];
+    const pdf = await PDFDocument.load(await render(doc));
+    expect(pdf.getPageCount()).toBe(1);
+  });
+
+  it("collapses consecutive page breaks into a single new page", async () => {
+    const doc = emptyLetterDocument();
+    doc.blocks = [text("a", "eins"), brk("pb1"), brk("pb2"), text("b", "zwei")];
+    const pdf = await PDFDocument.load(await render(doc));
+    expect(pdf.getPageCount()).toBe(2);
+  });
+});
+
 describe("styled rendering (v2)", () => {
   it.each(["helvetica", "lato", "poppins", "ptserif"] as const)(
     "renders a styled letter with %s and passes validation",

@@ -711,6 +711,10 @@ function BlockControls({
     );
   }
 
+  if (block.type === "pagebreak") {
+    return <p className="text-muted-foreground text-sm">{de.letters.pageBreakHint}</p>;
+  }
+
   if (block.type === "image") {
     return (
       <div className="space-y-4">
