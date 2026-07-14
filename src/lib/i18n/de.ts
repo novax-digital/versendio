@@ -112,6 +112,28 @@ export const de = {
     currentPassword: "Aktuelles Passwort",
     currentPasswordWrong: "Das aktuelle Passwort ist nicht korrekt.",
     security: "Sicherheit",
+    twoFactorTitle: "Zwei-Faktor-Authentifizierung (2FA)",
+    twoFactorHint:
+      "Schützen Sie Ihr Konto zusätzlich mit einem Einmalcode aus einer Authenticator-App (z. B. Google Authenticator, 1Password, Authy).",
+    twoFactorActive: "Aktiv",
+    twoFactorInactive: "Nicht aktiv",
+    twoFactorEnable: "2FA aktivieren",
+    twoFactorDisable: "2FA deaktivieren",
+    twoFactorScanHint:
+      "Scannen Sie den QR-Code mit Ihrer Authenticator-App oder geben Sie den Schlüssel manuell ein. Bestätigen Sie dann mit dem angezeigten 6-stelligen Code.",
+    twoFactorSecretLabel: "Schlüssel (manuell)",
+    twoFactorCodeLabel: "6-stelliger Code",
+    twoFactorVerify: "Bestätigen und aktivieren",
+    twoFactorCancel: "Abbrechen",
+    twoFactorEnabled: "Die Zwei-Faktor-Authentifizierung ist jetzt aktiv.",
+    twoFactorDisabled: "Die Zwei-Faktor-Authentifizierung wurde deaktiviert.",
+    twoFactorInvalidCode: "Der Code ist ungültig oder abgelaufen. Bitte erneut versuchen.",
+    twoFactorEnrollFailed:
+      "2FA konnte nicht gestartet werden. Ist die Funktion im Konto freigeschaltet?",
+    twoFactorLoginTitle: "Zwei-Faktor-Bestätigung",
+    twoFactorLoginSubtitle:
+      "Geben Sie den 6-stelligen Code aus Ihrer Authenticator-App ein.",
+    twoFactorLoginVerify: "Bestätigen",
     countryHint: "Ländercode, z. B. DE",
     deleteAccount: "Konto löschen",
     deleteAccountWarning:

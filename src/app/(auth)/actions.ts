@@ -62,6 +62,12 @@ export async function loginAction(_prev: unknown, formData: FormData): Promise<A
     return { ok: false, error: de.auth.invalidCredentials };
   }
 
+  // If the user enrolled 2FA, the session is still AAL1 → step up first.
+  const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+  if (aal && aal.currentLevel === "aal1" && aal.nextLevel === "aal2") {
+    redirect("/mfa");
+  }
+
   redirect("/app");
 }
 

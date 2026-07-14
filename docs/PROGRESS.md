@@ -306,3 +306,26 @@ Abschlussbericht abarbeiten.
   Absenderadresse („Hannover, 13. Juli 2026"), Controls im Versand-Abschnitt des Inspectors;
   Textbeginn im DIN-Frame auf 100 mm (unter die Datumszeile) — auf allen Render-Pfaden
   (Speichern, Vorschau, Versand-Worker via sender_snapshot.city) und im Canvas
+
+## Nach Übergabe — Feature-Batch (2026-07-14)
+
+- [x] **Navigation**: „Leadlisten" → „Kontaktlisten"; Kontakte ist eine ausklappbare Gruppe
+  (Alle Kontakte + Kontaktlisten), standardmäßig eingeklappt, öffnet sich auf der aktiven Sektion
+- [x] **Kontakte anlegen**: „Kontakt anlegen"-Button in Kopfzeile + Leerzustand (Formular existierte,
+  war aber nur in der befüllten Liste erreichbar)
+- [x] **Briefe löschen**: Zeilen-Menü mit Bestätigung; `deleteLetterAction` blockt Briefe mit
+  laufender Sendung und pinnt den Eigentümer explizit
+- [x] **Profil-Menü**: Links Profil/Sicherheit/Guthaben ergänzt; **Zahlungsmethode entfernen**
+  (Detach bei Stripe + lokal leeren)
+- [x] **Rechnungsadresse** auf der Guthaben-Seite anzeigbar + editierbar (spiegelt das Profilformular)
+- [x] **Auflade-Bonus (Geld)**: Admin-Konfig `topup_bonus_tiers` (Prozent oder fixe Cent je Schwelle);
+  Bonus wird im Webhook als **separate Ledger-Zeile** gebucht (`reference_type=stripe_bonus`,
+  gleiche Event-ID) → idempotent, keine USt., keine Rechnung; gilt für manuelle und Auto-Aufladung;
+  reine Rechenfunktion unit-getestet (floor, nie Überzahlung). Migration 20260714100000 angewendet
+- [x] **Konditionen (Rabatt-Pläne)**: Admin-CRUD unter Preisverwaltung — benannte Konditionen mit
+  Rabatt-%, eine Standard-Kondition (alle Neukunden), Löschschutz für Standard + zugewiesene;
+  Zuweisung je Kunde existierte bereits in der Nutzerverwaltung
+- [x] **Optional 2FA (TOTP)**: Supabase-MFA in Einstellungen → Sicherheit (aktivieren via QR/Code,
+  deaktivieren); Login-Step-up + App-Layout-Gate (aal1+aal2 → `/mfa`), fail-open
+  - ⚠️ **Operator-Schritt:** MFA im Supabase-Dashboard unter Auth → Multi-Factor freischalten,
+    sonst schlägt die Aktivierung fehl
