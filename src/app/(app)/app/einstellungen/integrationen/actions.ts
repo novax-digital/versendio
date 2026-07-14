@@ -30,9 +30,12 @@ export async function createApiKeyAction(
   if (!parsed.success) return { ok: false, error: de.validation.fieldRequired };
 
   const supabase = await createClient();
+  // Explicit owner scope: the RLS policy widens for admins, so the per-user
+  // cap must filter by user_id rather than rely on RLS.
   const { count } = await supabase
     .from("api_keys")
     .select("id", { count: "exact", head: true })
+    .eq("user_id", profile.id)
     .is("revoked_at", null);
   if ((count ?? 0) >= MAX_KEYS) {
     return { ok: false, error: de.integrations.tooManyKeys };
