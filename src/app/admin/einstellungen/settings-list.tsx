@@ -11,10 +11,16 @@ import { de } from "@/lib/i18n/de";
 
 export type Setting = { key: string; value: unknown };
 
+const HINTS: Record<string, string> = {
+  topup_bonus_tiers:
+    'Beispiel: [{"threshold_cents":5000,"bonus_percent":10},{"threshold_cents":10000,"bonus_cents":1500}] — je Stufe entweder bonus_percent ODER bonus_cents. Leeres Array [] = kein Bonus.',
+};
+
 const LABELS: Record<string, string> = {
   topup_amounts_cents: "Aufladebeträge (Cent)",
   topup_min_cents: "Mindestbetrag (Cent)",
   topup_max_cents: "Höchstbetrag (Cent)",
+  topup_bonus_tiers: "Bonus-Guthaben je Aufladehöhe",
   low_credit_threshold_cents: "Schwellwert „Guthaben niedrig“ (Cent)",
   queue_batch_size: "Queue-Batchgröße je Lauf",
   status_sync_interval_minutes: "Status-Sync-Intervall (Minuten)",
@@ -71,6 +77,9 @@ function SettingRow({ setting }: { setting: Setting }) {
           onChange={(e) => setValue(e.target.value)}
           className="font-mono text-sm"
         />
+        {HINTS[setting.key] ? (
+          <p className="text-muted-foreground text-xs">{HINTS[setting.key]}</p>
+        ) : null}
       </div>
       <Button size="sm" onClick={save} disabled={pending || value === initial}>
         {de.common.save}

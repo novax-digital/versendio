@@ -7,14 +7,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatCents, grossFromNetCents } from "@/lib/shared/money";
+import { computeBonusCents, type BonusTier } from "@/lib/shared/topup-bonus";
 import { de } from "@/lib/i18n/de";
 
 export function TopupSection({
   amountsCents,
   minCents,
+  bonusTiers,
 }: {
   amountsCents: number[];
   minCents: number;
+  bonusTiers: BonusTier[];
 }) {
   const [selected, setSelected] = useState<number>(amountsCents[0] ?? 1000);
   const [custom, setCustom] = useState("");
@@ -22,6 +25,7 @@ export function TopupSection({
 
   const customCents = custom ? Math.round(Number(custom.replace(",", ".")) * 100) : null;
   const effectiveCents = customCents && customCents > 0 ? customCents : selected;
+  const bonusCents = computeBonusCents(effectiveCents, bonusTiers);
 
   const submit = () => {
     const fd = new FormData();
@@ -62,6 +66,9 @@ export function TopupSection({
           placeholder={(minCents / 100).toFixed(2).replace(".", ",")}
         />
       </div>
+      {bonusCents > 0 ? (
+        <p className="text-success text-xs font-medium">{de.credits.bonusHint(formatCents(bonusCents))}</p>
+      ) : null}
       <p className="text-muted-foreground text-xs">
         {effectiveCents > 0
           ? de.credits.vatNotice(formatCents(grossFromNetCents(effectiveCents)))

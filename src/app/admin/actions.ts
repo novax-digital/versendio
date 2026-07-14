@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/server/auth-context";
+import { bonusTiersSchema } from "@/lib/shared/topup-bonus";
 import { writeAuditLog } from "@/lib/server/audit";
 import { enqueueJob } from "@/lib/server/queue/enqueue";
 import { serverEnv } from "@/lib/server/env";
@@ -147,6 +148,103 @@ export async function setUserPlanAction(_prev: unknown, formData: FormData): Pro
   return { ok: true };
 }
 
+// --- Konditionen (plans) -----------------------------------------------------
+
+const upsertPlanSchema = z.object({
+  id: z.string().uuid().optional(),
+  name: z.string().trim().min(1).max(60),
+  discountPercent: z.coerce.number().min(0).max(100),
+  isDefault: z.enum(["true", "false"]).optional(),
+});
+
+/** Creates or updates a condition (plan). Setting default clears the previous one. */
+export async function upsertPlanAction(_prev: unknown, formData: FormData): Promise<ActionResult> {
+  const actor = await requireAdmin();
+  const parsed = upsertPlanSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { ok: false, error: de.common.genericError };
+
+  const admin = createAdminClient();
+  const makeDefault = parsed.data.isDefault === "true";
+
+  // Only one row may carry is_default (partial unique index) — clear it first.
+  if (makeDefault) {
+    const { error: clearError } = await admin
+      .from("plans")
+      .update({ is_default: false })
+      .eq("is_default", true);
+    if (clearError) {
+      console.error("plan_clear_default_failed", { error: clearError.message });
+      return { ok: false, error: de.common.genericError };
+    }
+  }
+
+  const values = {
+    name: parsed.data.name,
+    discount_percent: parsed.data.discountPercent,
+    is_default: makeDefault,
+  };
+
+  if (parsed.data.id) {
+    const { error } = await admin.from("plans").update(values).eq("id", parsed.data.id);
+    if (error) {
+      console.error("plan_update_failed", { error: error.message });
+      return { ok: false, error: de.admin.planNameTaken };
+    }
+  } else {
+    const { error } = await admin.from("plans").insert(values);
+    if (error) {
+      console.error("plan_insert_failed", { error: error.message });
+      return { ok: false, error: de.admin.planNameTaken };
+    }
+  }
+
+  await writeAuditLog({
+    actorUserId: actor.id,
+    action: "plan_upsert",
+    targetType: "plan",
+    targetId: parsed.data.id ?? parsed.data.name,
+    details: { discount_percent: parsed.data.discountPercent, is_default: makeDefault },
+  });
+  revalidatePath("/admin/preise");
+  return { ok: true };
+}
+
+export async function deletePlanAction(_prev: unknown, formData: FormData): Promise<ActionResult> {
+  const actor = await requireAdmin();
+  const parsed = z.object({ id: z.string().uuid() }).safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { ok: false, error: de.common.genericError };
+
+  const admin = createAdminClient();
+  const { data: plan } = await admin
+    .from("plans")
+    .select("is_default")
+    .eq("id", parsed.data.id)
+    .maybeSingle();
+  if (plan?.is_default) return { ok: false, error: de.admin.planDefaultUndeletable };
+
+  // profiles.plan_id is ON DELETE RESTRICT — block if any customer uses it.
+  const { count } = await admin
+    .from("profiles")
+    .select("id", { count: "exact", head: true })
+    .eq("plan_id", parsed.data.id);
+  if ((count ?? 0) > 0) return { ok: false, error: de.admin.planInUse };
+
+  const { error } = await admin.from("plans").delete().eq("id", parsed.data.id);
+  if (error) {
+    console.error("plan_delete_failed", { error: error.message });
+    return { ok: false, error: de.common.genericError };
+  }
+
+  await writeAuditLog({
+    actorUserId: actor.id,
+    action: "plan_delete",
+    targetType: "plan",
+    targetId: parsed.data.id,
+  });
+  revalidatePath("/admin/preise");
+  return { ok: true };
+}
+
 export async function sendPasswordResetAction(
   _prev: unknown,
   formData: FormData,
@@ -264,6 +362,8 @@ const SETTING_SCHEMAS = {
   topup_amounts_cents: z.array(z.number().int().positive()).min(1).max(8),
   topup_min_cents: z.number().int().positive(),
   topup_max_cents: z.number().int().positive(),
+  // Bonus-Guthaben je Aufladehöhe (unbezahltes Gratis-Guthaben, keine USt.).
+  topup_bonus_tiers: bonusTiersSchema,
   low_credit_threshold_cents: z.number().int().min(0),
   queue_batch_size: z.number().int().min(1).max(100),
   status_sync_interval_minutes: z.number().int().min(1).max(1440),

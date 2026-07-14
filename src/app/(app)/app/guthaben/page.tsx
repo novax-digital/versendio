@@ -16,6 +16,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { formatCents } from "@/lib/shared/money";
+import type { BonusTier } from "@/lib/shared/topup-bonus";
 import { de } from "@/lib/i18n/de";
 import { TopupSection } from "./topup-section";
 import { AutoTopupSection } from "./auto-topup-section";
@@ -33,7 +34,7 @@ export default async function CreditsPage({
   const params = await searchParams;
   const supabase = await createClient();
 
-  const [transactions, amounts, minCents] = await Promise.all([
+  const [transactions, amounts, minCents, bonusTiers] = await Promise.all([
     supabase
       .from("credit_transactions")
       .select(
@@ -47,6 +48,7 @@ export default async function CreditsPage({
       .then((r) => r.data ?? []),
     getJsonSetting<number[]>("topup_amounts_cents", [1000, 2500, 5000, 10000]),
     getNumberSetting("topup_min_cents", 1000),
+    getJsonSetting<BonusTier[]>("topup_bonus_tiers", []),
   ]);
 
   const stripeOn = stripeEnabled();
@@ -101,7 +103,7 @@ export default async function CreditsPage({
           </CardHeader>
           <CardContent>
             {stripeOn ? (
-              <TopupSection amountsCents={amounts} minCents={minCents} />
+              <TopupSection amountsCents={amounts} minCents={minCents} bonusTiers={bonusTiers} />
             ) : (
               <p className="text-muted-foreground text-sm">{de.credits.betaHint}</p>
             )}

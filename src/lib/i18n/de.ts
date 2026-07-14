@@ -613,6 +613,8 @@ export const de = {
     paymentMethodSaved: "Zahlungsmethode hinterlegt",
     removePaymentMethod: "Zahlungsmethode entfernen",
     paymentMethodRemoved: "Die Zahlungsmethode wurde entfernt.",
+    bonusComment: "Bonus-Guthaben",
+    bonusHint: (amount: string) => `Inkl. ${amount} Bonus-Guthaben`,
     noPaymentMethod: "Bitte hinterlegen Sie zuerst eine Zahlungsmethode.",
     autoTopupSaved: "Die Einstellungen wurden gespeichert.",
     transactionsTitle: "Transaktionen",
@@ -719,6 +721,24 @@ export const de = {
       "Der Verkaufspreis liegt unter dem Einkaufspreis. Bestätigen Sie den Verlustpreis ausdrücklich, um zu speichern.",
     allowNegativeMargin: "Verkauf unter Einkaufspreis zulassen",
     pricingSaved: "Der Preis wurde gespeichert.",
+    // Konditionen (Rabatt-Pläne)
+    conditionsTitle: "Konditionen",
+    conditionsHint:
+      "Konditionen sind benannte Rabatt-Stufen auf die Verkaufspreise. Die Standard-Kondition erhalten alle Kunden automatisch; abweichende Konditionen weisen Sie einzelnen Kunden in der Nutzerverwaltung zu.",
+    addCondition: "Kondition anlegen",
+    editCondition: "Kondition bearbeiten",
+    conditionName: "Bezeichnung",
+    conditionDiscount: "Rabatt (%)",
+    conditionDefault: "Standard-Kondition (für alle neuen Kunden)",
+    conditionDefaultBadge: "Standard",
+    conditionSaved: "Die Kondition wurde gespeichert.",
+    conditionDeleted: "Die Kondition wurde gelöscht.",
+    deleteConditionConfirm: "Möchten Sie diese Kondition wirklich löschen?",
+    planNameTaken: "Es gibt bereits eine Kondition mit dieser Bezeichnung.",
+    planDefaultUndeletable:
+      "Die Standard-Kondition kann nicht gelöscht werden. Legen Sie zuerst eine andere als Standard fest.",
+    planInUse:
+      "Diese Kondition ist noch Kunden zugewiesen und kann nicht gelöscht werden.",
     unknownSetting: "Unbekannte Einstellung.",
     invalidSettingValue: "Der Wert hat nicht das erwartete Format für diese Einstellung.",
     settingsTitle: "Einstellungen",

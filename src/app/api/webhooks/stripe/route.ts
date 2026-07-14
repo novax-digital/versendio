@@ -3,8 +3,11 @@ import type Stripe from "stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripe } from "@/lib/server/stripe";
 import { serverEnv } from "@/lib/server/env";
+import { getJsonSetting } from "@/lib/server/settings";
 import { enqueueJob } from "@/lib/server/queue/enqueue";
 import { sendMail, escapeHtml } from "@/lib/server/mail";
+import { computeBonusCents, type BonusTier } from "@/lib/shared/topup-bonus";
+import { de } from "@/lib/i18n/de";
 
 export const maxDuration = 60;
 
@@ -217,6 +220,28 @@ async function bookTopup(
   });
   if (error && !error.message.includes("duplicate key")) {
     throw new Error(`book_topup_failed: ${error.message}`);
+  }
+
+  // Bonus credit (gift, no VAT / no invoice): a SEPARATE ledger row keyed by
+  // the same event.id but reference_type 'stripe_bonus', so a Stripe retry
+  // re-books neither the net nor the bonus. Config is read at grant time.
+  const tiers = await getJsonSetting<BonusTier[]>("topup_bonus_tiers", []);
+  const bonusCents = computeBonusCents(amountCents, tiers);
+  if (bonusCents > 0) {
+    const { error: bonusError } = await admin.rpc("book_credit", {
+      p_user_id: userId,
+      p_type: "topup",
+      p_amount_cents: bonusCents,
+      p_reference_type: "stripe_bonus",
+      p_reference_id: eventId,
+      p_comment: de.credits.bonusComment,
+      p_created_by: "stripe",
+      p_receipt_url: null,
+      p_stripe_invoice_id: null,
+    });
+    if (bonusError && !bonusError.message.includes("duplicate key")) {
+      throw new Error(`book_bonus_failed: ${bonusError.message}`);
+    }
   }
 
   // Fresh funds: release any letters parked on insufficient balance.

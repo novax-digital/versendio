@@ -45,6 +45,7 @@ values
   ('topup_amounts_cents',      '[1000, 2500, 5000, 10000]'),
   ('topup_min_cents',          '1000'),
   ('topup_max_cents',          '100000'),
+  ('topup_bonus_tiers',        '[]'),
   ('low_credit_threshold_cents', '500'),
   ('queue_batch_size',         '10'),
   ('status_sync_interval_minutes', '15'),
