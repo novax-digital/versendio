@@ -472,13 +472,23 @@ export function LetterEditor({
       } else if (draft.betreff.trim()) {
         blocks.push({ ...newBlock("subject"), text: draft.betreff } as LetterBlock);
       }
-      // Map each generated module to its editor block.
-      const draftBlocks: LetterBlock[] = draft.bloecke.map((b) => {
-        if (b.kind === "heading") return { ...newBlock("heading"), text: b.text } as LetterBlock;
-        if (b.kind === "paragraph") return { ...newBlock("text"), text: b.text } as LetterBlock;
-        if (b.kind === "divider") return newBlock("divider");
-        return newBlock("spacer");
-      });
+      // Map each generated module to its editor block, inserting a small gap
+      // between consecutive text/heading modules so the letter has clean, airy
+      // paragraph spacing (text blocks render with no spacing of their own).
+      const AI_GAP_MM = 4;
+      const draftBlocks: LetterBlock[] = [];
+      for (const b of draft.bloecke) {
+        const prev = draftBlocks[draftBlocks.length - 1];
+        const isContent = b.kind === "heading" || b.kind === "paragraph";
+        const prevIsContent = prev && (prev.type === "heading" || prev.type === "text");
+        if (isContent && prevIsContent) {
+          draftBlocks.push({ type: "spacer", id: nextId(), heightMm: AI_GAP_MM });
+        }
+        if (b.kind === "heading") draftBlocks.push({ ...newBlock("heading"), text: b.text } as LetterBlock);
+        else if (b.kind === "paragraph") draftBlocks.push({ ...newBlock("text"), text: b.text } as LetterBlock);
+        else if (b.kind === "divider") draftBlocks.push(newBlock("divider"));
+        else draftBlocks.push({ type: "spacer", id: nextId(), heightMm: AI_GAP_MM });
+      }
       // Replace the first empty text block with the modules, else append them.
       const emptyTextIdx = blocks.findIndex((b) => b.type === "text" && !b.text.trim());
       if (emptyTextIdx >= 0 && draftBlocks.length > 0) {
