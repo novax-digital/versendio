@@ -69,8 +69,8 @@ export async function startTopupAction(_prev: unknown, formData: FormData): Prom
   const session = await stripe.checkout.sessions.create({
     mode: "payment",
     customer: customerId,
-    // SEPA aktiv anbieten (flat fee), Karte als Standard (§6.6).
-    payment_method_types: ["card", "sepa_debit"],
+    // No payment_method_types → Stripe offers the dashboard-activated methods
+    // (card; SEPA once enabled). Hardcoding a not-yet-activated method fails.
     line_items: [
       {
         quantity: 1,
@@ -97,29 +97,6 @@ export async function startTopupAction(_prev: unknown, formData: FormData): Prom
   redirect(session.url);
 }
 
-export async function startSetupAction(): Promise<ActionResult> {
-  const profile = await requireProfile();
-  const blocked = blockedActionError(profile);
-  if (blocked) return { ok: false, error: blocked };
-  if (!stripeEnabled()) return { ok: false, error: de.credits.stripeDisabled };
-
-  const stripe = getStripe();
-  const customerId = await getOrCreateCustomer(profile.id, profile.email);
-  const base = await appBaseUrl();
-
-  const session = await stripe.checkout.sessions.create({
-    mode: "setup",
-    customer: customerId,
-    payment_method_types: ["card", "sepa_debit"],
-    metadata: { user_id: profile.id, purpose: "auto_topup_setup" },
-    success_url: `${base}/app/guthaben?setup=erfolgreich`,
-    cancel_url: `${base}/app/guthaben?setup=abgebrochen`,
-  });
-
-  if (!session.url) return { ok: false, error: de.common.genericError };
-  redirect(session.url);
-}
-
 /**
  * Embedded setup: creates a Stripe Checkout session in embedded mode so the
  * card/SEPA form renders INSIDE our UI (no redirect to a hosted page).
@@ -135,18 +112,28 @@ export async function createSetupSessionAction(): Promise<
 
   const stripe = getStripe();
   const customerId = await getOrCreateCustomer(profile.id, profile.email);
-  const session = await stripe.checkout.sessions.create({
-    mode: "setup",
-    ui_mode: "embedded_page",
-    customer: customerId,
-    payment_method_types: ["card", "sepa_debit"],
-    redirect_on_completion: "never",
-    metadata: { user_id: profile.id, purpose: "auto_topup_setup" },
-  });
-  if (!session.client_secret || !session.id) {
+  try {
+    // No payment_method_types → Stripe offers the methods activated in the
+    // dashboard (card now; SEPA appears automatically once enabled). Setup
+    // mode with dynamic methods requires a currency.
+    const session = await stripe.checkout.sessions.create({
+      mode: "setup",
+      ui_mode: "embedded_page",
+      currency: "eur",
+      customer: customerId,
+      redirect_on_completion: "never",
+      metadata: { user_id: profile.id, purpose: "auto_topup_setup" },
+    });
+    if (!session.client_secret || !session.id) {
+      return { ok: false, error: de.common.genericError };
+    }
+    return { ok: true, data: { clientSecret: session.client_secret, sessionId: session.id } };
+  } catch (err) {
+    console.error("setup_session_failed", {
+      error: err instanceof Error ? err.message : "unknown",
+    });
     return { ok: false, error: de.common.genericError };
   }
-  return { ok: true, data: { clientSecret: session.client_secret, sessionId: session.id } };
 }
 
 /**

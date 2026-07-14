@@ -36,15 +36,21 @@ export function AddPaymentMethodDialog() {
       return;
     }
     setPending(true);
-    const result = await createSetupSessionAction();
-    setPending(false);
-    if (!result.ok || !result.data) {
-      toast.error(result.ok ? de.common.genericError : result.error);
-      return;
+    try {
+      const result = await createSetupSessionAction();
+      if (!result.ok || !result.data) {
+        toast.error(result.ok ? de.common.genericError : result.error);
+        return;
+      }
+      setClientSecret(result.data.clientSecret);
+      setSessionId(result.data.sessionId);
+      setOpen(true);
+    } catch {
+      // A thrown action would otherwise leave the button doing nothing.
+      toast.error(de.common.genericError);
+    } finally {
+      setPending(false);
     }
-    setClientSecret(result.data.clientSecret);
-    setSessionId(result.data.sessionId);
-    setOpen(true);
   };
 
   const onComplete = useCallback(async () => {
