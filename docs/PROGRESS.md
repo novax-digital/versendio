@@ -329,3 +329,11 @@ Abschlussbericht abarbeiten.
   deaktivieren); Login-Step-up + App-Layout-Gate (aal1+aal2 → `/mfa`), fail-open
   - ⚠️ **Operator-Schritt:** MFA im Supabase-Dashboard unter Auth → Multi-Factor freischalten,
     sonst schlägt die Aktivierung fehl
+- [x] **Adversarialer Review** über den Batch (Fokus Geld + Auth): 3 bestätigte Findings behoben:
+  - **HIGH:** 2FA war nur render-seitig — Server Actions und die `/admin`-Gruppe liefen auf AAL1.
+    Gate in `requireProfile()` verschoben (Choke-Point für Seiten **und** Actions, inkl.
+    `requireAdmin`), per-Request gecacht, fail-open
+  - **MEDIUM:** Standard-Kondition konnte auf **null** fallen (nicht-atomares clear-then-set +
+    Toggle-off ohne Guard) → atomare RPC `admin_upsert_plan` (Migration 20260714110000),
+    verweigert Zustände ohne Standard; Namenskollision rollt zurück
+- [x] DoD: Build ✅ Lint ✅ Typecheck ✅ **140 Unit-Tests** ✅; E2E gegen Mock-Build grün
