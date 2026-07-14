@@ -673,7 +673,7 @@ export const de = {
     removePaymentMethod: "Zahlungsmethode entfernen",
     paymentMethodRemoved: "Die Zahlungsmethode wurde entfernt.",
     bonusComment: "Bonus-Guthaben",
-    bonusHint: (amount: string) => `Inkl. ${amount} Bonus-Guthaben`,
+    bonusHint: (amount: string) => `zzgl. ${amount} Bonus-Guthaben gratis obendrauf`,
     // Guthaben verdienen (Bewertungen)
     rewardsTitle: "Guthaben verdienen",
     rewardsHint:
