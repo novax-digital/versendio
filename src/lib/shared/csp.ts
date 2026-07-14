@@ -24,11 +24,15 @@ export function buildCsp(nonce: string, supabaseOrigin: string, isDev = false): 
     "default-src 'self'",
     `script-src ${scriptSrc}`,
     "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: blob:",
+    // Stripe embedded checkout renders payment-method icons from stripe.com.
+    "img-src 'self' data: blob: https://*.stripe.com",
     "font-src 'self' data:",
-    `connect-src 'self' ${supabaseOrigin} https://api.stripe.com`.replace(/\s+/g, " ").trim(),
+    `connect-src 'self' ${supabaseOrigin} https://api.stripe.com https://checkout.stripe.com https://js.stripe.com`
+      .replace(/\s+/g, " ")
+      .trim(),
     // 'self' (not 'none'): the letter preview embeds our own PDF route.
-    "frame-src 'self' https://js.stripe.com https://hooks.stripe.com",
+    // Stripe embedded checkout mounts an iframe from js/checkout.stripe.com.
+    "frame-src 'self' https://js.stripe.com https://checkout.stripe.com https://hooks.stripe.com",
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self' https://checkout.stripe.com",

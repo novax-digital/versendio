@@ -120,6 +120,77 @@ export async function startSetupAction(): Promise<ActionResult> {
   redirect(session.url);
 }
 
+/**
+ * Embedded setup: creates a Stripe Checkout session in embedded mode so the
+ * card/SEPA form renders INSIDE our UI (no redirect to a hosted page).
+ * redirect_on_completion 'never' → the client reconciles via syncPaymentMethod.
+ */
+export async function createSetupSessionAction(): Promise<
+  ActionResult<{ clientSecret: string; sessionId: string }>
+> {
+  const profile = await requireProfile();
+  const blocked = blockedActionError(profile);
+  if (blocked) return { ok: false, error: blocked };
+  if (!stripeEnabled()) return { ok: false, error: de.credits.stripeDisabled };
+
+  const stripe = getStripe();
+  const customerId = await getOrCreateCustomer(profile.id, profile.email);
+  const session = await stripe.checkout.sessions.create({
+    mode: "setup",
+    ui_mode: "embedded_page",
+    customer: customerId,
+    payment_method_types: ["card", "sepa_debit"],
+    redirect_on_completion: "never",
+    metadata: { user_id: profile.id, purpose: "auto_topup_setup" },
+  });
+  if (!session.client_secret || !session.id) {
+    return { ok: false, error: de.common.genericError };
+  }
+  return { ok: true, data: { clientSecret: session.client_secret, sessionId: session.id } };
+}
+
+/**
+ * After the embedded setup completes, store the saved payment method as the
+ * default. Idempotent with the webhook's storePaymentMethod; the session's
+ * metadata.user_id is checked so a session id can only attach to its owner.
+ */
+export async function syncPaymentMethodAction(input: unknown): Promise<ActionResult> {
+  const profile = await requireProfile();
+  if (!stripeEnabled()) return { ok: false, error: de.credits.stripeDisabled };
+  const parsed = z.object({ sessionId: z.string().min(1).max(200) }).safeParse(input);
+  if (!parsed.success) return { ok: false, error: de.common.genericError };
+
+  const stripe = getStripe();
+  const session = await stripe.checkout.sessions.retrieve(parsed.data.sessionId, {
+    expand: ["setup_intent"],
+  });
+  if (session.metadata?.user_id !== profile.id) {
+    return { ok: false, error: de.common.genericError };
+  }
+  const setupIntent = session.setup_intent;
+  const paymentMethodId =
+    typeof setupIntent === "object" && setupIntent
+      ? typeof setupIntent.payment_method === "string"
+        ? setupIntent.payment_method
+        : (setupIntent.payment_method?.id ?? null)
+      : null;
+  if (!paymentMethodId) return { ok: false, error: de.common.genericError };
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("billing_accounts")
+    .upsert(
+      { user_id: profile.id, default_payment_method_id: paymentMethodId },
+      { onConflict: "user_id" },
+    );
+  if (error) {
+    console.error("sync_payment_method_failed", { error: error.message });
+    return { ok: false, error: de.common.genericError };
+  }
+  revalidatePath("/app/guthaben");
+  return { ok: true };
+}
+
 const autoTopupSchema = z.object({
   enabled: z.enum(["true", "false"]),
   thresholdCents: z.coerce.number().int().min(0).max(1_000_000),

@@ -2,8 +2,9 @@
 
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { CreditCard, Trash2 } from "lucide-react";
-import { removePaymentMethodAction, startSetupAction, updateAutoTopupAction } from "./actions";
+import { Trash2 } from "lucide-react";
+import { removePaymentMethodAction, updateAutoTopupAction } from "./actions";
+import { AddPaymentMethodDialog } from "./add-payment-method-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -40,13 +41,6 @@ export function AutoTopupSection({
     });
   };
 
-  const setup = () => {
-    startTransition(async () => {
-      const result = await startSetupAction();
-      if (result && !result.ok) toast.error(result.error);
-    });
-  };
-
   const remove = () => {
     startTransition(async () => {
       const result = await removePaymentMethodAction();
@@ -75,10 +69,7 @@ export function AutoTopupSection({
         <p className="text-muted-foreground text-sm">{de.credits.autoTopupHint}</p>
 
         {!hasPaymentMethod ? (
-          <Button variant="outline" onClick={setup} disabled={pending}>
-            <CreditCard className="size-4" aria-hidden />
-            {de.credits.savePaymentMethod}
-          </Button>
+          <AddPaymentMethodDialog />
         ) : (
           <>
             <div className="flex items-center gap-2">
