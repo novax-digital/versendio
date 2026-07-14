@@ -45,6 +45,8 @@ export const de = {
     credits: "Guthaben",
     freeCredit: "Kostenloses Guthaben",
     settings: "Einstellungen",
+    expandSection: "Aufklappen",
+    collapseSection: "Zuklappen",
     admin: "Administration",
     logout: "Abmelden",
     login: "Anmelden",

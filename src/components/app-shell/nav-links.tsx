@@ -85,19 +85,34 @@ function NavGroup({ item, onNavigate }: { item: NavItem; onNavigate?: () => void
 
   return (
     <div>
-      <button
-        type="button"
-        aria-expanded={expanded}
-        onClick={() => setExpanded((v) => !v)}
-        className={cn(linkClass(sectionActive), "w-full")}
-      >
-        <Icon className="size-4" aria-hidden />
-        {item.label}
-        <ChevronDown
-          className={cn("ml-auto size-4 transition-transform", expanded && "rotate-180")}
-          aria-hidden
-        />
-      </button>
+      {/* Clicking the label navigates to the section's landing page (e.g. "Alle
+          Briefe"); the chevron only expands/collapses the children. */}
+      <div className={cn(linkClass(sectionActive), "w-full pr-1")}>
+        <Link
+          href={item.href}
+          onClick={() => {
+            setExpanded(true);
+            onNavigate?.();
+          }}
+          aria-current={pathname === item.href ? "page" : undefined}
+          className="-my-2 -ml-3 flex min-w-0 flex-1 items-center gap-3 py-2 pl-3"
+        >
+          <Icon className="size-4 shrink-0" aria-hidden />
+          <span className="truncate">{item.label}</span>
+        </Link>
+        <button
+          type="button"
+          aria-expanded={expanded}
+          aria-label={expanded ? de.nav.collapseSection : de.nav.expandSection}
+          onClick={() => setExpanded((v) => !v)}
+          className="hover:bg-sidebar-accent/60 -my-2 ml-1 shrink-0 rounded p-1.5"
+        >
+          <ChevronDown
+            className={cn("size-4 transition-transform", expanded && "rotate-180")}
+            aria-hidden
+          />
+        </button>
+      </div>
       {expanded ? (
         <div className="mt-1 space-y-1">
           {childHrefs.map((c) => {
