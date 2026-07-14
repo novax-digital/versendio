@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/server/auth-context";
 import { isMockMode } from "@/lib/server/env";
+import { loadActiveRegisteredOptions } from "@/lib/server/pricing/load";
 import { de } from "@/lib/i18n/de";
 import { SendWizard } from "./send-wizard";
 
@@ -16,22 +17,24 @@ export default async function SendPage({
   const { brief } = await searchParams;
   const supabase = await createClient();
 
-  const [{ data: letters }, { data: leadLists }, { data: senderAddresses }] = await Promise.all([
-    supabase
-      .from("letters")
-      .select("id, title, source, page_count, sheet_count, has_placeholders")
-      .eq("status", "ready")
-      .order("created_at", { ascending: false })
-      .limit(50),
-    supabase
-      .from("lead_lists")
-      .select("id, name, lead_list_entries(count)")
-      .order("created_at", { ascending: false }),
-    supabase
-      .from("sender_addresses")
-      .select("id, label, is_default")
-      .order("is_default", { ascending: false }),
-  ]);
+  const [{ data: letters }, { data: leadLists }, { data: senderAddresses }, availableRegistered] =
+    await Promise.all([
+      supabase
+        .from("letters")
+        .select("id, title, source, page_count, sheet_count, has_placeholders")
+        .eq("status", "ready")
+        .order("created_at", { ascending: false })
+        .limit(50),
+      supabase
+        .from("lead_lists")
+        .select("id, name, lead_list_entries(count)")
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("sender_addresses")
+        .select("id, label, is_default")
+        .order("is_default", { ascending: false }),
+      loadActiveRegisteredOptions(),
+    ]);
 
   return (
     <SendWizard
@@ -43,6 +46,7 @@ export default async function SendPage({
       }))}
       senderAddresses={senderAddresses ?? []}
       preselectedLetterId={brief ?? null}
+      availableRegistered={availableRegistered}
       mockMode={isMockMode()}
     />
   );

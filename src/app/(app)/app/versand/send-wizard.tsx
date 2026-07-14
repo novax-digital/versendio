@@ -51,12 +51,15 @@ export function SendWizard({
   leadLists,
   senderAddresses,
   preselectedLetterId,
+  availableRegistered,
   mockMode,
 }: {
   letters: LetterOption[];
   leadLists: LeadListOption[];
   senderAddresses: SenderOption[];
   preselectedLetterId: string | null;
+  // Registered-mail options with an active price; empty = feature not offered.
+  availableRegistered: Exclude<Registered, "none">[];
   mockMode: boolean;
 }) {
   const router = useRouter();
@@ -288,29 +291,37 @@ export function SendWizard({
               </div>
               <Switch id="opt-duplex" checked={isDuplex} onCheckedChange={setIsDuplex} />
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="opt-registered">{de.send.registeredLabel}</Label>
-              <Select value={registered} onValueChange={(v) => setRegistered(v as Registered)}>
-                <SelectTrigger id="opt-registered" className="w-full">
-                  <SelectValue>
-                    {
+            {availableRegistered.length > 0 ? (
+              <div className="space-y-1.5">
+                <Label htmlFor="opt-registered">{de.send.registeredLabel}</Label>
+                <Select value={registered} onValueChange={(v) => setRegistered(v as Registered)}>
+                  <SelectTrigger id="opt-registered" className="w-full">
+                    <SelectValue>
                       {
-                        none: de.send.registeredNone,
-                        einwurf: de.send.registeredEinwurf,
-                        einschreiben: de.send.registeredEinschreiben,
-                        rueckschein: de.send.registeredRueckschein,
-                      }[registered]
-                    }
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">{de.send.registeredNone}</SelectItem>
-                  <SelectItem value="einwurf">{de.send.registeredEinwurf}</SelectItem>
-                  <SelectItem value="einschreiben">{de.send.registeredEinschreiben}</SelectItem>
-                  <SelectItem value="rueckschein">{de.send.registeredRueckschein}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+                        {
+                          none: de.send.registeredNone,
+                          einwurf: de.send.registeredEinwurf,
+                          einschreiben: de.send.registeredEinschreiben,
+                          rueckschein: de.send.registeredRueckschein,
+                        }[registered]
+                      }
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">{de.send.registeredNone}</SelectItem>
+                    {availableRegistered.includes("einwurf") ? (
+                      <SelectItem value="einwurf">{de.send.registeredEinwurf}</SelectItem>
+                    ) : null}
+                    {availableRegistered.includes("einschreiben") ? (
+                      <SelectItem value="einschreiben">{de.send.registeredEinschreiben}</SelectItem>
+                    ) : null}
+                    {availableRegistered.includes("rueckschein") ? (
+                      <SelectItem value="rueckschein">{de.send.registeredRueckschein}</SelectItem>
+                    ) : null}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : null}
             <div className="space-y-1.5">
               <Label htmlFor="opt-schedule">{de.send.scheduleLabel}</Label>
               <p className="text-muted-foreground text-xs">{de.send.scheduleHint}</p>

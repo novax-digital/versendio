@@ -20,6 +20,21 @@ export async function loadPricingRows(): Promise<PricingRow[]> {
   return data as PricingRow[];
 }
 
+export type RegisteredOption = "einwurf" | "einschreiben" | "rueckschein";
+
+/**
+ * Registered-mail options whose surcharge row is currently active. The wizard
+ * only offers these — an inactive option would make calculateLetterPrice throw
+ * (inactive_option) and the customer would hit "Preis nicht verfügbar".
+ */
+export async function loadActiveRegisteredOptions(): Promise<RegisteredOption[]> {
+  const rows = await loadPricingRows();
+  const active = new Set(rows.filter((r) => r.kind === "surcharge").map((r) => r.option_key));
+  return (["einwurf", "einschreiben", "rueckschein"] as const).filter((k) =>
+    active.has(`surcharge_registered_${k}`),
+  );
+}
+
 /** Plan discount for a user (0 when no plan assigned). */
 export async function loadDiscountPercent(planId: string | null): Promise<number> {
   if (!planId) return 0;
