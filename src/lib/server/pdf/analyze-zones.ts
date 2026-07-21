@@ -40,7 +40,10 @@ export async function analyzeAddressZones(bytes: Uint8Array): Promise<ZoneAnalys
     // Legacy build runs in Node without a worker/canvas.
     const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
     const loadingTask = pdfjs.getDocument({
-      data: bytes,
+      // Copy: pdf.js takes ownership of `data` and detaches its buffer. Passing
+      // the caller's array directly would leave validateLetterPdf's input empty
+      // for any later use (the upload path reuses these bytes to store the PDF).
+      data: new Uint8Array(bytes),
       isEvalSupported: false,
       useSystemFonts: false,
     });

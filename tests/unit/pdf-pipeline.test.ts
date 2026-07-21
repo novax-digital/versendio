@@ -48,6 +48,31 @@ describe("editor render → validate", () => {
     expect(validation.rules.some((r) => r.severity === "error")).toBe(false);
   });
 
+  it("suppresses upload-only advisories for editor-sourced PDFs", async () => {
+    const doc = emptyLetterDocument();
+    doc.blocks = [
+      { type: "text", id: "t", text: "Sehr geehrte Damen und Herren,\n\nTest.", align: "left", sizeDeltaPt: 0, color: "default" },
+    ];
+    const bytes = await renderEditorLetter({ document: doc, senderLine: "Absender", recipient });
+
+    // Upload path (default): our pdf-lib output isn't PDF/A, so the conversion
+    // caveat fires — and the heuristic zone analysis may or may not resolve.
+    // validateLetterPdf must be non-destructive: the same bytes are validated
+    // twice here (the upload path's pdf.js analysis must not detach the input).
+    const asUpload = await validateLetterPdf(bytes);
+    expect(asUpload.rules.some((r) => r.id === "pdfa")).toBe(true);
+
+    // Editor path: the address zone is placed by construction, so the PDF/A and
+    // "zone could not be checked" advisories are replaced by a positive rule.
+    const asEditor = await validateLetterPdf(bytes, { source: "editor" });
+    expect(asEditor.rules.some((r) => r.id === "pdfa")).toBe(false);
+    expect(asEditor.rules.some((r) => r.id === "zone_unknown")).toBe(false);
+    expect(asEditor.rules.some((r) => r.id === "zone_ok" && r.severity === "ok")).toBe(true);
+    expect(asEditor.rules.some((r) => r.severity === "warning" || r.severity === "error")).toBe(false);
+    expect(asEditor.needsCoverLetter).toBe(false);
+    expect(asEditor.addressZoneResult).toBe("ok");
+  });
+
   it("resolves placeholders into the rendered text", async () => {
     const doc = emptyLetterDocument();
     doc.blocks = [{ type: "text", id: "t", text: "Hallo {{vorname}} {{nachname}}", align: "left", sizeDeltaPt: 0, color: "default" }];

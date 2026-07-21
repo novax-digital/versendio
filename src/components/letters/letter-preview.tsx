@@ -1,14 +1,16 @@
 "use client";
 
-import { useState } from "react";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import { ZoneOverlay } from "./zone-overlay";
 import { de } from "@/lib/i18n/de";
 
 /**
- * PDF preview of a letter with an optional Schablone-zone overlay. Uses a
- * cache-busting query so a re-render after an edit shows fresh content.
+ * PDF preview of a letter. Uses a cache-busting query so a re-render after an
+ * edit shows fresh content.
+ *
+ * No Schablone-zone overlay here: this is the browser's PDF viewer in an iframe
+ * (its own toolbar, zoom and scroll), so a fixed overlay can't stay aligned
+ * with the page and would only mislead. Zone compliance is reported
+ * authoritatively by the server-side validation (ValidationReport), and the
+ * editor's live canvas has its own aligned overlay.
  */
 export function LetterPreview({
   letterId,
@@ -17,26 +19,12 @@ export function LetterPreview({
   letterId: string;
   version?: number;
 }) {
-  const [showZones, setShowZones] = useState(false);
   const src = `/app/briefe/${letterId}/preview?v=${version}`;
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-2">
-        <Switch id="show-zones" checked={showZones} onCheckedChange={setShowZones} />
-        <Label htmlFor="show-zones" className="font-normal">
-          {de.letters.showZones}
-        </Label>
-      </div>
-      <div className="bg-muted mx-auto w-full max-w-md">
-        <div className="relative w-full" style={{ aspectRatio: "210 / 297" }}>
-          <iframe
-            title={de.letters.preview}
-            src={src}
-            className="absolute inset-0 h-full w-full border"
-          />
-          <ZoneOverlay show={showZones} />
-        </div>
+    <div className="bg-muted mx-auto w-full max-w-md">
+      <div className="w-full border" style={{ aspectRatio: "210 / 297" }}>
+        <iframe title={de.letters.preview} src={src} className="h-full w-full" />
       </div>
     </div>
   );

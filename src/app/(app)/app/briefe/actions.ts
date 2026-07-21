@@ -154,7 +154,7 @@ export async function saveEditorLetterAction(
         return { bytes, mime: path.toLowerCase().endsWith(".png") ? "image/png" : "image/jpeg" };
       },
     });
-    validation = await validateLetterPdf(rendered);
+    validation = await validateLetterPdf(rendered, { source: "editor" });
   } catch (err) {
     console.error("editor_render_failed", { error: err instanceof Error ? err.message : "unknown" });
     return { ok: false, error: de.letters.saveFailed };

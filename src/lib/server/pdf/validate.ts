@@ -13,8 +13,20 @@ const A4_TOLERANCE_PT = 0.003;
 /**
  * The single validation path for both uploaded and generated PDFs (ADR-0006).
  * No PDF reaches the provider without passing through here.
+ *
+ * `source: "editor"` marks a PDF our own renderer produced: it places the
+ * sender/recipient into the fixed Schablone V3 zones and enforces margins/DVF
+ * by construction (A-010), and it embeds subset fonts with no transparency. The
+ * upload-only advisories — the PDF/A "conversion may change the look" caveat and
+ * the heuristic address-zone text analysis — are therefore meaningless for it
+ * and would only mislead, so they are replaced by a positive confirmation. The
+ * hard checks (A4 box, size, page/sheet limits, encryption) still run for both.
  */
-export async function validateLetterPdf(bytes: Uint8Array): Promise<PdfValidation> {
+export async function validateLetterPdf(
+  bytes: Uint8Array,
+  opts: { source?: "upload" | "editor" } = {},
+): Promise<PdfValidation> {
+  const isEditor = opts.source === "editor";
   const rules: ValidationRule[] = [];
   const fileSizeBytes = bytes.byteLength;
 
@@ -114,9 +126,11 @@ export async function validateLetterPdf(bytes: Uint8Array): Promise<PdfValidatio
     });
   }
 
-  // PDF/A heuristic via XMP metadata marker.
+  // PDF/A heuristic via XMP metadata marker. Editor PDFs embed subset fonts and
+  // use no transparency, so their send-time conversion is lossless — the caveat
+  // only applies to arbitrary uploads.
   const isPdfA = detectPdfA(bytes);
-  if (!isPdfA) {
+  if (!isPdfA && !isEditor) {
     rules.push({
       id: "pdfa",
       severity: "warning",
@@ -128,7 +142,16 @@ export async function validateLetterPdf(bytes: Uint8Array): Promise<PdfValidatio
   // Address-zone analysis (page 1).
   let addressZoneResult: ZoneResult = "ok";
   let needsCoverLetter = false;
-  if (pageCount > 0) {
+  if (isEditor) {
+    // Our renderer draws the recipient block into the fixed recipient zone and
+    // keeps the DVF strip / margins clear (A-010) — correct by construction, so
+    // the heuristic text analysis is skipped and the layout is confirmed.
+    rules.push({
+      id: "zone_ok",
+      severity: "ok",
+      message: "Die Empfängeranschrift wird automatisch in der korrekten Adresszone platziert.",
+    });
+  } else if (pageCount > 0) {
     const zones = await analyzeAddressZones(bytes);
     if (!zones.available) {
       addressZoneResult = "warning";
