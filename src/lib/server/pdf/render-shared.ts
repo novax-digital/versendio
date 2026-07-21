@@ -50,7 +50,7 @@ export function drawCoverLabel(page: PDFPage, font: PDFFont) {
   const lines: { text: string; size: number; yMm: number }[] = [
     { text: "Adressdeckblatt", size: 9, yMm: 148 },
     {
-      text: "Dieses Blatt wurde automatisch erstellt. Ihr Dokument beginnt auf der nächsten Seite.",
+      text: "Dieses Blatt wurde automatisch erstellt. Das Dokument beginnt auf der nächsten Seite.",
       size: 8,
       yMm: 154,
     },
