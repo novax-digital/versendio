@@ -43,6 +43,18 @@ export async function syncStatuses(): Promise<{ updated: number; finalized: numb
   let individualBudget = maxIndividual;
   const touchedJobs = new Set<string>();
 
+  // Every polled item is already past submission, so its job must not still
+  // claim "queued". Normally process-item flips this at submit time; this
+  // guarded catch-up covers jobs submitted before that transition existed.
+  const activeJobIds = [...new Set((items ?? []).map((i) => i.job_id))];
+  if (activeJobIds.length > 0) {
+    await admin
+      .from("send_jobs")
+      .update({ status: "processing" })
+      .in("id", activeJobIds)
+      .eq("status", "queued");
+  }
+
   for (const item of items ?? []) {
     if (!item.provider_letter_id) continue;
     // Test items are final at "checked" — stop polling them.
