@@ -166,19 +166,19 @@ function LinkList({ isAdmin, onNavigate }: { isAdmin: boolean; onNavigate?: () =
       </div>
 
       {/* Highlighted promo entry — earn credit via reviews / (soon) referrals.
-          Pushed to the bottom of the sidebar and set apart from the nav above
-          with a divider, so it reads as its own thing rather than a nav item. */}
-      <div className="border-sidebar-border/60 mt-auto border-t pt-3">
+          Pushed to the bottom of the sidebar with breathing room (no divider)
+          and styled bolder than a nav item so it doesn't drown. */}
+      <div className="mt-auto pt-4 pb-3">
         <Link
           href="/app/kostenloses-guthaben"
           onClick={onNavigate}
           aria-current={freeCreditActive ? "page" : undefined}
           className={cn(
-            "border-primary/30 text-primary hover:bg-primary/10 flex items-center gap-3 rounded-md border border-dashed px-3 py-2 text-sm font-medium transition-colors",
-            freeCreditActive ? "bg-primary/10" : "bg-primary/5",
+            "border-primary/40 text-primary hover:bg-primary/15 flex items-center gap-3 rounded-lg border px-3 py-2.5 text-sm font-semibold transition-colors",
+            freeCreditActive ? "bg-primary/15" : "bg-primary/10",
           )}
         >
-          <Gift className="size-4" aria-hidden />
+          <Gift className="size-4.5" aria-hidden />
           {de.nav.freeCredit}
         </Link>
       </div>
