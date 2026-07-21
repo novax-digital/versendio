@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getLetterProvider } from "@/lib/server/providers";
 import type { ProviderStatusInfo } from "@/lib/server/providers/types";
 import { getNumberSetting } from "@/lib/server/settings";
+import { enqueueJob } from "@/lib/server/queue/enqueue";
 import { addEvent } from "./process-item";
 import { maybeCompleteJob } from "./complete-job";
 
@@ -42,6 +43,8 @@ export async function syncStatuses(): Promise<{ updated: number; finalized: numb
 
   let individualBudget = maxIndividual;
   const touchedJobs = new Set<string>();
+  // job_id → transition counts of this run, for the per-job digest mail.
+  const digestByJob = new Map<string, { userId: string; counts: Record<string, number> }>();
 
   // Every polled item is already past submission, so its job must not still
   // claim "queued". Normally process-item flips this at submit time; this
@@ -77,7 +80,20 @@ export async function syncStatuses(): Promise<{ updated: number; finalized: numb
     }
 
     const applied = await applyStatus(item, info);
-    if (applied.changed) updated++;
+    if (applied.changed) {
+      updated++;
+      // Aggregate per job for the status-digest mail (one mail per job per
+      // run, never per item). Test jobs are excluded: their statuses are
+      // clamped and the completion mail already fires at "checked".
+      if (!isTest) {
+        const digest = digestByJob.get(item.job_id) ?? {
+          userId: item.user_id,
+          counts: {} as Record<string, number>,
+        };
+        digest.counts[applied.newStatus] = (digest.counts[applied.newStatus] ?? 0) + 1;
+        digestByJob.set(item.job_id, digest);
+      }
+    }
     if (applied.final) {
       finalized++;
       touchedJobs.add(item.job_id);
@@ -87,6 +103,32 @@ export async function syncStatuses(): Promise<{ updated: number; finalized: numb
   // 3) Complete jobs whose items are all final.
   for (const jobId of touchedJobs) {
     await maybeCompleteJob(jobId);
+  }
+
+  // 4) Status-digest mails for jobs that are still in flight. Jobs completed
+  // above already notify via job_completed(_with_errors) — mailing both would
+  // duplicate. Enqueued after all DB writes persisted (at-most-once: a crash
+  // earlier re-runs with changed=false and never re-mails).
+  const digestJobIds = [...digestByJob.keys()];
+  if (digestJobIds.length > 0) {
+    const { data: jobRows } = await admin
+      .from("send_jobs")
+      .select("id, status")
+      .in("id", digestJobIds);
+    const inFlight = new Set(
+      (jobRows ?? [])
+        .filter((j) => j.status === "queued" || j.status === "processing")
+        .map((j) => j.id),
+    );
+    for (const [jobId, digest] of digestByJob) {
+      if (!inFlight.has(jobId)) continue;
+      await enqueueJob("send_email", {
+        template: "job_status_update",
+        userId: digest.userId,
+        jobId,
+        statusCounts: digest.counts,
+      }).catch(() => {});
+    }
   }
 
   return { updated, finalized };
@@ -105,7 +147,7 @@ type SyncItem = {
 async function applyStatus(
   item: SyncItem,
   info: ProviderStatusInfo,
-): Promise<{ changed: boolean; final: boolean }> {
+): Promise<{ changed: boolean; final: boolean; newStatus: string }> {
   const admin = createAdminClient();
   const now = new Date().toISOString();
 
@@ -124,7 +166,12 @@ async function applyStatus(
   const persistedStatus =
     isTest && info.status !== "failed" && info.providerStatusId >= 2 ? "checked" : info.status;
 
-  await admin
+  // Compare-and-set on the PREVIOUS provider_status_id: the transition's side
+  // effects (timeline events, digest count, refund) may only run when THIS
+  // call actually persisted the change. A transient write failure re-runs next
+  // tick with the old value; a concurrent run loses the CAS and stays silent —
+  // either way the digest mail fires at most once per real transition.
+  let write = admin
     .from("send_job_items")
     .update({
       status: persistedStatus,
@@ -135,6 +182,17 @@ async function applyStatus(
       last_status_sync_at: now,
     })
     .eq("id", item.id);
+  write =
+    item.provider_status_id === null
+      ? write.is("provider_status_id", null)
+      : write.eq("provider_status_id", item.provider_status_id);
+  const { data: updatedRows, error: writeErr } = await write.select("id");
+  if (writeErr || (updatedRows?.length ?? 0) === 0) {
+    if (writeErr) {
+      console.error("status_sync_write_failed", { itemId: item.id, error: writeErr.message });
+    }
+    return { changed: false, final: false, newStatus: persistedStatus };
+  }
 
   if (changed) {
     await addEvent(item.id, info.status, info.providerStatusId, info.details ?? "", "provider");
@@ -171,5 +229,5 @@ async function applyStatus(
     }
   }
 
-  return { changed, final: isFinal };
+  return { changed, final: isFinal, newStatus: persistedStatus };
 }

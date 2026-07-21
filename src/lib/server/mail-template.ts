@@ -57,6 +57,11 @@ export function renderBrandedEmail(opts: {
             Diese E-Mail wurde automatisch von <a href="${appUrl}" style="color:${brand};text-decoration:none">${escapeHtml(appName)}</a> versendet.
             <br>© ${new Date().getFullYear()} ${escapeHtml(appName)}
           </p>
+          <p style="margin:10px 0 0;font-size:11px;line-height:1.6;color:${muted}">
+            Angaben gemäß § 5 DDG: Novax Digital GmbH · Schierholzstr. 27 · 30655 Hannover · Deutschland<br>
+            Vertreten durch die Geschäftsführer: Philipp Polley, Christoph Pfad<br>
+            Telefon: 0511 9012188-5 · E-Mail: <a href="mailto:info@versendio.de" style="color:${muted};text-decoration:underline">info@versendio.de</a>
+          </p>
         </td></tr>
       </table>
     </td></tr>
@@ -67,15 +72,19 @@ export function renderBrandedEmail(opts: {
     `${greeting}\n\n` +
     opts.paragraphs.map((p) => stripHtml(p)).join("\n\n") +
     (opts.cta ? `\n\n${opts.cta.label}: ${opts.cta.url}` : "") +
-    `\n\nMit freundlichen Grüßen\n${appName}\n\n— Diese E-Mail wurde automatisch von ${appName} versendet (${appUrl}).`;
+    `\n\nMit freundlichen Grüßen\n${appName}\n\n— Diese E-Mail wurde automatisch von ${appName} versendet (${appUrl}).` +
+    `\n\nAngaben gemäß § 5 DDG: Novax Digital GmbH · Schierholzstr. 27 · 30655 Hannover · Deutschland\n` +
+    `Vertreten durch die Geschäftsführer: Philipp Polley, Christoph Pfad\n` +
+    `Telefon: 0511 9012188-5 · E-Mail: info@versendio.de`;
 
   return { html, text };
 }
 
-/** Plain-text fallback: unwrap links to "text (url)" and drop remaining tags. */
+/** Plain-text fallback: unwrap links to "text (url)", keep line breaks, drop remaining tags. */
 function stripHtml(html: string): string {
   return html
     .replace(/<a[^>]*href="([^"]*)"[^>]*>(.*?)<\/a>/gi, "$2 ($1)")
+    .replace(/<br\s*\/?>/gi, "\n")
     .replace(/<[^>]+>/g, "")
     .replace(/&amp;/g, "&")
     .replace(/&lt;/g, "<")

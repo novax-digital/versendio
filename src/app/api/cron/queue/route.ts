@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { isAuthorizedCronRequest } from "@/lib/server/queue/cron-auth";
 import { getNumberSetting } from "@/lib/server/settings";
 import { processSubmitItem } from "@/lib/server/send/process-item";
-import { processSendEmail } from "@/lib/server/send/job-emails";
+import { processSendEmail, type SendEmailPayload } from "@/lib/server/send/job-emails";
 
 export const maxDuration = 60;
 
@@ -94,7 +94,7 @@ async function processJob(job: QueueJob): Promise<"done" | "retry"> {
       return result.outcome === "retry" ? "retry" : "done";
     }
     case "send_email": {
-      await processSendEmail(job.payload as { template: string; userId: string; jobId?: string });
+      await processSendEmail(job.payload as unknown as SendEmailPayload);
       return "done";
     }
     case "cleanup_storage": {

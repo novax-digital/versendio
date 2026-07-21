@@ -18,6 +18,7 @@ type Outcome = "sent" | "held" | "failed" | "skipped" | "canceled";
 type DueEnrollment = {
   id: string;
   user_id: string;
+  flow_id: string;
   contact_id: string;
   letter_id: string;
   is_color: boolean;
@@ -25,7 +26,8 @@ type DueEnrollment = {
   registered: "none" | "einwurf" | "einschreiben" | "rueckschein";
   scheduled_send_at: string;
   attempts: number;
-  flows: { is_active: boolean; list_id: string; sender_address_id: string | null };
+  last_error: string | null;
+  flows: { name: string; is_active: boolean; list_id: string; sender_address_id: string | null };
 };
 
 export type FlowSchedulerReport = {
@@ -37,13 +39,45 @@ export type FlowSchedulerReport = {
   canceled: number;
 };
 
+type FlowDigest = {
+  userId: string;
+  flowId: string;
+  flowName: string;
+  sent: number;
+  /** First-time funds holds only (user-actionable); retries don't re-count. */
+  heldFunds: number;
+  /** Terminal escalations (max hold days exceeded). */
+  failed: number;
+};
+
 type TickContext = {
   admin: SupabaseAdmin;
   maxHoldDays: number;
   rows: PricingRow[];
   /** Memoized plan discount per plan_id within this tick. */
   discountCache: Map<string, number>;
+  /** Per-(user, flow) outcome digest of this tick, for the flow_summary mail. */
+  digest: Map<string, FlowDigest>;
 };
+
+/** Tick-local outcome bookkeeping for the per-flow summary mail. */
+function recordFlowOutcome(
+  ctx: TickContext,
+  e: DueEnrollment,
+  kind: "sent" | "heldFunds" | "failed",
+): void {
+  const key = `${e.user_id}:${e.flow_id}`;
+  const entry = ctx.digest.get(key) ?? {
+    userId: e.user_id,
+    flowId: e.flow_id,
+    flowName: e.flows.name,
+    sent: 0,
+    heldFunds: 0,
+    failed: 0,
+  };
+  entry[kind] += 1;
+  ctx.digest.set(key, entry);
+}
 
 /**
  * Scans due flow enrollments and fires each one through the existing
@@ -81,7 +115,7 @@ export async function runFlowScheduler(): Promise<FlowSchedulerReport> {
   const { data, error } = await admin
     .from("flow_enrollments")
     .select(
-      "id, user_id, contact_id, letter_id, is_color, is_duplex, registered, scheduled_send_at, attempts, flows!inner(is_active, list_id, sender_address_id)",
+      "id, user_id, flow_id, contact_id, letter_id, is_color, is_duplex, registered, scheduled_send_at, attempts, last_error, flows!inner(name, is_active, list_id, sender_address_id)",
     )
     .in("status", ["pending", "held"])
     .lte("next_attempt_at", new Date().toISOString())
@@ -97,7 +131,7 @@ export async function runFlowScheduler(): Promise<FlowSchedulerReport> {
   const due = (data ?? []) as unknown as DueEnrollment[];
   report.scanned = due.length;
 
-  const ctx: TickContext = { admin, maxHoldDays, rows, discountCache: new Map() };
+  const ctx: TickContext = { admin, maxHoldDays, rows, discountCache: new Map(), digest: new Map() };
 
   for (const enrollment of due) {
     if (Date.now() - start > TIME_BUDGET_MS) break;
@@ -110,9 +144,24 @@ export async function runFlowScheduler(): Promise<FlowSchedulerReport> {
         enrollmentId: enrollment.id,
         error: err instanceof Error ? err.message : "?",
       });
-      outcome = await hold(admin, enrollment, "unexpected_error", maxHoldDays).catch(() => "held");
+      outcome = await hold(ctx, enrollment, "unexpected_error").catch(() => "held" as const);
     }
     report[outcome] += 1;
+  }
+
+  // One summary mail per (user, flow) with activity this tick — never per
+  // letter. Fire-and-forget: a mail hiccup must not fail the tick.
+  for (const digest of ctx.digest.values()) {
+    if (digest.sent === 0 && digest.heldFunds === 0 && digest.failed === 0) continue;
+    await enqueueJob("send_email", {
+      template: "flow_summary",
+      userId: digest.userId,
+      flowId: digest.flowId,
+      flowName: digest.flowName,
+      sentCount: digest.sent,
+      heldFundsCount: digest.heldFunds,
+      failedCount: digest.failed,
+    }).catch(() => {});
   }
 
   return report;
@@ -128,7 +177,7 @@ async function planDiscount(ctx: TickContext, planId: string | null): Promise<nu
 }
 
 async function processEnrollment(ctx: TickContext, e: DueEnrollment): Promise<Outcome> {
-  const { admin, maxHoldDays } = ctx;
+  const { admin } = ctx;
   const flow = e.flows;
 
   // Contact must still be a member of the flow's list. A transient read error is
@@ -139,7 +188,7 @@ async function processEnrollment(ctx: TickContext, e: DueEnrollment): Promise<Ou
     .eq("list_id", flow.list_id)
     .eq("contact_id", e.contact_id)
     .maybeSingle();
-  if (entryErr) return hold(admin, e, "membership_read_error", maxHoldDays);
+  if (entryErr) return hold(ctx, e, "membership_read_error");
   if (!entry) return finalize(admin, e, "canceled", "contact_left_list");
 
   const { data: contact, error: contactErr } = await admin
@@ -148,7 +197,7 @@ async function processEnrollment(ctx: TickContext, e: DueEnrollment): Promise<Ou
     .eq("id", e.contact_id)
     .eq("user_id", e.user_id)
     .maybeSingle();
-  if (contactErr) return hold(admin, e, "contact_read_error", maxHoldDays);
+  if (contactErr) return hold(ctx, e, "contact_read_error");
   // Contact rows cascade-delete enrollments, so a genuine null is a rare safety net.
   if (!contact) return finalize(admin, e, "canceled", "contact_missing");
 
@@ -158,8 +207,8 @@ async function processEnrollment(ctx: TickContext, e: DueEnrollment): Promise<Ou
     .select("plan_id, status")
     .eq("id", e.user_id)
     .maybeSingle();
-  if (profileErr || !profile) return hold(admin, e, "profile_read_error", maxHoldDays);
-  if (profile.status !== "active") return hold(admin, e, "user_not_active", maxHoldDays);
+  if (profileErr || !profile) return hold(ctx, e, "profile_read_error");
+  if (profile.status !== "active") return hold(ctx, e, "user_not_active");
 
   const { data: letter, error: letterErr } = await admin
     .from("letters")
@@ -167,9 +216,9 @@ async function processEnrollment(ctx: TickContext, e: DueEnrollment): Promise<Ou
     .eq("id", e.letter_id)
     .eq("user_id", e.user_id)
     .maybeSingle();
-  if (letterErr || !letter) return hold(admin, e, "letter_read_error", maxHoldDays);
+  if (letterErr || !letter) return hold(ctx, e, "letter_read_error");
   // Not ready is treated as transient (user may be editing) → retried, bounded.
-  if (letter.status !== "ready") return hold(admin, e, "letter_not_ready", maxHoldDays);
+  if (letter.status !== "ready") return hold(ctx, e, "letter_not_ready");
 
   // Sender: the flow's chosen address, else the user's default.
   let senderQuery = admin
@@ -180,7 +229,7 @@ async function processEnrollment(ctx: TickContext, e: DueEnrollment): Promise<Ou
     ? senderQuery.eq("id", flow.sender_address_id)
     : senderQuery.eq("is_default", true);
   const { data: sender, error: senderErr } = await senderQuery.maybeSingle();
-  if (senderErr || !sender) return hold(admin, e, "no_sender_address", maxHoldDays);
+  if (senderErr || !sender) return hold(ctx, e, "no_sender_address");
 
   // Price via the single pricing truth, using the enrollment's frozen options.
   const sheets = Math.max(1, letter.sheet_count ?? 1);
@@ -197,7 +246,7 @@ async function processEnrollment(ctx: TickContext, e: DueEnrollment): Promise<Ou
     });
   } catch {
     // e.g. a registered surcharge row was deactivated after the flow was built.
-    return hold(admin, e, "pricing_unavailable", maxHoldDays);
+    return hold(ctx, e, "pricing_unavailable");
   }
 
   const snapshot = {
@@ -240,22 +289,26 @@ async function processEnrollment(ctx: TickContext, e: DueEnrollment): Promise<Ou
   if (error) {
     // Insufficient funds at fire time: park and retry (bounded), like on_hold_funds.
     if (error.message.includes("insufficient_funds")) {
-      return hold(admin, e, "insufficient_funds", maxHoldDays);
+      return hold(ctx, e, "insufficient_funds");
     }
     console.error("flow_send_failed", { enrollmentId: e.id, error: error.message });
-    return hold(admin, e, "send_error", maxHoldDays);
+    return hold(ctx, e, "send_error");
   }
 
   // Only flip a row that is still pending/held (a concurrent run may have won —
   // harmless, confirm_send_job returned the same job for both).
-  await admin
+  const { data: flipped, error: flipErr } = await admin
     .from("flow_enrollments")
     .update({ status: "sent", send_job_id: jobId as string, sent_at: new Date().toISOString(), last_error: null })
     .eq("id", e.id)
-    .in("status", ["pending", "held"]);
+    .in("status", ["pending", "held"])
+    .select("id");
 
   // The debit may have crossed the auto-top-up threshold.
   await enqueueJob("auto_topup", { userId: e.user_id }).catch(() => {});
+  // Digest-count only the run that actually flipped the row — the loser of a
+  // concurrent race (or a failed write, retried next tick) must not mail.
+  if (!flipErr && (flipped?.length ?? 0) > 0) recordFlowOutcome(ctx, e, "sent");
   return "sent";
 }
 
@@ -264,22 +317,29 @@ async function processEnrollment(ctx: TickContext, e: DueEnrollment): Promise<Ou
  * pending ones), escalating to failed once it is maxHoldDays overdue.
  */
 async function hold(
-  admin: SupabaseAdmin,
+  ctx: TickContext,
   e: DueEnrollment,
   reason: string,
-  maxHoldDays: number,
 ): Promise<"held" | "failed"> {
+  const { admin, maxHoldDays } = ctx;
   const overdueMs = Date.now() - Date.parse(e.scheduled_send_at);
   if (overdueMs > maxHoldDays * 86_400_000) {
-    await admin
+    // Digest-count only when THIS run's write actually persisted (affected
+    // row): a failed/lost write re-runs next tick and must not mail now, and
+    // a concurrent run that lost the race must not double-count.
+    const { data: escalated, error: escErr } = await admin
       .from("flow_enrollments")
       .update({ status: "failed", attempts: e.attempts + 1, last_error: reason })
       .eq("id", e.id)
-      .in("status", ["pending", "held"]);
+      .in("status", ["pending", "held"])
+      .select("id");
+    if (escErr) console.error("flow_hold_write_failed", { enrollmentId: e.id, error: escErr.message });
+    // Terminal, user-visible: counts into the flow summary mail.
+    if (!escErr && (escalated?.length ?? 0) > 0) recordFlowOutcome(ctx, e, "failed");
     return "failed";
   }
   const backoffMin = HOLD_BACKOFF_MIN[Math.min(e.attempts, HOLD_BACKOFF_MIN.length - 1)];
-  await admin
+  const { data: held, error: holdErr } = await admin
     .from("flow_enrollments")
     .update({
       status: "held",
@@ -288,7 +348,22 @@ async function hold(
       next_attempt_at: new Date(Date.now() + backoffMin * 60_000).toISOString(),
     })
     .eq("id", e.id)
-    .in("status", ["pending", "held"]);
+    .in("status", ["pending", "held"])
+    .select("id");
+  if (holdErr) console.error("flow_hold_write_failed", { enrollmentId: e.id, error: holdErr.message });
+  // Only the FIRST funds hold is notification-worthy (user-actionable);
+  // backoff retries and transient infra reasons stay silent. "First" is
+  // detected via the row's previous last_error — NOT attempts, which is a
+  // shared counter across all hold reasons and would swallow the funds
+  // warning whenever an unrelated hold (e.g. letter_not_ready) came first.
+  if (
+    reason === "insufficient_funds" &&
+    e.last_error !== "insufficient_funds" &&
+    !holdErr &&
+    (held?.length ?? 0) > 0
+  ) {
+    recordFlowOutcome(ctx, e, "heldFunds");
+  }
   return "held";
 }
 

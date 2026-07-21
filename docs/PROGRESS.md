@@ -347,3 +347,19 @@ Abschlussbericht abarbeiten.
   Anlegen und beim CSV-Import (nur wenn aktive Flows bestehen); nimmt die Kontakte in die Flow-Liste
   auf → bestehender Enrollment-Trigger greift. Details & Kanten → `docs/ASSUMPTIONS.md` A-015
 - [x] DoD: Build ✅ Lint ✅ Typecheck ✅ **162 Unit-Tests** ✅
+
+## Nach Übergabe — E-Mail-Benachrichtigungen & Sendungsstatus-Fix (2026-07-21)
+- [x] **Job-Status-Lücke geschlossen**: `queued → processing` wird jetzt beim ersten Einliefern gesetzt
+  (plus Catch-up im Status-Sync für Alt-Jobs) — Kopfzeile zeigte „In Warteschlange", während Briefe
+  längst im Druckzentrum waren
+- [x] **Aufladebestätigung** (manuell + automatisch): idempotent über das Ledger-Signal in `bookTopup`,
+  mit Betrag, Bonus und Rechnungslink
+- [x] **Zustellstatus-Digest** je Sendung pro Sync-Lauf (statt Mail je Brief); Abschluss-Doppelmails
+  vermieden; Tests ausgenommen
+- [x] **Flow-Zusammenfassung** je (Nutzer, Flow) pro Tick: versendet / wartet auf Guthaben (nur erster
+  Hold) / endgültig fehlgeschlagen
+- [x] **Einstellungen → Benachrichtigungen**: 4 Opt-out-Schalter (`notify_*` auf profiles, Migration
+  20260721100000); zentrales Gate in `processSendEmail`; Konto-/Aktions-Mails bewusst immer aktiv
+  - ⚠️ **Operator-Schritt:** Migration auf der DB anwenden (`npx supabase db push` oder SQL-Editor)
+- [x] Details & Kanten → `docs/ASSUMPTIONS.md` A-016; neue Ideen I-025–I-029
+- [x] DoD: Build ✅ Lint ✅ Typecheck ✅ **172 Unit-Tests** ✅

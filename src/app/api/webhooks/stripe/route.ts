@@ -151,7 +151,27 @@ async function creditTopup(eventId: string, session: Stripe.Checkout.Session): P
     });
   }
 
-  await bookTopup(userId, amount, eventId, receipt.url, receipt.invoiceId, "Guthaben-Aufladung");
+  const booking = await bookTopup(
+    userId,
+    amount,
+    eventId,
+    receipt.url,
+    receipt.invoiceId,
+    "Guthaben-Aufladung",
+  );
+
+  // Confirmation mail at most once (ledger signal), best-effort via the queue
+  // so the pref gate + retry semantics of processSendEmail apply.
+  if (booking.credited) {
+    await enqueueJob("send_email", {
+      template: "topup_confirmed",
+      userId,
+      amountCents: amount,
+      bonusCents: booking.bonusCents,
+      receiptUrl: receipt.url,
+      auto: false,
+    }).catch(() => {});
+  }
 }
 
 async function creditAutoTopupInvoice(eventId: string, invoice: Stripe.Invoice): Promise<void> {
@@ -162,7 +182,7 @@ async function creditAutoTopupInvoice(eventId: string, invoice: Stripe.Invoice):
     throw new Error("auto_topup_invoice_metadata_invalid");
   }
 
-  await bookTopup(
+  const booking = await bookTopup(
     userId,
     amount,
     eventId,
@@ -176,6 +196,17 @@ async function creditAutoTopupInvoice(eventId: string, invoice: Stripe.Invoice):
     .from("billing_accounts")
     .update({ auto_topup_pending_at: null })
     .eq("user_id", userId);
+
+  if (booking.credited) {
+    await enqueueJob("send_email", {
+      template: "topup_confirmed",
+      userId,
+      amountCents: amount,
+      bonusCents: booking.bonusCents,
+      receiptUrl: invoice.hosted_invoice_url ?? null,
+      auto: true,
+    }).catch(() => {});
+  }
 }
 
 /** Legacy: auto top-ups charged as bare PaymentIntents before 2026-07-13. */
@@ -190,13 +221,24 @@ async function creditAutoTopup(eventId: string, intent: Stripe.PaymentIntent): P
   if (!userId || amount <= 0) throw new Error("auto_topup_metadata_invalid");
 
   const receiptUrl = await chargeReceiptUrl(intent.latest_charge);
-  await bookTopup(userId, amount, eventId, receiptUrl, null, "Automatische Aufladung");
+  const booking = await bookTopup(userId, amount, eventId, receiptUrl, null, "Automatische Aufladung");
 
   const admin = createAdminClient();
   await admin
     .from("billing_accounts")
     .update({ auto_topup_pending_at: null })
     .eq("user_id", userId);
+
+  if (booking.credited) {
+    await enqueueJob("send_email", {
+      template: "topup_confirmed",
+      userId,
+      amountCents: amount,
+      bonusCents: booking.bonusCents,
+      receiptUrl,
+      auto: true,
+    }).catch(() => {});
+  }
 }
 
 async function bookTopup(
@@ -206,7 +248,7 @@ async function bookTopup(
   receiptUrl: string | null,
   invoiceId: string | null,
   comment: string,
-): Promise<void> {
+): Promise<{ credited: boolean; bonusCents: number }> {
   const admin = createAdminClient();
   const { error } = await admin.rpc("book_credit", {
     p_user_id: userId,
@@ -222,6 +264,11 @@ async function bookTopup(
   if (error && !error.message.includes("duplicate key")) {
     throw new Error(`book_topup_failed: ${error.message}`);
   }
+  // The ledger's unique (reference_type, reference_id) index is the reliable
+  // first-processing signal: a null error means this event just credited for
+  // the first time; a duplicate-key error means a webhook replay. Callers use
+  // this to send the confirmation mail at most once.
+  const credited = !error;
 
   // Bonus credit (gift, no VAT / no invoice): a SEPARATE ledger row keyed by
   // the same event.id but reference_type 'stripe_bonus', so a Stripe retry
@@ -255,6 +302,8 @@ async function bookTopup(
   for (const item of held ?? []) {
     await enqueueJob("submit_item", { itemId: item.id });
   }
+
+  return { credited, bonusCents: credited ? bonusCents : 0 };
 }
 
 async function storePaymentMethod(session: Stripe.Checkout.Session): Promise<void> {

@@ -494,6 +494,25 @@ export const de = {
     docsSendNote:
       "Der Brief muss versandbereit sein. Ohne test:true wird Guthaben belastet. Mit idempotencyKey (UUID) ist ein wiederholter Aufruf gefahrlos.",
   },
+  notifications: {
+    title: "Benachrichtigungen",
+    subtitle: "Wählen Sie, zu welchen Ereignissen Sie E-Mails erhalten möchten.",
+    saved: "Benachrichtigungseinstellungen gespeichert.",
+    sendStatusLabel: "Sendungsabschluss",
+    sendStatusHint:
+      "Eine E-Mail, sobald eine Sendung abgeschlossen ist – auch wenn einzelne Briefe fehlgeschlagen und erstattet wurden.",
+    epostUpdatesLabel: "Zustellstatus-Updates",
+    epostUpdatesHint:
+      "Zwischenstände Ihrer Briefe bei der Deutschen Post (angenommen, geprüft, im Druckzentrum) – gebündelt pro Sendung. Den Abschluss meldet „Sendungsabschluss“.",
+    topupLabel: "Guthaben-Aufladungen",
+    topupHint:
+      "Bestätigung nach jeder erfolgreichen Aufladung (manuell und automatisch) inkl. Betrag und Rechnungslink.",
+    flowActivityLabel: "Flow-Aktivität",
+    flowActivityHint:
+      "Zusammenfassung, wenn ein Flow Briefe automatisch versendet hat – inklusive Hinweis, falls Guthaben fehlt.",
+    alwaysOnNote:
+      "Wichtige Hinweise erhalten Sie immer per E-Mail: zurückgestellte Briefe bei fehlendem Guthaben, fehlgeschlagene automatische Aufladungen sowie Konto- und Sicherheitsmitteilungen.",
+  },
   contacts: {
     title: "Kontakte",
     subtitle: "Ihr Adressbuch – Empfänger einzeln anlegen oder als Liste importieren.",

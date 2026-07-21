@@ -48,8 +48,20 @@ export const senderAddressSchema = z
     }
   });
 
+// Switches submit as "true"/"false" strings (base-ui Switch is not wired for
+// native form submission; house pattern builds FormData manually).
+const formBoolean = z.enum(["true", "false"]).transform((v) => v === "true");
+
+export const notificationPrefsSchema = z.object({
+  sendStatus: formBoolean,
+  epostUpdates: formBoolean,
+  topup: formBoolean,
+  flowActivity: formBoolean,
+});
+
 export type ProfileInput = z.infer<typeof profileSchema>;
 export type SenderAddressInput = z.infer<typeof senderAddressSchema>;
+export type NotificationPrefsInput = z.infer<typeof notificationPrefsSchema>;
 
 /** Builds the single-line sender line required by Schablone V3 (e.g. "Firma GmbH · Musterstr. 1 · 12345 Berlin"). */
 export function buildSenderLine(input: {
