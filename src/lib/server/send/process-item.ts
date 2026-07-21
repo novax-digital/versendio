@@ -296,7 +296,12 @@ export async function processSubmitItem(itemId: string): Promise<ProcessResult> 
   }
 }
 
-async function buildItemPdf(
+/**
+ * Renders the exact letter sent to one recipient: the letter template resolved
+ * against the frozen recipient/sender snapshots. Same path used at submit time,
+ * reused by the Sendungen PDF download to reproduce a sent letter on demand.
+ */
+export async function buildItemPdf(
   letterId: string | null,
   recipient: RecipientAddress,
   senderLine: string,

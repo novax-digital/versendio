@@ -691,6 +691,7 @@ export const de = {
     canceledWithRefund: (amount: string) => `Storniert. ${amount} wurden Ihrem Guthaben gutgeschrieben.`,
     itemsTitle: "Briefe",
     timeline: "Verlauf",
+    downloadPdf: "Brief als PDF herunterladen",
     recipient: "Empfänger",
     refunded: "Erstattet",
     retryInfo:

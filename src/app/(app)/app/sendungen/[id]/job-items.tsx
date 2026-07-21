@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, Download } from "lucide-react";
 import { loadItemTimelineAction, type TimelineEvent } from "./timeline-action";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -39,7 +39,7 @@ const badgeVariant: Record<string, "default" | "secondary" | "outline" | "destru
   on_hold_funds: "destructive",
 };
 
-export function JobItems({ items }: { items: Item[] }) {
+export function JobItems({ items, jobId }: { items: Item[]; jobId: string }) {
   return (
     <div className="overflow-x-auto rounded-md border">
       <Table>
@@ -49,11 +49,12 @@ export function JobItems({ items }: { items: Item[] }) {
             <TableHead>{de.sendJobs.recipient}</TableHead>
             <TableHead>{de.sendJobs.statusLabel}</TableHead>
             <TableHead className="text-right">{de.send.perLetter}</TableHead>
+            <TableHead className="w-10" />
           </TableRow>
         </TableHeader>
         <TableBody>
           {items.map((item) => (
-            <ItemRow key={item.id} item={item} />
+            <ItemRow key={item.id} item={item} jobId={jobId} />
           ))}
         </TableBody>
       </Table>
@@ -61,7 +62,7 @@ export function JobItems({ items }: { items: Item[] }) {
   );
 }
 
-function ItemRow({ item }: { item: Item }) {
+function ItemRow({ item, jobId }: { item: Item; jobId: string }) {
   const [open, setOpen] = useState(false);
   const [events, setEvents] = useState<TimelineEvent[] | null>(null);
   const [pending, startTransition] = useTransition();
@@ -113,11 +114,25 @@ function ItemRow({ item }: { item: Item }) {
           ) : null}
         </TableCell>
         <TableCell className="text-right">{formatCents(item.vk_cents)}</TableCell>
+        <TableCell className="text-right">
+          {/* No `download` attr: the route sets Content-Disposition itself, and
+              on an expired session its redirect must navigate to login rather
+              than save the login HTML as a file. */}
+          <a
+            href={`/app/sendungen/${jobId}/pdf?item=${item.id}`}
+            onClick={(e) => e.stopPropagation()}
+            className="text-muted-foreground hover:text-foreground hover:bg-muted inline-flex size-7 items-center justify-center rounded-md transition-colors"
+            aria-label={de.sendJobs.downloadPdf}
+            title={de.sendJobs.downloadPdf}
+          >
+            <Download className="size-4" aria-hidden />
+          </a>
+        </TableCell>
       </TableRow>
       {open ? (
         <TableRow>
           <TableCell />
-          <TableCell colSpan={3}>
+          <TableCell colSpan={4}>
             {pending || events === null ? (
               <p className="text-muted-foreground py-2 text-xs">{de.common.loading}</p>
             ) : events.length === 0 ? (

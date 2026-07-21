@@ -121,7 +121,7 @@ export default async function SendJobDetailPage({
         </div>
       ) : null}
 
-      <JobItems items={items ?? []} />
+      <JobItems items={items ?? []} jobId={job.id} />
     </div>
   );
 }
