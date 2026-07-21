@@ -201,12 +201,16 @@ export const de = {
     title: "Briefe",
     subtitle: "Laden Sie ein PDF hoch oder erstellen Sie einen Brief im Editor.",
     newLetter: "Neuer Brief",
+    newLetterSubtitle: "Wählen Sie, wie Sie Ihren Brief erstellen möchten.",
     empty: "Sie haben noch keine Briefe erstellt.",
     emptyCta: "Laden Sie ein PDF hoch oder erstellen Sie Ihren ersten Brief im Editor.",
     chooseUpload: "PDF hochladen",
     chooseUploadHint: "Sie haben bereits ein fertiges PDF (DIN A4).",
     chooseEditor: "Im Editor erstellen",
-    chooseEditorHint: "Text, Logo und Bilder – ideal für Serienbriefe mit Platzhaltern.",
+    chooseEditorHint:
+      "Text, Logo und Bilder direkt in Versendio gestalten – ideal für Serienbriefe mit Platzhaltern.",
+    chooseEditorCta: "Editor öffnen",
+    chooseAlternative: "oder",
     uploadTitle: "PDF hochladen",
     uploadDropzone: "PDF hierher ziehen oder klicken zum Auswählen",
     uploadHint: "DIN A4 Hochformat, max. 94 Blatt, max. 20 MB. Ziel-Format: PDF/A-1b.",
@@ -538,6 +542,15 @@ export const de = {
     errorRowLabel: "Zeile",
     toContacts: "Zu den Kontakten",
     toList: "Zur Leadliste",
+    // Flow enrollment offered when creating/importing contacts — only rendered
+    // when the user has at least one active flow.
+    flowEnrollTitle: "In aktiven Flow aufnehmen",
+    flowEnrollHintContact:
+      "Ausgewählte Flows versenden nach der eingestellten Verzögerung automatisch den hinterlegten Brief an diesen Kontakt – das ist kostenpflichtig.",
+    flowEnrollHintImport:
+      "Ausgewählte Flows versenden nach der eingestellten Verzögerung automatisch den hinterlegten Brief an die importierten Kontakte – das ist kostenpflichtig.",
+    flowEnrollSaved: "Kontakt gespeichert und in Flow aufgenommen.",
+    resultEnrolled: (n: number) => `In ${n} ${n === 1 ? "Flow" : "Flows"} aufgenommen`,
   },
   leadLists: {
     title: "Leadlisten",

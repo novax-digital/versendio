@@ -143,39 +143,45 @@ function LinkList({ isAdmin, onNavigate }: { isAdmin: boolean; onNavigate?: () =
 
   return (
     <>
-      {allItems.map((item) => {
-        if (item.children) {
-          return <NavGroup key={item.href} item={item} onNavigate={onNavigate} />;
-        }
-        const { href, label, icon: Icon, exact } = item;
-        const active = exact ? pathname === href : pathname.startsWith(href);
-        return (
-          <Link
-            key={href}
-            href={href}
-            onClick={onNavigate}
-            aria-current={active ? "page" : undefined}
-            className={linkClass(active)}
-          >
-            <Icon className="size-4" aria-hidden />
-            {label}
-          </Link>
-        );
-      })}
+      <div className="space-y-1">
+        {allItems.map((item) => {
+          if (item.children) {
+            return <NavGroup key={item.href} item={item} onNavigate={onNavigate} />;
+          }
+          const { href, label, icon: Icon, exact } = item;
+          const active = exact ? pathname === href : pathname.startsWith(href);
+          return (
+            <Link
+              key={href}
+              href={href}
+              onClick={onNavigate}
+              aria-current={active ? "page" : undefined}
+              className={linkClass(active)}
+            >
+              <Icon className="size-4" aria-hidden />
+              {label}
+            </Link>
+          );
+        })}
+      </div>
 
-      {/* Highlighted promo entry — earn credit via reviews / (soon) referrals. */}
-      <Link
-        href="/app/kostenloses-guthaben"
-        onClick={onNavigate}
-        aria-current={freeCreditActive ? "page" : undefined}
-        className={cn(
-          "border-primary/30 text-primary hover:bg-primary/10 mt-2 flex items-center gap-3 rounded-md border border-dashed px-3 py-2 text-sm font-medium transition-colors",
-          freeCreditActive ? "bg-primary/10" : "bg-primary/5",
-        )}
-      >
-        <Gift className="size-4" aria-hidden />
-        {de.nav.freeCredit}
-      </Link>
+      {/* Highlighted promo entry — earn credit via reviews / (soon) referrals.
+          Pushed to the bottom of the sidebar and set apart from the nav above
+          with a divider, so it reads as its own thing rather than a nav item. */}
+      <div className="border-sidebar-border/60 mt-auto border-t pt-3">
+        <Link
+          href="/app/kostenloses-guthaben"
+          onClick={onNavigate}
+          aria-current={freeCreditActive ? "page" : undefined}
+          className={cn(
+            "border-primary/30 text-primary hover:bg-primary/10 flex items-center gap-3 rounded-md border border-dashed px-3 py-2 text-sm font-medium transition-colors",
+            freeCreditActive ? "bg-primary/10" : "bg-primary/5",
+          )}
+        >
+          <Gift className="size-4" aria-hidden />
+          {de.nav.freeCredit}
+        </Link>
+      </div>
     </>
   );
 }
@@ -201,7 +207,7 @@ export function MobileNav({ isAdmin }: { isAdmin: boolean }) {
             <Logo className="h-7" />
           </SheetTitle>
         </SheetHeader>
-        <nav className="space-y-1 p-2" aria-label={de.admin.navMain}>
+        <nav className="flex flex-1 flex-col p-2" aria-label={de.admin.navMain}>
           <LinkList isAdmin={isAdmin} onNavigate={() => setOpen(false)} />
         </nav>
       </SheetContent>

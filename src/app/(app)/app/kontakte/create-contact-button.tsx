@@ -11,13 +11,20 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { ContactForm } from "./contact-list";
+import type { ActiveFlowOption } from "@/lib/server/flows/active-flows";
 import { de } from "@/lib/i18n/de";
 
 /**
  * Standalone "Kontakt anlegen" button + dialog, reusable in the page header and
  * the empty state so creating a contact is reachable in every list state.
  */
-export function CreateContactButton({ variant }: { variant?: "default" | "outline" }) {
+export function CreateContactButton({
+  variant,
+  activeFlows = [],
+}: {
+  variant?: "default" | "outline";
+  activeFlows?: ActiveFlowOption[];
+}) {
   const [open, setOpen] = useState(false);
   // Remount the form on each open so fields reset after a previous save.
   const [formKey, setFormKey] = useState(0);
@@ -39,7 +46,12 @@ export function CreateContactButton({ variant }: { variant?: "default" | "outlin
         <DialogHeader>
           <DialogTitle>{de.contacts.addContact}</DialogTitle>
         </DialogHeader>
-        <ContactForm key={formKey} contact={null} onSaved={handleSaved} />
+        <ContactForm
+          key={formKey}
+          contact={null}
+          onSaved={handleSaved}
+          activeFlows={activeFlows}
+        />
       </DialogContent>
     </Dialog>
   );

@@ -33,7 +33,7 @@ export function AppShell({
             <Logo className="h-8" />
           </Link>
         </div>
-        <nav className="flex-1 space-y-1 px-2 py-2" aria-label={de.admin.navMain}>
+        <nav className="flex flex-1 flex-col px-2 py-2" aria-label={de.admin.navMain}>
           <NavLinks isAdmin={profile.role === "admin"} />
         </nav>
         {mockMode ? (

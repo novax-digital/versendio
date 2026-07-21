@@ -33,6 +33,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { de } from "@/lib/i18n/de";
+import { FlowEnrollPicker } from "./flow-enroll-picker";
+import type { ActiveFlowOption } from "@/lib/server/flows/active-flows";
 
 export type Contact = {
   id: string;
@@ -194,16 +196,21 @@ function DeleteContactButton({ contactId }: { contactId: string }) {
 export function ContactForm({
   contact,
   onSaved,
+  activeFlows = [],
 }: {
   contact: Contact | null;
   onSaved: () => void;
+  activeFlows?: ActiveFlowOption[];
 }) {
   const [state, formAction, pending] = useActionState(upsertContactAction, null);
   const fieldErrors = state && !state.ok ? state.fieldErrors : undefined;
+  // Flow enrollment is a create-time choice only.
+  const showFlows = !contact && activeFlows.length > 0;
+  const [selectedFlowIds, setSelectedFlowIds] = useState<string[]>([]);
 
   useEffect(() => {
     if (state?.ok) {
-      toast.success(de.contacts.saved);
+      toast.success(state.data?.enrolledFlowCount ? de.contacts.flowEnrollSaved : de.contacts.saved);
       onSaved();
     } else if (state && !state.ok && state.error) {
       toast.error(state.error);
@@ -213,6 +220,9 @@ export function ContactForm({
   return (
     <form action={formAction} className="space-y-4" noValidate>
       {contact ? <input type="hidden" name="id" value={contact.id} /> : null}
+      {showFlows
+        ? selectedFlowIds.map((id) => <input key={id} type="hidden" name="flowIds" value={id} />)
+        : null}
       <div className="grid grid-cols-[1fr_2fr] gap-3">
         <FormField
           label={de.contacts.salutation}
@@ -290,6 +300,14 @@ export function ContactForm({
         hint={de.profile.countryHint}
         error={fieldErrors?.country}
       />
+      {showFlows ? (
+        <FlowEnrollPicker
+          flows={activeFlows}
+          selected={selectedFlowIds}
+          onChange={setSelectedFlowIds}
+          hint={de.contacts.flowEnrollHintContact}
+        />
+      ) : null}
       {state && !state.ok && state.error ? (
         <p role="alert" className="text-destructive text-sm">
           {state.error}

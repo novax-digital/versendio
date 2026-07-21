@@ -14,12 +14,83 @@ import { validateImportRow, dedupKey, type RowError } from "@/lib/shared/import/
 import { contactSchema, commitImportSchema } from "@/lib/shared/schemas/contact";
 import { de } from "@/lib/i18n/de";
 
+type ServerClient = Awaited<ReturnType<typeof createClient>>;
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Selected flow ids from a native form submit (multiple `flowIds` fields).
+ * Capped at 50 to mirror `commitImportSchema.flowIds` — a user never has that
+ * many active flows, so it only bounds a crafted payload.
+ */
+function parseFlowIds(formData: FormData): string[] {
+  return formData
+    .getAll("flowIds")
+    .filter((v): v is string => typeof v === "string" && UUID_RE.test(v))
+    .slice(0, 50);
+}
+
+/**
+ * Opt-in flow enrollment: makes the given contacts members of each selected
+ * flow's target list, so the AFTER INSERT trigger on lead_list_entries enrolls
+ * them (freezing the flow's letter/options snapshot). List membership is
+ * REQUIRED — the flow scheduler cancels any enrollment whose contact is no
+ * longer in the list, so there is no "enroll without list" shortcut.
+ *
+ * Scoped to the user's own ACTIVE flows (flows RLS is broadened for admins, so
+ * user_id is filtered explicitly). Idempotent via the (list_id, contact_id)
+ * unique index. Returns how many active flows were matched, for user feedback.
+ */
+async function addContactsToActiveFlows(
+  supabase: ServerClient,
+  userId: string,
+  contactIds: string[],
+  flowIds: string[],
+): Promise<number> {
+  if (contactIds.length === 0 || flowIds.length === 0) return 0;
+
+  const { data: flows, error } = await supabase
+    .from("flows")
+    .select("id, list_id")
+    .eq("user_id", userId)
+    .eq("is_active", true)
+    .in("id", flowIds);
+  if (error) {
+    console.error("flow_enroll_lookup_failed", { error: error.message });
+    return 0;
+  }
+  if (!flows || flows.length === 0) return 0;
+
+  // Two selected flows may share one list; a single membership row per
+  // (list, contact) enrolls the contact into every active flow bound to it.
+  const listIds = [...new Set(flows.map((f) => f.list_id))];
+  const entries = listIds.flatMap((listId) =>
+    contactIds.map((contactId) => ({ list_id: listId, contact_id: contactId })),
+  );
+
+  const BATCH = 500;
+  for (let i = 0; i < entries.length; i += BATCH) {
+    // ignoreDuplicates: a contact already in the list stays enrolled once.
+    const { error: insErr } = await supabase
+      .from("lead_list_entries")
+      .upsert(entries.slice(i, i + BATCH), {
+        onConflict: "list_id,contact_id",
+        ignoreDuplicates: true,
+      });
+    if (insErr) {
+      console.error("flow_enroll_entry_failed", { error: insErr.message });
+      return 0;
+    }
+  }
+  return flows.length;
+}
+
 // --- contact CRUD -----------------------------------------------------------
 
 export async function upsertContactAction(
   _prev: unknown,
   formData: FormData,
-): Promise<ActionResult> {
+): Promise<ActionResult<{ enrolledFlowCount: number }>> {
   const profile = await requireProfile();
   const raw = Object.fromEntries(formData);
   const parsed = contactSchema.safeParse(raw);
@@ -43,17 +114,39 @@ export async function upsertContactAction(
   };
 
   const supabase = await createClient();
-  const { error } = id
-    ? await supabase.from("contacts").update(values).eq("id", id)
-    : await supabase.from("contacts").insert(values);
 
-  if (error) {
-    console.error("contact_save_failed", { error: error.message });
+  // Editing never touches flows (enrollment is a create-time decision).
+  if (id) {
+    const { error } = await supabase.from("contacts").update(values).eq("id", id);
+    if (error) {
+      console.error("contact_save_failed", { error: error.message });
+      return { ok: false, error: de.common.genericError };
+    }
+    revalidatePath("/app/kontakte");
+    return { ok: true };
+  }
+
+  const { data: created, error } = await supabase
+    .from("contacts")
+    .insert(values)
+    .select("id")
+    .single();
+  if (error || !created) {
+    console.error("contact_save_failed", { error: error?.message });
     return { ok: false, error: de.common.genericError };
   }
 
+  // Opt-in flow enrollment. Skipped for blocked users — enrollment schedules a
+  // paid send, and the scheduler would only park it anyway.
+  const flowIds = parseFlowIds(formData);
+  const enrolledFlowCount =
+    flowIds.length > 0 && !blockedActionError(profile)
+      ? await addContactsToActiveFlows(supabase, profile.id, [created.id], flowIds)
+      : 0;
+
   revalidatePath("/app/kontakte");
-  return { ok: true };
+  if (enrolledFlowCount > 0) revalidatePath("/app/flows");
+  return { ok: true, data: { enrolledFlowCount } };
 }
 
 export async function deleteContactAction(
@@ -167,6 +260,7 @@ export type CommitImportResult =
       listId: string | null;
       errorRows: RowError[];
       headers: string[];
+      enrolledFlows: number;
     }
   | { ok: false; error: string };
 
@@ -290,6 +384,12 @@ export async function commitImportAction(
     insertedIds.push(...(data ?? []).map((r) => r.id));
   }
 
+  // Everyone touched by this import: freshly inserted + matched existing.
+  const importedContactIds = [
+    ...insertedIds,
+    ...uniqueContacts.filter((c) => existingByKey.has(c.key)).map((c) => existingByKey.get(c.key)!),
+  ];
+
   // Optional lead list: new + matched existing contacts become entries.
   let listId: string | null = null;
   if (parsed.data.listName) {
@@ -304,12 +404,8 @@ export async function commitImportAction(
     }
     listId = list.id;
 
-    const memberIds = [
-      ...insertedIds,
-      ...uniqueContacts.filter((c) => existingByKey.has(c.key)).map((c) => existingByKey.get(c.key)!),
-    ];
-    for (let i = 0; i < memberIds.length; i += INSERT_BATCH) {
-      const entries = memberIds.slice(i, i + INSERT_BATCH).map((contactId) => ({
+    for (let i = 0; i < importedContactIds.length; i += INSERT_BATCH) {
+      const entries = importedContactIds.slice(i, i + INSERT_BATCH).map((contactId) => ({
         list_id: listId,
         contact_id: contactId,
       }));
@@ -325,11 +421,23 @@ export async function commitImportAction(
     }
   }
 
+  // Opt-in flow enrollment for the imported contacts. Independent of the list
+  // above — enrollment always runs through the flow's own target list. Best
+  // effort: contacts are already safely imported, so a flow hiccup must not
+  // fail the whole import.
+  const enrolledFlows = await addContactsToActiveFlows(
+    supabase,
+    profile.id,
+    importedContactIds,
+    parsed.data.flowIds ?? [],
+  );
+
   // Import file is no longer needed.
   await removeObject(BUCKETS.imports, parsed.data.importPath);
 
   revalidatePath("/app/kontakte");
   revalidatePath("/app/leadlisten");
+  if (enrolledFlows > 0) revalidatePath("/app/flows");
   return {
     ok: true,
     imported: insertedIds.length,
@@ -338,5 +446,6 @@ export async function commitImportAction(
     listId,
     errorRows,
     headers: table.headers,
+    enrolledFlows,
   };
 }

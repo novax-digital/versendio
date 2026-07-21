@@ -337,3 +337,13 @@ Abschlussbericht abarbeiten.
     Toggle-off ohne Guard) → atomare RPC `admin_upsert_plan` (Migration 20260714110000),
     verweigert Zustände ohne Standard; Namenskollision rollt zurück
 - [x] DoD: Build ✅ Lint ✅ Typecheck ✅ **140 Unit-Tests** ✅; E2E gegen Mock-Build grün
+
+## Nach Übergabe — UX-Feinschliff & Flow-Aufnahme (2026-07-21)
+- [x] **„Neuer Brief"**: „Im Editor erstellen" als prominente Hero-Karte (Empfohlen-Badge, CTA),
+  „PDF hochladen" als schlanke Sekundär-Zeile unter „oder"-Trenner
+- [x] **Sidebar**: „Kostenloses Guthaben" ans untere Ende geschoben (`mt-auto` + Trenner), von der
+  Navigation abgegrenzt — Desktop und mobile Sheet-Nav auf Flex-Spalte umgestellt
+- [x] **Flow-Aufnahme bei Kontaktanlage/Import**: Opt-in-Mehrfachauswahl aktiver Flows beim manuellen
+  Anlegen und beim CSV-Import (nur wenn aktive Flows bestehen); nimmt die Kontakte in die Flow-Liste
+  auf → bestehender Enrollment-Trigger greift. Details & Kanten → `docs/ASSUMPTIONS.md` A-015
+- [x] DoD: Build ✅ Lint ✅ Typecheck ✅ **162 Unit-Tests** ✅

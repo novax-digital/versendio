@@ -2,7 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { AlertCircle, CheckCircle2, Copy, Download, Upload } from "lucide-react";
+import { AlertCircle, CheckCircle2, Copy, Download, Upload, Workflow } from "lucide-react";
 import Papa from "papaparse";
 import {
   startImportAction,
@@ -33,18 +33,25 @@ import {
 import { CONTACT_FIELDS, FIELD_LABELS_DE, type ContactField } from "@/lib/shared/import/mapping";
 import { de } from "@/lib/i18n/de";
 import { ButtonLink } from "@/components/ui-ext/button-link";
+import { FlowEnrollPicker } from "../flow-enroll-picker";
+import type { ActiveFlowOption } from "@/lib/server/flows/active-flows";
 
 type Analyzed = Extract<StartImportResult, { ok: true }>;
 type Committed = Extract<CommitImportResult, { ok: true }>;
 
-export function ImportWizard() {
+export function ImportWizard({ activeFlows = [] }: { activeFlows?: ActiveFlowOption[] }) {
   const [analyzed, setAnalyzed] = useState<Analyzed | null>(null);
   const [result, setResult] = useState<Committed | null>(null);
 
   if (result) return <ResultStep result={result} />;
   if (analyzed)
     return (
-      <MappingStep analyzed={analyzed} onCommitted={setResult} onBack={() => setAnalyzed(null)} />
+      <MappingStep
+        analyzed={analyzed}
+        activeFlows={activeFlows}
+        onCommitted={setResult}
+        onBack={() => setAnalyzed(null)}
+      />
     );
   return <UploadStep onAnalyzed={setAnalyzed} />;
 }
@@ -91,16 +98,19 @@ function UploadStep({ onAnalyzed }: { onAnalyzed: (a: Analyzed) => void }) {
 
 function MappingStep({
   analyzed,
+  activeFlows,
   onCommitted,
   onBack,
 }: {
   analyzed: Analyzed;
+  activeFlows: ActiveFlowOption[];
   onCommitted: (r: Committed) => void;
   onBack: () => void;
 }) {
   const [mapping, setMapping] = useState<Record<number, ContactField | null>>(analyzed.suggested);
   const [createList, setCreateList] = useState(true);
   const [listName, setListName] = useState("");
+  const [selectedFlowIds, setSelectedFlowIds] = useState<string[]>([]);
   const [pending, startTransition] = useTransition();
 
   const assign = (index: number, field: ContactField | "ignore") => {
@@ -124,6 +134,7 @@ function MappingStep({
         fileName: analyzed.fileName,
         mapping: Object.fromEntries(Object.entries(mapping).map(([k, v]) => [k, v])),
         listName: createList ? listName : "",
+        flowIds: selectedFlowIds,
       });
       if (result.ok) onCommitted(result);
       else toast.error(result.error);
@@ -223,6 +234,13 @@ function MappingStep({
         </CardContent>
       </Card>
 
+      <FlowEnrollPicker
+        flows={activeFlows}
+        selected={selectedFlowIds}
+        onChange={setSelectedFlowIds}
+        hint={de.contacts.flowEnrollHintImport}
+      />
+
       <div className="flex justify-between">
         <Button variant="outline" onClick={onBack} disabled={pending}>
           {de.common.back}
@@ -284,6 +302,12 @@ function ResultStep({ result }: { result: Committed }) {
             />
             {de.contacts.resultFailed(result.failed)}
           </li>
+          {result.enrolledFlows > 0 ? (
+            <li className="flex items-center gap-2">
+              <Workflow className="text-primary size-4" aria-hidden />
+              {de.contacts.resultEnrolled(result.enrolledFlows)}
+            </li>
+          ) : null}
         </ul>
         {result.errorRows.length > 0 ? (
           <Button variant="outline" onClick={downloadErrors}>

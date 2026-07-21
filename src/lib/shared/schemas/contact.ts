@@ -48,6 +48,8 @@ export const commitImportSchema = z.object({
   fileName: z.string().min(1),
   mapping: z.record(z.string(), mappingValueSchema),
   listName: z.string().trim().max(160).optional().or(z.literal("")),
+  // Active flows the imported contacts should be enrolled into (opt-in).
+  flowIds: z.array(z.string().uuid()).max(50).optional(),
 });
 
 export const leadListSchema = z.object({

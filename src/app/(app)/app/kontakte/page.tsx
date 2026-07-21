@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Upload, Users } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/server/auth-context";
+import { loadActiveFlows } from "@/lib/server/flows/active-flows";
 import { Card, CardContent } from "@/components/ui/card";
 import { sanitizeSearchTerm } from "@/lib/shared/search-term";
 import { de } from "@/lib/i18n/de";
@@ -19,10 +20,11 @@ export default async function ContactsPage({
 }: {
   searchParams: Promise<{ q?: string; seite?: string }>;
 }) {
-  await requireProfile();
+  const profile = await requireProfile();
   const { q, seite } = await searchParams;
   const page = Math.max(1, Number(seite) || 1);
   const supabase = await createClient();
+  const activeFlows = await loadActiveFlows(profile.id);
 
   let query = supabase
     .from("contacts")
@@ -55,7 +57,7 @@ export default async function ContactsPage({
             <Upload className="size-4" aria-hidden />
             {de.contacts.importButton}
           </ButtonLink>
-          <CreateContactButton />
+          <CreateContactButton activeFlows={activeFlows} />
         </div>
       </div>
 
@@ -67,7 +69,7 @@ export default async function ContactsPage({
             <Users className="size-8" aria-hidden />
             <p className="text-foreground font-medium">{de.contacts.empty}</p>
             <p>{de.contacts.emptyCta}</p>
-            <CreateContactButton />
+            <CreateContactButton activeFlows={activeFlows} />
           </CardContent>
         </Card>
       ) : (

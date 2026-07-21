@@ -70,3 +70,12 @@ netto; ein itemisierter USt.-Ausweis fehlt dort noch (IDEAS I-016). Bewusste Ver
 (IDEAS I-017); bei EU-Auslandskunden vor Vertragsabschluss klären. (b) Bereits gekauftes
 Guthaben (vor der Umstellung) wurde ohne USt.-Aufschlag bezahlt — Bestandsguthaben bleibt
 unverändert netto stehen.
+
+## A-015 — Flow-Aufnahme bei Kontaktanlage/Import: Opt-in über Listen-Mitgliedschaft (2026-07-21)
+Beim manuellen Anlegen eines Kontakts und beim CSV-Import kann der Nutzer die neuen Kontakte optional in **aktive Flows** aufnehmen (Mehrfachauswahl, nur aktive Flows sichtbar). Nicht-offensichtliche Festlegungen:
+- **Mechanismus = Listen-Mitgliedschaft, kein Enrollment-Bypass.** „In Flow aufnehmen" schreibt die Kontakte als Einträge in die **Ziel-Liste des Flows**; der bestehende `AFTER INSERT`-Trigger `enroll_contact_in_flows` erzeugt die Enrollment mit Config-Snapshot. Das ist zwingend, weil der Scheduler (`scheduler.ts`) zum Feuerzeitpunkt die Listen-Mitgliedschaft erneut prüft und andernfalls `canceled: contact_left_list` setzt — eine „Enrollment ohne Liste" würde nie versenden.
+- **Idempotent** über den Unique-Index `(list_id, contact_id)` (`upsert … ignoreDuplicates`). Ein bereits gelisteter Kontakt wird nicht doppelt aufgenommen; entsprechend feuert der Trigger für ihn nicht erneut (konsistent mit „Aktivieren macht keinen Backfill").
+- **Mehrfachauswahl exakt pro Liste, mit dokumentierter Kante:** Teilen sich zwei aktive Flows dieselbe Liste, nimmt die Auswahl eines der beiden den Kontakt in **beide** auf (der Trigger enrollt alle aktiven Flows der Liste). Da Flow-Listen i. d. R. 1:1 sind (auto-erzeugte „Flow: …"-Liste), ist das ein seltener Sonderfall; die Rückmeldung („in N Flows aufgenommen") zählt die gewählten aktiven Flows.
+- **Nur beim Anlegen, nicht beim Bearbeiten.** Die Flow-Aufnahme ist eine Entscheidung zum Erstellungszeitpunkt; das Bearbeiten eines Kontakts bietet sie nicht an. Der Import nimmt neu importierte **und** als Duplikat erkannte bestehende Kontakte auf (dieselbe Menge wie die optionale Import-Liste).
+- **Gesperrte Nutzer:** Enrollment wird übersprungen (`blockedActionError`), da es einen kostenpflichtigen Versand terminiert; der Import ist für gesperrte Konten ohnehin komplett gesperrt.
+- **Scoping:** `loadActiveFlows` und der Enrollment-Helper filtern **explizit** `user_id`, weil die `flows`-RLS für Admins verbreitert ist; die `lead_list_entries`-`with check`-Policy verlangt zusätzlich Eigentum an Liste **und** Kontakt.
