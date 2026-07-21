@@ -41,7 +41,12 @@ export class PricingError extends Error {
   }
 }
 
-function tierForSheets(sheets: number): { tier: string; extraSheets: number } {
+/**
+ * Postage tier from the sheet count — the print center determines the physical
+ * product (envelope, fold) the same way; the E-Post API offers no override.
+ * Exported so the UI can show which Briefart a send will become.
+ */
+export function tierForSheets(sheets: number): { tier: "standard" | "kompakt" | "gross"; extraSheets: number } {
   if (sheets <= 1) return { tier: "standard", extraSheets: 0 };
   if (sheets <= 4) return { tier: "kompakt", extraSheets: 0 };
   if (sheets <= 10) return { tier: "gross", extraSheets: 0 };

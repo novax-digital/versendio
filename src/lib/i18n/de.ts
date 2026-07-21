@@ -695,6 +695,15 @@ export const de = {
     perLetter: "Preis je Brief",
     recipients: "Empfänger",
     sheets: "Blatt je Brief (geschätzt)",
+    // Briefart wird von der Deutschen Post aus der Blattzahl bestimmt —
+    // die E-Post-API bietet keine manuelle Umschlag-/Formatwahl.
+    tierLabel: "Briefart",
+    tierNames: {
+      standard: "Standardbrief",
+      kompakt: "Kompaktbrief",
+      gross: "Großbrief",
+    } as Record<string, string>,
+    tierExtra: (n: number) => `(+ ${n} ${n === 1 ? "Zusatzblatt" : "Zusatzblätter"})`,
     total: "Gesamt",
     discount: (p: string) => `inkl. ${p} % Rabatt`,
     balance: "Ihr Guthaben",

@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { formatCents } from "@/lib/shared/money";
+import { tierForSheets } from "@/lib/shared/pricing";
 import { de } from "@/lib/i18n/de";
 import { ButtonLink } from "@/components/ui-ext/button-link";
 
@@ -518,6 +519,15 @@ function ConfirmStep({
             <div className="flex justify-between">
               <dt className="text-muted-foreground">{de.send.sheets}</dt>
               <dd className="font-medium">{quote.sheets}</dd>
+            </div>
+            <div className="flex justify-between">
+              <dt className="text-muted-foreground">{de.send.tierLabel}</dt>
+              <dd className="font-medium">
+                {(() => {
+                  const { tier, extraSheets } = tierForSheets(quote.sheets);
+                  return `${de.send.tierNames[tier]}${extraSheets > 0 ? ` ${de.send.tierExtra(extraSheets)}` : ""}`;
+                })()}
+              </dd>
             </div>
             <div className="flex justify-between">
               <dt className="text-muted-foreground">
