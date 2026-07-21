@@ -48,8 +48,10 @@ export const commitImportSchema = z.object({
   fileName: z.string().min(1),
   mapping: z.record(z.string(), mappingValueSchema),
   listName: z.string().trim().max(160).optional().or(z.literal("")),
-  // Active flows the imported contacts should be enrolled into (opt-in).
-  flowIds: z.array(z.string().uuid()).max(50).optional(),
+  // Active flows the imported contacts should be enrolled into (opt-in). Not
+  // hard-capped here: an oversized selection must never abort the whole import —
+  // it is sliced best-effort server-side (see commitImportAction).
+  flowIds: z.array(z.string().uuid()).optional(),
 });
 
 export const leadListSchema = z.object({

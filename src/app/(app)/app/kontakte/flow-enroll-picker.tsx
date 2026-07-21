@@ -3,14 +3,16 @@
 import { Workflow } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import type { ActiveFlowOption } from "@/lib/server/flows/active-flows";
+import { type ActiveFlowOption, groupActiveFlowsByList } from "@/lib/shared/flows";
 import { de } from "@/lib/i18n/de";
 
 /**
- * Opt-in multi-select of active flows, shown when creating or importing
- * contacts. Selection state is owned by the parent so it can be submitted
- * (hidden inputs in the contact form, action payload in the import wizard).
- * Renders nothing when the user has no active flow.
+ * Opt-in selection of active flows, shown when creating or importing contacts.
+ * Options are grouped by target list: enrollment is list-based (adding a contact
+ * to a list enrolls it into every active flow bound to it), so a shared list is
+ * one selectable entry labelled with all its flows — there is no way to pick a
+ * strict subset. Selection state (flow ids) is owned by the parent so it can be
+ * submitted. Renders nothing when the user has no active flow.
  */
 export function FlowEnrollPicker({
   flows,
@@ -25,8 +27,16 @@ export function FlowEnrollPicker({
 }) {
   if (flows.length === 0) return null;
 
-  const toggle = (id: string, on: boolean) =>
-    onChange(on ? [...selected, id] : selected.filter((x) => x !== id));
+  const groups = groupActiveFlowsByList(flows);
+
+  const toggle = (groupFlowIds: string[], on: boolean) => {
+    const set = new Set(selected);
+    for (const id of groupFlowIds) {
+      if (on) set.add(id);
+      else set.delete(id);
+    }
+    onChange([...set]);
+  };
 
   return (
     <div className="border-primary/30 bg-primary/5 space-y-3 rounded-lg border border-dashed p-3">
@@ -36,17 +46,19 @@ export function FlowEnrollPicker({
       </div>
       <p className="text-muted-foreground text-xs">{hint}</p>
       <div className="space-y-2">
-        {flows.map((flow) => {
-          const domId = `flow-${flow.id}`;
+        {groups.map((group) => {
+          const flowIds = group.flows.map((f) => f.id);
+          const checked = flowIds.every((id) => selected.includes(id));
+          const domId = `flow-list-${group.listId}`;
           return (
-            <div key={flow.id} className="flex items-center gap-2">
+            <div key={group.listId} className="flex items-center gap-2">
               <Checkbox
                 id={domId}
-                checked={selected.includes(flow.id)}
-                onCheckedChange={(v) => toggle(flow.id, v === true)}
+                checked={checked}
+                onCheckedChange={(v) => toggle(flowIds, v === true)}
               />
               <Label htmlFor={domId} className="font-normal">
-                {flow.name}
+                {group.flows.map((f) => f.name).join(", ")}
               </Label>
             </div>
           );

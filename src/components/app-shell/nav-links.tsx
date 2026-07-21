@@ -207,7 +207,7 @@ export function MobileNav({ isAdmin }: { isAdmin: boolean }) {
             <Logo className="h-7" />
           </SheetTitle>
         </SheetHeader>
-        <nav className="flex flex-1 flex-col p-2" aria-label={de.admin.navMain}>
+        <nav className="flex flex-1 flex-col overflow-y-auto p-2" aria-label={de.admin.navMain}>
           <LinkList isAdmin={isAdmin} onNavigate={() => setOpen(false)} />
         </nav>
       </SheetContent>

@@ -41,3 +41,26 @@ export function computeScheduledSendAt(enrolledAt: Date, delayMinutes: number): 
   }
   return new Date(enrolledAt.getTime() + delayMinutes * 60_000);
 }
+
+/** An active flow, with the target list it enrolls contacts through. */
+export type ActiveFlowOption = { id: string; name: string; listId: string };
+
+/** One selectable enrollment target: a list plus the active flows bound to it. */
+export type ActiveFlowGroup = { listId: string; flows: ActiveFlowOption[] };
+
+/**
+ * Groups active flows by their target list. Enrollment is list-based — the DB
+ * trigger enrolls a contact into EVERY active flow bound to a list it enters —
+ * so the picker must offer one entry per list, not per flow: selecting a list
+ * enrolls into all of its flows, and there is no way to pick a strict subset.
+ * Insertion order of first occurrence is preserved (input is newest-first).
+ */
+export function groupActiveFlowsByList(flows: ActiveFlowOption[]): ActiveFlowGroup[] {
+  const byList = new Map<string, ActiveFlowOption[]>();
+  for (const flow of flows) {
+    const bucket = byList.get(flow.listId);
+    if (bucket) bucket.push(flow);
+    else byList.set(flow.listId, [flow]);
+  }
+  return [...byList].map(([listId, listFlows]) => ({ listId, flows: listFlows }));
+}

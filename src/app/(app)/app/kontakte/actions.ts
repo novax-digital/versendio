@@ -39,7 +39,12 @@ function parseFlowIds(formData: FormData): string[] {
  *
  * Scoped to the user's own ACTIVE flows (flows RLS is broadened for admins, so
  * user_id is filtered explicitly). Idempotent via the (list_id, contact_id)
- * unique index. Returns how many active flows were matched, for user feedback.
+ * unique index; inserts are best-effort per batch.
+ *
+ * Returns the TRUE number of paid flows the contacts land in: every active flow
+ * bound to an affected list, not just the selected subset. The trigger enrolls
+ * into all of them, so the count must reflect that — the picker groups options
+ * by list, so the user has already opted into every flow on a chosen list.
  */
 async function addContactsToActiveFlows(
   supabase: ServerClient,
@@ -49,9 +54,9 @@ async function addContactsToActiveFlows(
 ): Promise<number> {
   if (contactIds.length === 0 || flowIds.length === 0) return 0;
 
-  const { data: flows, error } = await supabase
+  const { data: selected, error } = await supabase
     .from("flows")
-    .select("id, list_id")
+    .select("list_id")
     .eq("user_id", userId)
     .eq("is_active", true)
     .in("id", flowIds);
@@ -59,16 +64,15 @@ async function addContactsToActiveFlows(
     console.error("flow_enroll_lookup_failed", { error: error.message });
     return 0;
   }
-  if (!flows || flows.length === 0) return 0;
+  const listIds = [...new Set((selected ?? []).map((f) => f.list_id))];
+  if (listIds.length === 0) return 0;
 
-  // Two selected flows may share one list; a single membership row per
-  // (list, contact) enrolls the contact into every active flow bound to it.
-  const listIds = [...new Set(flows.map((f) => f.list_id))];
   const entries = listIds.flatMap((listId) =>
     contactIds.map((contactId) => ({ list_id: listId, contact_id: contactId })),
   );
 
   const BATCH = 500;
+  let insertedOk = false;
   for (let i = 0; i < entries.length; i += BATCH) {
     // ignoreDuplicates: a contact already in the list stays enrolled once.
     const { error: insErr } = await supabase
@@ -77,12 +81,21 @@ async function addContactsToActiveFlows(
         onConflict: "list_id,contact_id",
         ignoreDuplicates: true,
       });
-    if (insErr) {
-      console.error("flow_enroll_entry_failed", { error: insErr.message });
-      return 0;
-    }
+    // Best-effort: a failed batch must not hide enrollments other batches made.
+    if (insErr) console.error("flow_enroll_entry_failed", { error: insErr.message });
+    else insertedOk = true;
   }
-  return flows.length;
+  if (!insertedOk) return 0;
+
+  // Ground truth for the feedback message: all active flows on the affected
+  // lists — that is exactly what the trigger enrolled the contacts into.
+  const { count } = await supabase
+    .from("flows")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .eq("is_active", true)
+    .in("list_id", listIds);
+  return count ?? 0;
 }
 
 // --- contact CRUD -----------------------------------------------------------
@@ -429,7 +442,7 @@ export async function commitImportAction(
     supabase,
     profile.id,
     importedContactIds,
-    parsed.data.flowIds ?? [],
+    (parsed.data.flowIds ?? []).slice(0, 50),
   );
 
   // Import file is no longer needed.
