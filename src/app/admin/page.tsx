@@ -6,7 +6,7 @@ import { requireAdmin } from "@/lib/server/auth-context";
 import { loadDashboardKpis } from "@/lib/server/admin/queries";
 import { getLetterProvider } from "@/lib/server/providers";
 import { isMockMode, serverEnv } from "@/lib/server/env";
-import { stripeEnabled } from "@/lib/server/stripe";
+import { stripeMode } from "@/lib/server/stripe";
 import { formatCents } from "@/lib/shared/money";
 import { de } from "@/lib/i18n/de";
 
@@ -110,8 +110,15 @@ export default async function AdminDashboardPage() {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-muted-foreground w-40">Stripe</span>
-            <Badge variant={stripeEnabled() ? "outline" : "secondary"}>
-              {stripeEnabled() ? "Testmodus aktiv" : "Deaktiviert (FEATURE_STRIPE=false)"}
+            <Badge
+              variant={stripeMode() === "disabled" ? "secondary" : "outline"}
+              className={stripeMode() === "live" ? "border-emerald-500 text-emerald-600" : ""}
+            >
+              {stripeMode() === "live"
+                ? "Live-Modus aktiv"
+                : stripeMode() === "test"
+                  ? "Testmodus aktiv"
+                  : "Deaktiviert (FEATURE_STRIPE=false)"}
             </Badge>
           </div>
         </CardContent>

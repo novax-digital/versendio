@@ -16,6 +16,13 @@ export function stripeEnabled(): boolean {
   return env.FEATURE_STRIPE && !!env.STRIPE_SECRET_KEY;
 }
 
+/** Actual Stripe mode, derived from the configured key prefix (admin display). */
+export function stripeMode(): "disabled" | "test" | "live" {
+  if (!stripeEnabled()) return "disabled";
+  const key = serverEnv().STRIPE_SECRET_KEY ?? "";
+  return key.startsWith("sk_live_") || key.startsWith("rk_live_") ? "live" : "test";
+}
+
 export function getStripe(): Stripe {
   const env = serverEnv();
   if (!env.STRIPE_SECRET_KEY) throw new Error("STRIPE_SECRET_KEY not configured");
