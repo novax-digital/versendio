@@ -44,6 +44,9 @@ export function TwoFactorSection() {
       const { data, error } = await supabase.auth.mfa.enroll({
         factorType: "totp",
         friendlyName: `TOTP ${Date.now()}`,
+        // Shown as the entry name in authenticator apps. Without it Supabase
+        // falls back to the project's Site URL (localhost in dev setups).
+        issuer: "Versendio",
       });
       if (error || !data) {
         toast.error(de.profile.twoFactorEnrollFailed);
