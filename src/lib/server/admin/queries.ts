@@ -13,6 +13,8 @@ export type AdminDashboardKpis = {
   lettersSentToday: number;
   lettersSentMonth: number;
   topupRevenueMonthCents: number;
+  topupPaidMonthCents: number;
+  topupFreeMonthCents: number;
   grossProfitMonthCents: number;
   errorRate30d: number;
   queuePending: number;
@@ -89,6 +91,8 @@ export async function loadDashboardKpis(): Promise<AdminDashboardKpis> {
     lettersSentToday: Number(row?.letters_sent_today ?? 0),
     lettersSentMonth: Number(row?.letters_sent_month ?? 0),
     topupRevenueMonthCents: Number(row?.topup_revenue_month_cents ?? 0),
+    topupPaidMonthCents: Number(row?.topup_paid_month_cents ?? 0),
+    topupFreeMonthCents: Number(row?.topup_free_month_cents ?? 0),
     grossProfitMonthCents: Number(row?.gross_profit_month_cents ?? 0),
     errorRate30d: finalItems > 0 ? failedItems / finalItems : 0,
     queuePending: queuePending ?? 0,

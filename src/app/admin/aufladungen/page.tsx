@@ -20,6 +20,7 @@ export const metadata: Metadata = { title: de.credits.topupsTitle };
 type TopupRow = {
   id: string;
   type: string;
+  reference_type: string | null;
   amount_cents: number;
   comment: string | null;
   receipt_url: string | null;
@@ -35,7 +36,7 @@ export default async function AdminTopupsPage() {
   const { data } = await admin
     .from("credit_transactions")
     .select(
-      "id, type, amount_cents, comment, receipt_url, stripe_invoice_id, created_at, profiles(email, display_name)",
+      "id, type, reference_type, amount_cents, comment, receipt_url, stripe_invoice_id, created_at, profiles(email, display_name)",
     )
     .in("type", ["topup", "admin_adjust"])
     .order("created_at", { ascending: false })
@@ -45,8 +46,21 @@ export default async function AdminTopupsPage() {
   const monthStart = new Date();
   monthStart.setDate(1);
   monthStart.setHours(0, 0, 0, 0);
-  const monthRows = rows.filter((r) => new Date(r.created_at) >= monthStart && r.amount_cents > 0);
-  const monthSum = monthRows.reduce((sum, r) => sum + r.amount_cents, 0);
+  // Sums cover real top-ups only (type 'topup'); admin corrections stay in the
+  // table but out of the figures. Paid = actual Stripe money (net,
+  // reference_type 'stripe_event'); everything else is gift credit (top-up
+  // bonus, vouchers, review rewards) — a 10 € purchase with 2 € bonus is two
+  // ledger rows and splits cleanly.
+  const monthRows = rows.filter(
+    (r) => r.type === "topup" && new Date(r.created_at) >= monthStart && r.amount_cents > 0,
+  );
+  const paidSum = monthRows
+    .filter((r) => r.reference_type === "stripe_event")
+    .reduce((sum, r) => sum + r.amount_cents, 0);
+  const freeSum = monthRows
+    .filter((r) => r.reference_type !== "stripe_event")
+    .reduce((sum, r) => sum + r.amount_cents, 0);
+  const monthSum = paidSum + freeSum;
 
   return (
     <div className="space-y-4">
@@ -65,7 +79,7 @@ export default async function AdminTopupsPage() {
         </a>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-muted-foreground text-sm font-medium">
@@ -74,6 +88,26 @@ export default async function AdminTopupsPage() {
           </CardHeader>
           <CardContent className="text-2xl font-semibold tabular-nums">
             {formatCents(monthSum)}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-muted-foreground text-sm font-medium">
+              {de.credits.topupsSumPaid}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="text-2xl font-semibold tabular-nums">
+            {formatCents(paidSum)}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-muted-foreground text-sm font-medium">
+              {de.credits.topupsSumFree}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="text-2xl font-semibold tabular-nums">
+            {formatCents(freeSum)}
           </CardContent>
         </Card>
         <Card>

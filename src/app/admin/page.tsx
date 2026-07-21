@@ -27,7 +27,14 @@ export default async function AdminDashboardPage() {
     { label: de.admin.usersNew, value: String(kpis.usersNew30d) },
     { label: de.admin.lettersToday, value: String(kpis.lettersSentToday) },
     { label: de.admin.lettersMonth, value: String(kpis.lettersSentMonth) },
-    { label: de.admin.topupRevenue, value: formatCents(kpis.topupRevenueMonthCents) },
+    {
+      label: de.admin.topupRevenue,
+      value: formatCents(kpis.topupRevenueMonthCents),
+      hint: de.admin.topupSplitHint(
+        formatCents(kpis.topupPaidMonthCents),
+        formatCents(kpis.topupFreeMonthCents),
+      ),
+    },
     {
       label: de.admin.grossProfit,
       value: formatCents(kpis.grossProfitMonthCents),
