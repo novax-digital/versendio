@@ -34,7 +34,7 @@ export function AppShell({
           </Link>
         </div>
         <nav className="flex flex-1 flex-col overflow-y-auto px-2 py-2" aria-label={de.admin.navMain}>
-          <NavLinks isAdmin={profile.role === "admin"} />
+          <NavLinks isAdmin={profile.role === "admin"} isWhitelabel={profile.is_whitelabel} />
         </nav>
         {mockMode ? (
           <div className="px-4 pb-4">
@@ -52,7 +52,7 @@ export function AppShell({
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="bg-background flex h-14 items-center justify-between gap-2 border-b px-4">
           <div className="flex items-center gap-2">
-            <MobileNav isAdmin={profile.role === "admin"} />
+            <MobileNav isAdmin={profile.role === "admin"} isWhitelabel={profile.is_whitelabel} />
             <Link href="/app" className="flex items-center md:hidden">
               <Logo className="h-6" />
             </Link>

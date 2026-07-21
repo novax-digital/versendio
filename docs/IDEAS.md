@@ -33,3 +33,5 @@
 | I-027 | Wöchentliche/monatliche Zusammenfassung per E-Mail (Sendungen, Kosten, Guthabenverlauf, Flow-Aktivität) als opt-in Digest | Überblick ohne Login | mittel | Benachrichtigungen 2026-07-21 |
 | I-028 | Monatlicher Kontoauszug (PDF) über alle Ledger-Bewegungen, per E-Mail und im Guthaben-Bereich abrufbar | Buchhaltungs-Komfort für B2B | mittel | Benachrichtigungen 2026-07-21 |
 | I-029 | Einschreiben-Tracking-Mail: Statuswechsel des Rückscheins/der Zustellung (registeredStatus aus dem Status-Sync) gezielt benachrichtigen | Mehrwert der teuersten Versandart sichtbar | niedrig | Benachrichtigungen 2026-07-21 |
+| I-030 | Whitelabel: Endkunden-Dropdown im Versand-Assistenten (Zuordnung manueller Sendungen; MVP ist API-only per Nutzer-Entscheid) | manuelle Sendungen zuordenbar | niedrig | Whitelabel 2026-07-21 |
+| I-031 | Whitelabel: Job-Liste je Endkunde als API-Endpunkt + CSV-Export; Webhooks bei Statuswechsel für die Software des Kunden | tiefere Integration | mittel | Whitelabel 2026-07-21 |

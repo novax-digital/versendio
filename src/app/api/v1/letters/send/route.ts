@@ -1,6 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import { authenticateApiRequest, apiError, apiJson } from "@/lib/server/api-auth";
+import {
+  authenticateApiRequest,
+  requireWhitelabelApi,
+  apiError,
+  apiJson,
+} from "@/lib/server/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { contactSchema } from "@/lib/shared/schemas/contact";
 import { loadPricingRows, loadDiscountPercent } from "@/lib/server/pricing/load";
@@ -22,6 +27,8 @@ const sendSchema = z.object({
   test: z.boolean().default(false),
   // Optional idempotency: reuse the same UUID to make a retry a no-op.
   idempotencyKey: z.string().uuid().optional(),
+  // Whitelabel: attribute this send to one of the key owner's end-customers.
+  customerId: z.string().uuid().optional(),
 });
 
 type RecipientSnapshot = {
@@ -61,6 +68,30 @@ export async function POST(request: Request) {
   }
 
   const admin = createAdminClient();
+
+  // Whitelabel attribution: requires the admin-granted flag (a revoked account
+  // must stop attributing, even though its wl_customers rows survive), and the
+  // end-customer must belong to the key owner and be active. Checked up front
+  // so an invalid id fails before any charge.
+  if (parsed.data.customerId) {
+    const wlErr = await requireWhitelabelApi(userId);
+    if (wlErr) return apiError(wlErr);
+    const { data: wlCustomer } = await admin
+      .from("wl_customers")
+      .select("id, is_active")
+      .eq("id", parsed.data.customerId)
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (!wlCustomer) {
+      return apiJson({ error: "not_found", message: "Endkunde nicht gefunden." }, 404);
+    }
+    if (!wlCustomer.is_active) {
+      return apiJson(
+        { error: "customer_inactive", message: "Dieser Endkunde ist deaktiviert." },
+        409,
+      );
+    }
+  }
 
   // Letter must be ready and owned by the key holder.
   const { data: letter } = await admin
@@ -188,12 +219,36 @@ export async function POST(request: Request) {
     return apiJson({ error: "server_error", message: "Der Versand konnte nicht ausgelöst werden." }, 500);
   }
 
+  // Attribution AFTER the RPC committed (same post-RPC pattern the flows
+  // scheduler uses for send_job_id — the money RPC stays untouched). Idempotent
+  // replays return the same jobId and simply rewrite the same value.
+  let attributedCustomerId: string | null = null;
+  if (parsed.data.customerId) {
+    const { error: attrError } = await admin
+      .from("send_jobs")
+      .update({ wl_customer_id: parsed.data.customerId })
+      .eq("id", jobId as string)
+      .eq("user_id", userId);
+    if (attrError) {
+      // The send is already booked — don't fail the request, but be honest in
+      // the response so the integration's re-charge accounting never assumes
+      // an attribution that didn't happen.
+      console.error("api_send_attribution_failed", { jobId, error: attrError.message });
+    } else {
+      attributedCustomerId = parsed.data.customerId;
+    }
+  }
+
   return apiJson(
     {
       jobId,
       status: "queued",
       test: parsed.data.test,
       priceCents: parsed.data.test ? 0 : price.vkCents,
+      customerId: attributedCustomerId,
+      ...(parsed.data.customerId && !attributedCustomerId
+        ? { warning: "attribution_failed" }
+        : {}),
     },
     201,
   );

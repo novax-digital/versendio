@@ -53,6 +53,16 @@ export async function deleteAccount(
   }
   await admin.rpc("purge_user_rate_limits", { p_user_id: userId });
   await admin.rpc("delete_user_api_keys", { p_user_id: userId });
+  // End-customer rows carry THIRD-PARTY PII (names/e-mails) — detach job
+  // attribution, then drop them (profiles are anonymized, cascades never
+  // fire). Unlike the credential cleanups above, a failure here must fail the
+  // deletion: reporting success while foreign PII persists would be a silent
+  // GDPR violation with no retry path.
+  const { error: wlError } = await admin.rpc("delete_user_wl_customers", { p_user_id: userId });
+  if (wlError) {
+    console.error("delete_wl_customers_failed", { error: wlError.message });
+    return { ok: false, error: "wl_cleanup_failed" };
+  }
 
   // 4) External identities last.
   if (billing?.stripe_customer_id && stripeEnabled()) {

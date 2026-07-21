@@ -8,6 +8,7 @@ import {
   adjustCreditsAction,
   setUserStatusAction,
   setUserPlanAction,
+  setWhitelabelAction,
   sendPasswordResetAction,
   deleteUserAction,
 } from "../../actions";
@@ -26,6 +27,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -43,12 +45,14 @@ export function UserActions({
   planId,
   plans,
   isSelf,
+  isWhitelabel,
 }: {
   userId: string;
   status: string;
   planId: string | null;
   plans: Plan[];
   isSelf: boolean;
+  isWhitelabel: boolean;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -109,6 +113,13 @@ export function UserActions({
     const fd = new FormData();
     fd.set("userId", userId);
     run(() => sendPasswordResetAction(null, fd), de.admin.passwordResetSent);
+  };
+
+  const toggleWhitelabel = (next: boolean) => {
+    const fd = new FormData();
+    fd.set("userId", userId);
+    fd.set("enabled", next ? "true" : "false");
+    run(() => setWhitelabelAction(null, fd), de.admin.whitelabelChanged);
   };
 
   const deleteUser = () => {
@@ -190,6 +201,19 @@ export function UserActions({
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="flex items-center justify-between gap-4">
+            <div className="space-y-0.5">
+              <Label htmlFor="wl-toggle">{de.admin.whitelabelLabel}</Label>
+              <p className="text-muted-foreground text-xs">{de.admin.whitelabelHint}</p>
+            </div>
+            <Switch
+              id="wl-toggle"
+              checked={isWhitelabel}
+              onCheckedChange={toggleWhitelabel}
+              disabled={pending || status === "deleted"}
+            />
           </div>
 
           <div className="flex flex-wrap gap-2">

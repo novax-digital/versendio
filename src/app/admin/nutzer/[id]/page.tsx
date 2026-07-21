@@ -32,7 +32,7 @@ export default async function AdminUserDetailPage({
       admin
         .from("profiles")
         .select(
-          "id, email, display_name, company, billing_street, billing_zip, billing_city, billing_country, role, status, plan_id, credit_balance_cents, cost_center, created_at",
+          "id, email, display_name, company, billing_street, billing_zip, billing_city, billing_country, role, status, plan_id, credit_balance_cents, cost_center, is_whitelabel, created_at",
         )
         .eq("id", id)
         .single(),
@@ -124,6 +124,7 @@ export default async function AdminUserDetailPage({
         planId={user.plan_id}
         plans={plans ?? []}
         isSelf={user.id === actor.id}
+        isWhitelabel={user.is_whitelabel ?? false}
       />
 
       <Card>

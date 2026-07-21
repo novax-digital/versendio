@@ -9,7 +9,7 @@ import { ApiDocs } from "./api-docs";
 export const metadata: Metadata = { title: de.integrations.title };
 
 export default async function IntegrationsSettingsPage() {
-  await requireProfile();
+  const profile = await requireProfile();
   const supabase = await createClient();
   // key_hash is intentionally NOT selected — it never leaves the server.
   const { data: keys } = await supabase
@@ -25,7 +25,7 @@ export default async function IntegrationsSettingsPage() {
         <p className="text-muted-foreground text-sm">{de.integrations.subtitle}</p>
       </div>
       <ApiKeysManager keys={(keys ?? []) as ApiKey[]} />
-      <ApiDocs baseUrl={base} />
+      <ApiDocs baseUrl={base} showWhitelabel={profile.is_whitelabel} />
     </div>
   );
 }

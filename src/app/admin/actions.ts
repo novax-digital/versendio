@@ -118,6 +118,42 @@ export async function setUserStatusAction(
   return { ok: true };
 }
 
+const setWhitelabelSchema = z.object({
+  userId: z.string().uuid(),
+  enabled: z.enum(["true", "false"]),
+});
+
+/** Grants/revokes the whitelabel-SaaS status (protected column, service-role). */
+export async function setWhitelabelAction(
+  _prev: unknown,
+  formData: FormData,
+): Promise<ActionResult> {
+  const actor = await requireAdmin();
+  const parsed = setWhitelabelSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { ok: false, error: de.common.genericError };
+
+  const enabled = parsed.data.enabled === "true";
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("profiles")
+    .update({ is_whitelabel: enabled })
+    .eq("id", parsed.data.userId);
+  if (error) {
+    console.error("admin_set_whitelabel_failed", { error: error.message });
+    return { ok: false, error: de.common.genericError };
+  }
+
+  await writeAuditLog({
+    actorUserId: actor.id,
+    action: "user_whitelabel_change",
+    targetType: "user",
+    targetId: parsed.data.userId,
+    details: { is_whitelabel: enabled },
+  });
+  revalidatePath(`/admin/nutzer/${parsed.data.userId}`);
+  return { ok: true };
+}
+
 const setPlanSchema = z.object({
   userId: z.string().uuid(),
   planId: z.string().uuid(),

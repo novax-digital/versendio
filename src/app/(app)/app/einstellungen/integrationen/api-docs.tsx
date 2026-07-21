@@ -13,7 +13,13 @@ function Code({ children }: { children: string }) {
 }
 
 /** Static REST reference for the Integrations API. */
-export function ApiDocs({ baseUrl }: { baseUrl: string }) {
+export function ApiDocs({
+  baseUrl,
+  showWhitelabel = false,
+}: {
+  baseUrl: string;
+  showWhitelabel?: boolean;
+}) {
   return (
     <section className="space-y-4">
       <h2 className="text-lg font-medium">{de.integrations.docsTitle}</h2>
@@ -63,6 +69,52 @@ export function ApiDocs({ baseUrl }: { baseUrl: string }) {
   }'`}</Code>
         <p className="text-muted-foreground text-xs">{de.integrations.docsSendNote}</p>
       </div>
+
+      {showWhitelabel ? (
+        <>
+          <h2 className="pt-2 text-lg font-medium">{de.integrations.docsWlTitle}</h2>
+          <p className="text-muted-foreground text-sm">{de.integrations.docsWlIntro}</p>
+
+          <div className="space-y-1.5">
+            <h3 className="text-sm font-medium">{de.integrations.docsWlCreate}</h3>
+            <Code>{`curl -X POST ${baseUrl}/api/v1/customers \\
+  -H "Authorization: Bearer vk_live_…" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "name": "Beispiel GmbH",
+    "externalRef": "KUNDE-1001",
+    "email": "kontakt@beispiel.de"
+  }'`}</Code>
+            <p className="text-muted-foreground text-xs">{de.integrations.docsWlCreateNote}</p>
+          </div>
+
+          <div className="space-y-1.5">
+            <h3 className="text-sm font-medium">{de.integrations.docsWlList}</h3>
+            <Code>{`curl "${baseUrl}/api/v1/customers?limit=50&offset=0" \\
+  -H "Authorization: Bearer vk_live_…"`}</Code>
+          </div>
+
+          <div className="space-y-1.5">
+            <h3 className="text-sm font-medium">{de.integrations.docsWlSend}</h3>
+            <Code>{`curl -X POST ${baseUrl}/api/v1/letters/send \\
+  -H "Authorization: Bearer vk_live_…" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "letterId": "<UUID>",
+    "recipient": { "contactId": "<UUID>" },
+    "customerId": "<UUID des Endkunden>",
+    "test": true
+  }'`}</Code>
+          </div>
+
+          <div className="space-y-1.5">
+            <h3 className="text-sm font-medium">{de.integrations.docsWlUsage}</h3>
+            <Code>{`curl "${baseUrl}/api/v1/customers/<UUID>/usage?from=2026-07-01&to=2026-08-01" \\
+  -H "Authorization: Bearer vk_live_…"`}</Code>
+            <p className="text-muted-foreground text-xs">{de.integrations.docsWlUsageNote}</p>
+          </div>
+        </>
+      ) : null}
     </section>
   );
 }

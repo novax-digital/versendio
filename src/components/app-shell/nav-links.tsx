@@ -15,6 +15,7 @@ import {
   Menu,
   ChevronDown,
   Gift,
+  Building2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/brand/logo";
@@ -63,6 +64,13 @@ const items: NavItem[] = [
 ];
 
 const adminItem: NavItem = { href: "/admin", label: de.nav.admin, icon: Shield, exact: false };
+
+const whitelabelItem: NavItem = {
+  href: "/app/whitelabel",
+  label: de.nav.whitelabel,
+  icon: Building2,
+  exact: false,
+};
 
 const linkClass = (active: boolean, child?: boolean) =>
   cn(
@@ -136,9 +144,21 @@ function NavGroup({ item, onNavigate }: { item: NavItem; onNavigate?: () => void
   );
 }
 
-function LinkList({ isAdmin, onNavigate }: { isAdmin: boolean; onNavigate?: () => void }) {
+function LinkList({
+  isAdmin,
+  isWhitelabel,
+  onNavigate,
+}: {
+  isAdmin: boolean;
+  isWhitelabel: boolean;
+  onNavigate?: () => void;
+}) {
   const pathname = usePathname();
-  const allItems = isAdmin ? [...items, adminItem] : items;
+  const allItems = [
+    ...items,
+    ...(isWhitelabel ? [whitelabelItem] : []),
+    ...(isAdmin ? [adminItem] : []),
+  ];
   const freeCreditActive = pathname.startsWith("/app/kostenloses-guthaben");
 
   return (
@@ -186,11 +206,11 @@ function LinkList({ isAdmin, onNavigate }: { isAdmin: boolean; onNavigate?: () =
   );
 }
 
-export function NavLinks({ isAdmin }: { isAdmin: boolean }) {
-  return <LinkList isAdmin={isAdmin} />;
+export function NavLinks({ isAdmin, isWhitelabel }: { isAdmin: boolean; isWhitelabel: boolean }) {
+  return <LinkList isAdmin={isAdmin} isWhitelabel={isWhitelabel} />;
 }
 
-export function MobileNav({ isAdmin }: { isAdmin: boolean }) {
+export function MobileNav({ isAdmin, isWhitelabel }: { isAdmin: boolean; isWhitelabel: boolean }) {
   const [open, setOpen] = useState(false);
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -208,7 +228,7 @@ export function MobileNav({ isAdmin }: { isAdmin: boolean }) {
           </SheetTitle>
         </SheetHeader>
         <nav className="flex flex-1 flex-col overflow-y-auto p-2" aria-label={de.admin.navMain}>
-          <LinkList isAdmin={isAdmin} onNavigate={() => setOpen(false)} />
+          <LinkList isAdmin={isAdmin} isWhitelabel={isWhitelabel} onNavigate={() => setOpen(false)} />
         </nav>
       </SheetContent>
     </Sheet>

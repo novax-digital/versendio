@@ -383,3 +383,16 @@ Abschlussbericht abarbeiten.
 - [x] Smoke: /login rendert beide Buttons + Trenner; DoD: Build ✅ Lint ✅ Typecheck ✅ 173 Tests ✅
   - ⚠️ **Operator:** Provider-Credentials im Supabase-Dashboard hinterlegen (Details → A-018);
     voller Roundtrip erst danach testbar
+
+## Nach Übergabe — Whitelabel-SaaS (2026-07-21)
+- [x] **Admin**: „Whitelabel-SaaS"-Schalter je Nutzer (geschützte Spalte `is_whitelabel`, Audit-Log);
+  Sperren/Löschen existierte bereits (Detailseite)
+- [x] **Whitelabel-Bereich** (`/app/whitelabel`, nur mit Flag): KPIs, Endkunden-CRUD (Kundennr.,
+  Aktiv-Schalter, Löschen nur ohne Sendungen), Detailseite mit Sendungsliste + Verbrauch
+- [x] **API**: `POST/GET /api/v1/customers` (idempotent über externalRef), `customerId` bei
+  `letters/send` (Attribution nach Geld-RPC), `GET /api/v1/customers/{id}/usage?from&to`
+  (nur „sent", VK netto, Erstattungen separat); API-Doku-Abschnitt nur für Whitelabel-Konten
+- [x] Migrationen 20260721160000 + 170000 angewendet; DB-Layer transaktional verifiziert
+  (Attribution, Usage-Summen, Unique/FK/GDPR)
+- [x] Details → `docs/ASSUMPTIONS.md` A-019; Ideen I-030/I-031
+- [x] DoD: Build ✅ Lint ✅ Typecheck ✅ 173 Tests ✅

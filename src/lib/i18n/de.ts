@@ -44,6 +44,7 @@ export const de = {
     flows: "Flows",
     credits: "Guthaben",
     freeCredit: "Kostenloses Guthaben",
+    whitelabel: "Whitelabel",
     settings: "Einstellungen",
     expandSection: "Aufklappen",
     collapseSection: "Zuklappen",
@@ -498,6 +499,18 @@ export const de = {
     docsLetterSend: "Brief versenden (an einen Empfänger)",
     docsSendNote:
       "Der Brief muss versandbereit sein. Ohne test:true wird Guthaben belastet. Mit idempotencyKey (UUID) ist ein wiederholter Aufruf gefahrlos.",
+    // Whitelabel-Endpunkte (nur für freigeschaltete Konten sichtbar)
+    docsWlTitle: "Whitelabel: Endkunden",
+    docsWlIntro:
+      "Legen Sie Endkunden an, ordnen Sie Sendungen per customerId zu und rufen Sie Verbrauchswerte je Endkunde ab – zur Weiterberechnung an Ihre Kunden.",
+    docsWlCreate: "Endkunde anlegen",
+    docsWlCreateNote:
+      "Mit externalRef (Ihre Kundennummer) ist der Aufruf idempotent: Ein Duplikat liefert 409 mit dem bestehenden Datensatz.",
+    docsWlList: "Endkunden auflisten",
+    docsWlSend: "Brief mit Endkunden-Zuordnung versenden",
+    docsWlUsage: "Verbrauchswerte je Endkunde",
+    docsWlUsageNote:
+      "Zählt nur zugestellte Briefe (Status „Versendet“, ohne Probeversand); Beträge netto in Cent. from einschließlich, to ausschließlich.",
   },
   notifications: {
     title: "Benachrichtigungen",
@@ -517,6 +530,51 @@ export const de = {
       "Zusammenfassung, wenn ein Flow Briefe automatisch versendet hat – inklusive Hinweis, falls Guthaben fehlt.",
     alwaysOnNote:
       "Wichtige Hinweise erhalten Sie immer per E-Mail: zurückgestellte Briefe bei fehlendem Guthaben, fehlgeschlagene automatische Aufladungen sowie Konto- und Sicherheitsmitteilungen.",
+  },
+  whitelabel: {
+    title: "Whitelabel",
+    subtitle:
+      "Nutzen Sie Versendio für Ihre eigene Software: Endkunden anlegen, Sendungen zuordnen und Verbrauchswerte je Endkunde abrufen.",
+    notEnabled: "Der Whitelabel-Bereich ist für Ihr Konto nicht freigeschaltet.",
+    kpiCustomers: "Endkunden",
+    kpiLettersMonth: "Briefe (Monat)",
+    kpiCostMonth: "Kosten (Monat)",
+    customersTitle: "Endkunden",
+    addCustomer: "Neuer Endkunde",
+    editCustomer: "Endkunde bearbeiten",
+    empty: "Noch keine Endkunden angelegt. Legen Sie Ihren ersten Endkunden an – per Klick oder über die API.",
+    colName: "Endkunde",
+    colLetter: "Brief",
+    colLettersMonth: "Briefe (Monat)",
+    colCostMonth: "Kosten (Monat)",
+    colLettersTotal: "Briefe (gesamt)",
+    colCostTotal: "Kosten (gesamt)",
+    colActive: "Aktiv",
+    externalRefShort: "Kundennr.",
+    activate: "Aktivieren",
+    deactivate: "Deaktivieren",
+    saved: "Endkunde gespeichert.",
+    deleted: "Endkunde gelöscht.",
+    deleteTitle: "Endkunde löschen",
+    deleteConfirm: "Diesen Endkunden wirklich löschen?",
+    deleteHasSends:
+      "Dieser Endkunde hat bereits zugeordnete Sendungen und kann nicht gelöscht werden – deaktivieren Sie ihn stattdessen.",
+    externalRefTaken: "Diese Kundennummer ist bereits vergeben.",
+    fieldName: "Name / Firma",
+    fieldExternalRef: "Ihre Kundennummer",
+    fieldExternalRefHint:
+      "Ihre eigene Referenz für diesen Endkunden (z. B. die ID aus Ihrem System) – für die Zuordnung über die API.",
+    fieldNotes: "Notiz (intern)",
+    inactive: "Deaktiviert",
+    usageLetters: "Briefe versendet",
+    usageCost: "Kosten (netto)",
+    usageRefunded: "Fehlgeschlagen & erstattet",
+    jobsTitle: "Sendungen dieses Endkunden",
+    jobsEmpty:
+      "Noch keine Sendungen zugeordnet. Übergeben Sie beim API-Versand die customerId dieses Endkunden.",
+    apiHintPrefix: "Endkunden lassen sich auch per API anlegen und abrechnen – Details unter",
+    apiHintLink: "Einstellungen → Integrationen",
+    apiHintSuffix: ".",
   },
   contacts: {
     title: "Kontakte",
@@ -930,6 +988,10 @@ export const de = {
     cannotBlockSelf: "Sie können Ihr eigenes Konto nicht sperren.",
     statusChanged: "Der Status wurde geändert.",
     planChanged: "Die Preisstufe wurde geändert.",
+    whitelabelLabel: "Whitelabel-SaaS",
+    whitelabelHint:
+      "Schaltet den Whitelabel-Bereich frei: eigene Endkunden, Zuordnung von Sendungen und Verbrauchswerte über die API.",
+    whitelabelChanged: "Der Whitelabel-Status wurde geändert.",
     passwordReset: "Passwort-Reset auslösen",
     passwordResetSent: "Eine E-Mail zum Zurücksetzen wurde versendet.",
     deleteUser: "Konto löschen (DSGVO)",

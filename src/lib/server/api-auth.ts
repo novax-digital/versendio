@@ -54,6 +54,23 @@ export async function authenticateApiRequest(
   return { auth: { userId: row.user_id, keyId: row.id } };
 }
 
+/**
+ * Gate for whitelabel-only endpoints: the key owner's account must carry the
+ * admin-granted is_whitelabel flag. Returns a ready-to-send 403 otherwise.
+ */
+export async function requireWhitelabelApi(userId: string): Promise<ApiError | null> {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("profiles")
+    .select("is_whitelabel")
+    .eq("id", userId)
+    .maybeSingle();
+  if (!data?.is_whitelabel) {
+    return err(403, "forbidden", "Whitelabel ist für dieses Konto nicht freigeschaltet.");
+  }
+  return null;
+}
+
 export function apiError(error: ApiError): NextResponse {
   return NextResponse.json(error.body, { status: error.status });
 }

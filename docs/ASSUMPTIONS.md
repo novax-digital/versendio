@@ -108,3 +108,12 @@ Login/Registrierung zusätzlich per Google (Workspace) und Microsoft (Supabase-P
 - **Identity-Linking:** Supabase-Default — gleiche, vom Provider verifizierte E-Mail wird automatisch mit einem bestehenden Konto verknüpft.
 - **`company` bleibt bei SSO leer** — wird spätestens mit der Pflicht-Rechnungsadresse vor der ersten Aufladung erfasst.
 - ⚠️ **Operator-Schritte:** (1) Google Cloud Console: OAuth-Client (Web), Redirect `https://<project-ref>.supabase.co/auth/v1/callback` → Client-ID/Secret in Supabase → Auth → Providers → Google. (2) Azure-Portal: App-Registrierung (empfohlen multi-tenant „common"), gleiche Callback-URI → Supabase → Providers → Azure. (3) Redirect-URLs (`https://app.versendio.de/auth/callback`, localhost) prüfen. (4) Datenschutzerklärung um Google/Microsoft ergänzen. Der volle Roundtrip ist erst nach (1)/(2) testbar.
+
+## A-019 — Whitelabel-SaaS: Endkunden ohne Login, Job-Attribution, VK-only-Abrechnung (2026-07-21)
+Admin-vergebener `is_whitelabel`-Status (geschützte Profilspalte, in `protect_profile_columns` aufgenommen — Selbstvergabe unmöglich) schaltet Menüpunkt „Whitelabel", Endkunden-Verwaltung und erweiterte API frei. Nicht-offensichtliche Festlegungen:
+- **Endkunden (`wl_customers`) sind reine Datenobjekte** — kein Login, keine Auth-Identität; Guthaben/Debits laufen unverändert über das Konto des Whitelabel-Kunden.
+- **Attribution auf Job-Ebene** (`send_jobs.wl_customer_id`), geschrieben **nach** `confirm_send_job` per Post-RPC-Update (Flows-Präzedenz mit `send_job_id`) — die Geld-RPC bleibt unangetastet. Idempotente Replays schreiben denselben Wert erneut. Zuordnung nur per API (`customerId` bei `letters/send`); Assistent-Dropdown bewusst vertagt (IDEAS I-030).
+- **Abrechnungssemantik** (`wl_customer_usage`, eine Quelle für UI + API): nur Items mit Status `sent` zählen (nur das stellt DP in Rechnung, ADR-0007), Testversand ausgeschlossen, erstattete Fehlschläge separat ausgewiesen; Zeitraumfilter auf `submitted_at`; **VK-only** — EK bleibt Betriebsgeheimnis.
+- **Kundennummer (`external_ref`)** unique je Besitzer → idempotente API-Anlage (409 liefert den Bestand). **Löschen nur ohne Sendungen** (FK `restrict`, Abrechnungshistorie), sonst deaktivieren.
+- **GDPR:** Endkunden-Namen/-Mails sind Dritt-PII → `delete_user_wl_customers` (nullt Attribution, löscht Zeilen) im Lösch-Orchestrator (api_keys-Pattern).
+- Transaktional gegen die DB verifiziert: Anlage/Attribution/Usage (1 Brief = 115 Cent), Monats-/Zukunftsfilter, Unique-`external_ref`, FK-Restrict, GDPR-Helper.

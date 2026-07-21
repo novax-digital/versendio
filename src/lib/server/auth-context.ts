@@ -17,6 +17,7 @@ export type Profile = {
   plan_id: string | null;
   credit_balance_cents: number;
   cost_center: string;
+  is_whitelabel: boolean;
 };
 
 /** Current session user + profile, or null. RLS-scoped client. */
@@ -30,7 +31,7 @@ export async function getCurrentProfile(): Promise<Profile | null> {
   const { data: profile, error } = await supabase
     .from("profiles")
     .select(
-      "id, email, display_name, company, billing_street, billing_zip, billing_city, billing_country, role, status, plan_id, credit_balance_cents, cost_center",
+      "id, email, display_name, company, billing_street, billing_zip, billing_city, billing_country, role, status, plan_id, credit_balance_cents, cost_center, is_whitelabel",
     )
     .eq("id", user.id)
     .single();
