@@ -10,6 +10,7 @@ const tabs = [
   { href: "/admin/nutzer", label: de.admin.users, exact: false },
   { href: "/admin/sendungen", label: de.admin.jobMonitor, exact: false },
   { href: "/admin/aufladungen", label: de.credits.topupsTitle, exact: false },
+  { href: "/admin/gutscheine", label: de.admin.voucherTitle, exact: false },
   { href: "/admin/bewertungen", label: de.admin.reviewRewardsTitle, exact: false },
   { href: "/admin/preise", label: de.admin.pricingTitle, exact: false },
   { href: "/admin/einstellungen", label: de.admin.settingsTitle, exact: false },

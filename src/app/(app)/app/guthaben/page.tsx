@@ -21,6 +21,7 @@ import { de } from "@/lib/i18n/de";
 import { TopupSection } from "./topup-section";
 import { AutoTopupSection } from "./auto-topup-section";
 import { BillingAddressCard } from "./billing-address-card";
+import { RedeemVoucherCard } from "./redeem-voucher-card";
 import { StatusToast } from "./status-toast";
 
 export const metadata: Metadata = { title: de.credits.title };
@@ -110,6 +111,8 @@ export default async function CreditsPage({
           </CardContent>
         </Card>
       </div>
+
+      <RedeemVoucherCard />
 
       <BillingAddressCard
         defaults={{

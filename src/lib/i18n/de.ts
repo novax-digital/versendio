@@ -788,6 +788,19 @@ export const de = {
       "Die Online-Aufladung ist derzeit nicht verfügbar. Bitte kontaktieren Sie uns – wir buchen Ihr Guthaben manuell.",
     betaHint:
       "Beta-Betrieb: Guthaben wird derzeit manuell durch unser Team gebucht. Kontaktieren Sie uns für eine Aufladung.",
+    // Voucher redemption (customer)
+    voucherTitle: "Gutschein einlösen",
+    voucherSubtitle:
+      "Haben Sie einen Gutscheincode? Lösen Sie ihn ein – das Guthaben wird sofort gutgeschrieben.",
+    voucherPlaceholder: "Gutscheincode",
+    voucherRedeem: "Einlösen",
+    voucherRedeeming: "Wird eingelöst …",
+    voucherRedeemed: (amount: string) => `${amount} wurden Ihrem Guthaben gutgeschrieben.`,
+    voucherNotFound: "Dieser Gutscheincode ist ungültig.",
+    voucherInvalid: "Dieser Gutschein ist nicht mehr gültig.",
+    voucherExpired: "Dieser Gutschein ist abgelaufen.",
+    voucherExhausted: "Dieser Gutschein wurde bereits vollständig eingelöst.",
+    voucherAlreadyRedeemed: "Sie haben diesen Gutschein bereits eingelöst.",
     belowMinimum: (min: number) =>
       `Der Mindestbetrag für Aufladungen beträgt ${(min / 100).toFixed(2).replace(".", ",")} €.`,
     aboveMaximum: (max: number) =>
@@ -926,6 +939,40 @@ export const de = {
     retryInsufficientFunds: "Das Guthaben des Nutzers reicht für einen erneuten Versand nicht aus.",
     retryQueued: "Der Brief wurde erneut zum Versand eingeplant.",
     alreadyRetried: "Erneut versendet",
+    // Gutscheine (Admin)
+    voucherTitle: "Gutscheine",
+    voucherHint:
+      "Erstellen Sie Gutscheincodes, die Kunden im Guthaben-Bereich einlösen. Das Guthaben wird sofort gutgeschrieben (kein Kauf, keine USt.).",
+    voucherAdd: "Neuer Gutschein",
+    voucherCreate: "Gutschein erstellen",
+    voucherCreated: (code: string) => `Gutschein „${code}“ erstellt.`,
+    voucherCode: "Code",
+    voucherCodePlaceholder: "leer = automatisch generieren",
+    voucherCodeInvalid:
+      "Code darf nur Buchstaben, Ziffern und Bindestriche enthalten (4–40 Zeichen).",
+    voucherCodeTaken: "Dieser Code ist bereits vergeben.",
+    voucherAmount: "Betrag",
+    voucherAmountEuro: "Betrag (€)",
+    voucherAmountTooHigh: "Der Betrag ist zu hoch (max. 10.000 €).",
+    voucherMaxRedemptions: "Max. Einlösungen",
+    voucherUnlimited: "unbegrenzt",
+    voucherValidUntil: "Gültig bis",
+    voucherValidUntilHint: "Leer lassen für unbegrenzte Gültigkeit.",
+    voucherNoExpiry: "unbegrenzt",
+    voucherComment: "Notiz (intern, optional)",
+    voucherRedeemed: "Eingelöst",
+    voucherActive: "Aktiv",
+    voucherActivate: "Aktivieren",
+    voucherDeactivate: "Deaktivieren",
+    voucherExpired: "abgelaufen",
+    voucherExhausted: "aufgebraucht",
+    voucherEmpty: "Noch keine Gutscheine erstellt.",
+    voucherDeleteTitle: "Gutschein löschen",
+    voucherDeleteConfirm:
+      "Diesen Gutschein wirklich löschen? Es können nur noch nicht eingelöste Gutscheine gelöscht werden.",
+    voucherDeleteRedeemed:
+      "Bereits eingelöste Gutscheine können nicht gelöscht werden – deaktivieren Sie sie stattdessen.",
+    voucherDeleted: "Gutschein gelöscht.",
     // Bewertungsanfragen (Guthaben verdienen)
     reviewRewardsTitle: "Bewertungsanfragen",
     reviewRewardsSubtitle:

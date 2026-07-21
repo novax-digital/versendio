@@ -363,3 +363,14 @@ Abschlussbericht abarbeiten.
   - ⚠️ **Operator-Schritt:** Migration auf der DB anwenden (`npx supabase db push` oder SQL-Editor)
 - [x] Details & Kanten → `docs/ASSUMPTIONS.md` A-016; neue Ideen I-025–I-029
 - [x] DoD: Build ✅ Lint ✅ Typecheck ✅ **172 Unit-Tests** ✅
+
+## Nach Übergabe — Gutscheincodes (2026-07-21)
+- [x] **Admin → Gutscheine**: Codes anlegen (fester Betrag, max. Einlösungen/unbegrenzt, gültig bis/unbegrenzt,
+  Code manuell oder auto-generiert, interne Notiz), Aktiv-Schalter, Löschen (nur ungenutzte), Anzeige
+  „eingelöst X / Y"
+- [x] **Kunde → Guthaben**: „Gutschein einlösen"-Karte; Betrag wird sofort gutgeschrieben
+- [x] **Geld-Sicherheit**: Buchung über `book_credit` (type topup, ref 'voucher'); atomare RPC `redeem_voucher`
+  (FOR UPDATE, kein Oversell), einmal pro Nutzer über Ledger-Unique + `voucher_redemptions`; rate-limitet;
+  RPC transaktional gegen die DB verifiziert (Happy Path + alle Fehlerpfade), Migration angewendet
+- [x] Details → `docs/ASSUMPTIONS.md` A-017
+- [x] DoD: Build ✅ Lint ✅ Typecheck ✅ **172 Unit-Tests** ✅

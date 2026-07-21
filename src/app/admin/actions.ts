@@ -1,11 +1,12 @@
 "use server";
 
-import { randomUUID } from "node:crypto";
+import { randomInt, randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/server/auth-context";
 import { bonusTiersSchema } from "@/lib/shared/topup-bonus";
+import { createVoucherSchema, VOUCHER_CODE_RE } from "@/lib/shared/schemas/voucher";
 import { writeAuditLog } from "@/lib/server/audit";
 import { enqueueJob } from "@/lib/server/queue/enqueue";
 import { serverEnv } from "@/lib/server/env";
@@ -449,5 +450,148 @@ export async function retryItemAction(_prev: unknown, formData: FormData): Promi
     details: { clone_id: cloneId },
   });
   revalidatePath("/admin/sendungen");
+  return { ok: true };
+}
+
+// --- Gutscheine (vouchers) ---------------------------------------------------
+
+// Non-ambiguous alphabet (no O/0/I/1/L) for auto-generated codes.
+const VOUCHER_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+/** Cryptographically random, unbiased voucher code. */
+function generateVoucherCode(length = 12): string {
+  let out = "";
+  for (let i = 0; i < length; i += 1) out += VOUCHER_ALPHABET[randomInt(VOUCHER_ALPHABET.length)];
+  return out;
+}
+
+/**
+ * Creates a gift-credit voucher. Code is admin-chosen or auto-generated; on a
+ * collision an auto-generated code retries with a fresh value. Returns the final
+ * code so the admin can copy it (an auto code is only shown here).
+ */
+export async function createVoucherAction(
+  _prev: unknown,
+  formData: FormData,
+): Promise<ActionResult<{ code: string }>> {
+  const actor = await requireAdmin();
+  const parsed = createVoucherSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? de.common.genericError };
+  }
+  const d = parsed.data;
+  if (d.code && !VOUCHER_CODE_RE.test(d.code)) {
+    return { ok: false, error: de.admin.voucherCodeInvalid };
+  }
+  // Inclusive end of the chosen day (UTC) so "gültig bis 31.12." covers it.
+  const validUntil = d.validUntil ? `${d.validUntil}T23:59:59.999Z` : null;
+
+  const admin = createAdminClient();
+  const autoCode = !d.code;
+  let lastError: string | null = null;
+  for (let attempt = 0; attempt < (autoCode ? 5 : 1); attempt += 1) {
+    const code = d.code || generateVoucherCode();
+    const { data, error } = await admin
+      .from("vouchers")
+      .insert({
+        code,
+        amount_cents: d.amountCents,
+        max_redemptions: d.maxRedemptions,
+        valid_until: validUntil,
+        comment: d.comment || null,
+        created_by: `admin:${actor.id}`,
+      })
+      .select("id, code")
+      .single();
+
+    if (!error && data) {
+      await writeAuditLog({
+        actorUserId: actor.id,
+        action: "voucher_create",
+        targetType: "voucher",
+        targetId: data.id,
+        details: {
+          code: data.code,
+          amount_cents: d.amountCents,
+          max_redemptions: d.maxRedemptions,
+          valid_until: validUntil,
+        },
+      });
+      revalidatePath("/admin/gutscheine");
+      return { ok: true, data: { code: data.code } };
+    }
+    if (error?.code === "23505" || error?.message.includes("duplicate key")) {
+      lastError = de.admin.voucherCodeTaken;
+      continue; // auto code collided — try another
+    }
+    console.error("voucher_create_failed", { error: error?.message });
+    return { ok: false, error: de.common.genericError };
+  }
+  return { ok: false, error: lastError ?? de.common.genericError };
+}
+
+/** Activates / deactivates a voucher (deactivated codes can't be redeemed). */
+export async function toggleVoucherAction(
+  _prev: unknown,
+  formData: FormData,
+): Promise<ActionResult> {
+  const actor = await requireAdmin();
+  const parsed = z
+    .object({ id: z.string().uuid(), active: z.enum(["true", "false"]) })
+    .safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { ok: false, error: de.common.genericError };
+
+  const admin = createAdminClient();
+  const active = parsed.data.active === "true";
+  const { error } = await admin
+    .from("vouchers")
+    .update({ is_active: active })
+    .eq("id", parsed.data.id);
+  if (error) {
+    console.error("voucher_toggle_failed", { error: error.message });
+    return { ok: false, error: de.common.genericError };
+  }
+  await writeAuditLog({
+    actorUserId: actor.id,
+    action: "voucher_toggle",
+    targetType: "voucher",
+    targetId: parsed.data.id,
+    details: { active },
+  });
+  revalidatePath("/admin/gutscheine");
+  return { ok: true };
+}
+
+/** Deletes an unredeemed voucher. Redeemed ones must be deactivated instead. */
+export async function deleteVoucherAction(
+  _prev: unknown,
+  formData: FormData,
+): Promise<ActionResult> {
+  const actor = await requireAdmin();
+  const parsed = z.object({ id: z.string().uuid() }).safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { ok: false, error: de.common.genericError };
+
+  const admin = createAdminClient();
+  const { data: voucher } = await admin
+    .from("vouchers")
+    .select("redemption_count")
+    .eq("id", parsed.data.id)
+    .maybeSingle();
+  if ((voucher?.redemption_count ?? 0) > 0) {
+    return { ok: false, error: de.admin.voucherDeleteRedeemed };
+  }
+
+  const { error } = await admin.from("vouchers").delete().eq("id", parsed.data.id);
+  if (error) {
+    console.error("voucher_delete_failed", { error: error.message });
+    return { ok: false, error: de.common.genericError };
+  }
+  await writeAuditLog({
+    actorUserId: actor.id,
+    action: "voucher_delete",
+    targetType: "voucher",
+    targetId: parsed.data.id,
+  });
+  revalidatePath("/admin/gutscheine");
   return { ok: true };
 }

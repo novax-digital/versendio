@@ -9,7 +9,8 @@ export type RateLimitScope =
   | "upload"
   | "send"
   | "ai"
-  | "api";
+  | "api"
+  | "voucher";
 
 const LIMITS: Record<RateLimitScope, { limit: number; windowSeconds: number }> = {
   login: { limit: 10, windowSeconds: 300 },
@@ -19,6 +20,8 @@ const LIMITS: Record<RateLimitScope, { limit: number; windowSeconds: number }> =
   send: { limit: 20, windowSeconds: 3600 },
   ai: { limit: 5, windowSeconds: 60 },
   api: { limit: 120, windowSeconds: 60 },
+  // Codes are the security boundary — throttle guessing hard.
+  voucher: { limit: 10, windowSeconds: 3600 },
 };
 
 /**

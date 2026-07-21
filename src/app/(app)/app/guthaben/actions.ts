@@ -8,6 +8,9 @@ import { blockedActionError, requireProfile } from "@/lib/server/auth-context";
 import { getOrCreateCustomer, getStripe, getVatTaxRateId, stripeEnabled } from "@/lib/server/stripe";
 import { getJsonSetting, getNumberSetting } from "@/lib/server/settings";
 import { serverEnv } from "@/lib/server/env";
+import { checkRateLimit, clientIp } from "@/lib/server/rate-limit";
+import { normalizeVoucherCode } from "@/lib/shared/schemas/voucher";
+import { enqueueJob } from "@/lib/server/queue/enqueue";
 import type { ActionResult } from "@/lib/server/action-result";
 import { de } from "@/lib/i18n/de";
 
@@ -273,4 +276,70 @@ export async function removePaymentMethodAction(): Promise<ActionResult> {
   }
   revalidatePath("/app/guthaben");
   return { ok: true };
+}
+
+// --- voucher redemption ------------------------------------------------------
+
+const VOUCHER_ERRORS: Record<string, string> = {
+  voucher_not_found: de.credits.voucherNotFound,
+  voucher_inactive: de.credits.voucherInvalid,
+  voucher_expired: de.credits.voucherExpired,
+  voucher_exhausted: de.credits.voucherExhausted,
+  voucher_already_redeemed: de.credits.voucherAlreadyRedeemed,
+};
+
+/**
+ * Redeems a gift-credit voucher for the signed-in user. All validation, the
+ * credit booking and the counter live in the redeem_voucher RPC (atomic,
+ * serialized on the voucher row). Rate-limited because the code is the only
+ * secret guarding the credit.
+ */
+export async function redeemVoucherAction(
+  _prev: unknown,
+  formData: FormData,
+): Promise<ActionResult<{ amountCents: number; balanceCents: number }>> {
+  const profile = await requireProfile();
+  const blocked = blockedActionError(profile);
+  if (blocked) return { ok: false, error: blocked };
+
+  const ip = await clientIp();
+  if (!(await checkRateLimit("voucher", `${profile.id}:${ip}`))) {
+    return { ok: false, error: de.common.rateLimited };
+  }
+
+  const parsed = z
+    .object({ code: z.string().trim().min(1).max(40) })
+    .safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { ok: false, error: de.credits.voucherNotFound };
+  const code = normalizeVoucherCode(parsed.data.code);
+
+  const admin = createAdminClient();
+  const { data, error } = await admin.rpc("redeem_voucher", {
+    p_user_id: profile.id,
+    p_code: code,
+  });
+  if (error) {
+    const known = Object.keys(VOUCHER_ERRORS).find((k) => error.message.includes(k));
+    if (known) return { ok: false, error: VOUCHER_ERRORS[known] };
+    console.error("voucher_redeem_failed", { error: error.message });
+    return { ok: false, error: de.common.genericError };
+  }
+
+  const result = data as { amount_cents: number; balance_cents: number };
+
+  // Fresh funds may release letters parked on insufficient balance.
+  const { data: held } = await admin
+    .from("send_job_items")
+    .select("id")
+    .eq("user_id", profile.id)
+    .eq("status", "on_hold_funds")
+    .limit(200);
+  for (const item of held ?? []) await enqueueJob("submit_item", { itemId: item.id });
+
+  revalidatePath("/app/guthaben");
+  revalidatePath("/app", "layout"); // header balance
+  return {
+    ok: true,
+    data: { amountCents: result.amount_cents, balanceCents: result.balance_cents },
+  };
 }
