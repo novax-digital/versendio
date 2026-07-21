@@ -18,6 +18,7 @@ export type AdminDashboardKpis = {
   grossProfitMonthCents: number;
   errorRate30d: number;
   queuePending: number;
+  jobsActive: number;
   ledgerMismatches: number;
 };
 
@@ -96,6 +97,7 @@ export async function loadDashboardKpis(): Promise<AdminDashboardKpis> {
     grossProfitMonthCents: Number(row?.gross_profit_month_cents ?? 0),
     errorRate30d: finalItems > 0 ? failedItems / finalItems : 0,
     queuePending: queuePending ?? 0,
+    jobsActive: Number(row?.jobs_active ?? 0),
     ledgerMismatches: Array.isArray(mismatches) ? mismatches.length : 0,
   };
 }

@@ -44,7 +44,8 @@ export default async function AdminDashboardPage() {
       label: de.admin.errorRate,
       value: `${(kpis.errorRate30d * 100).toFixed(1).replace(".", ",")} %`,
     },
-    { label: de.admin.queueJobs, value: String(kpis.queuePending) },
+    { label: de.admin.activeJobs, value: String(kpis.jobsActive) },
+    { label: de.admin.queueJobs, value: String(kpis.queuePending), hint: de.admin.queueJobsHint },
   ];
 
   return (
