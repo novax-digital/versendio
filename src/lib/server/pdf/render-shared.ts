@@ -39,6 +39,34 @@ export function drawRecipientBlock(page: PDFPage, font: PDFFont, lines: string[]
   });
 }
 
+/**
+ * Subtle centered label on the generated address cover page so both the
+ * customer (preview) and the recipient (printed sheet) can tell what this
+ * extra sheet is. Sits mid-page — well below the recipient zone (ends 90 mm),
+ * clear of the DVF strip and all print-free margins.
+ */
+export function drawCoverLabel(page: PDFPage, font: PDFFont) {
+  const gray = rgb(0.55, 0.55, 0.55);
+  const lines: { text: string; size: number; yMm: number }[] = [
+    { text: "Adressdeckblatt", size: 9, yMm: 148 },
+    {
+      text: "Dieses Blatt wurde automatisch erstellt. Ihr Dokument beginnt auf der nächsten Seite.",
+      size: 8,
+      yMm: 154,
+    },
+  ];
+  for (const { text, size, yMm } of lines) {
+    const width = font.widthOfTextAtSize(text, size);
+    page.drawText(text, {
+      x: (A4.widthPt - width) / 2,
+      y: topMmToBaselinePt(yMm, size),
+      size,
+      font,
+      color: gray,
+    });
+  }
+}
+
 /** Truncates text with an ellipsis so it never exceeds maxWidth. */
 export function clampToWidth(text: string, font: PDFFont, size: number, maxWidth: number): string {
   const sanitized = sanitizeText(text);

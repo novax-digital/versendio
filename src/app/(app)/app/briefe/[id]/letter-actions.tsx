@@ -51,6 +51,9 @@ export function LetterActions({ letterId }: { letterId: string }) {
           <AlertDialogCancel>{de.common.cancel}</AlertDialogCancel>
           <form action={formAction}>
             <input type="hidden" name="id" value={letterId} />
+            {/* Server-side redirect after delete: the detail route of the
+                deleted letter would otherwise re-render into a 404. */}
+            <input type="hidden" name="redirectTo" value="/app/briefe" />
             <AlertDialogAction type="submit" disabled={pending}>
               {de.common.delete}
             </AlertDialogAction>

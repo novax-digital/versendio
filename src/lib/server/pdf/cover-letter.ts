@@ -1,7 +1,7 @@
 import "server-only";
 import { PDFDocument, StandardFonts } from "pdf-lib";
 import { A4 } from "@/lib/shared/schablone";
-import { drawRecipientBlock, drawSenderLine } from "./render-shared";
+import { drawCoverLabel, drawRecipientBlock, drawSenderLine } from "./render-shared";
 
 /**
  * Builds a single A4 cover page carrying only the sender line and recipient
@@ -20,6 +20,7 @@ export async function prependCoverLetter(
   const cover = out.addPage([A4.widthPt, A4.heightPt]);
   drawSenderLine(cover, font, senderLine);
   drawRecipientBlock(cover, font, addressLines);
+  drawCoverLabel(cover, font);
 
   const copied = await out.copyPages(original, original.getPageIndices());
   for (const page of copied) out.addPage(page);
@@ -37,5 +38,6 @@ export async function buildCoverPage(
   const page = out.addPage([A4.widthPt, A4.heightPt]);
   drawSenderLine(page, font, senderLine);
   drawRecipientBlock(page, font, addressLines);
+  drawCoverLabel(page, font);
   return out.save();
 }

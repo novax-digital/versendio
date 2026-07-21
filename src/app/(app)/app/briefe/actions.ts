@@ -2,6 +2,7 @@
 
 import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { blockedActionError, requireProfile } from "@/lib/server/auth-context";
@@ -445,6 +446,14 @@ export async function deleteLetterAction(_prev: unknown, formData: FormData): Pr
     await removeObject(BUCKETS.letters, letter.storage_path);
   }
   revalidatePath("/app/briefe");
+
+  // Called from the letter DETAIL page: the action response re-renders the
+  // current route, which is the just-deleted letter → notFound() → 404 before
+  // the client can navigate. A server-side redirect wins that race. The list
+  // page omits the field and keeps its ok-result (toast, row disappears).
+  if (formData.get("redirectTo") === "/app/briefe") {
+    redirect("/app/briefe");
+  }
   return { ok: true };
 }
 

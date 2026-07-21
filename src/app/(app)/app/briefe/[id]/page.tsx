@@ -21,7 +21,7 @@ export default async function LetterDetailPage({ params }: { params: Promise<{ i
   const { data: letter, error } = await supabase
     .from("letters")
     .select(
-      "id, title, source, page_count, sheet_count, status, validation, needs_cover_letter, use_cover_letter",
+      "id, title, source, page_count, sheet_count, status, validation, needs_cover_letter, use_cover_letter, updated_at",
     )
     .eq("id", id)
     .single();
@@ -51,7 +51,9 @@ export default async function LetterDetailPage({ params }: { params: Promise<{ i
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
-        <LetterPreview letterId={letter.id} />
+        {/* updated_at as cache-buster: toggling the cover page touches the row,
+            so the iframe reloads and the preview reflects the choice live. */}
+        <LetterPreview letterId={letter.id} version={Date.parse(letter.updated_at)} />
         <div className="space-y-4">
           {validation ? (
             <Card>

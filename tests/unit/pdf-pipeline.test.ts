@@ -145,4 +145,23 @@ describe("cover letter", () => {
     const reloaded = await PDFDocument.load(withCover);
     expect(reloaded.getPageCount()).toBe(3);
   });
+
+  it("cover page (incl. Adressdeckblatt label) passes zone validation", async () => {
+    const original = await PDFDocument.create();
+    original.addPage([A4.widthPt, A4.heightPt]);
+    const originalBytes = await original.save();
+
+    const withCover = await prependCoverLetter(originalBytes, "Absender GmbH · Weg 1 · Berlin", [
+      "Muster GmbH",
+      "Musterstraße 12",
+      "10115 Berlin",
+    ]);
+    const validation = await validateLetterPdf(withCover);
+    // The centered mid-page label must never trip the DVF/margin checks, and
+    // the recipient block on the cover must satisfy the address zone.
+    expect(validation.rules.some((r) => r.id === "dvf_zone")).toBe(false);
+    expect(validation.rules.some((r) => r.id === "margin_zone")).toBe(false);
+    expect(validation.rules.some((r) => r.id === "recipient_zone_empty")).toBe(false);
+    expect(validation.addressZoneResult).toBe("ok");
+  });
 });
