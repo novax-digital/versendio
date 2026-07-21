@@ -107,6 +107,16 @@ export async function processSubmitItem(itemId: string): Promise<ProcessResult> 
     return { outcome: "skipped", reason: "claim_lost" };
   }
 
+  // First item entering submission flips the job queued → processing so the UI
+  // stops claiming "In Warteschlange" while letters already move through the
+  // provider. Guarded on `queued`: a no-op for every later item and never
+  // resurrects a canceled/completed job. (Completion is maybeCompleteJob's.)
+  await admin
+    .from("send_jobs")
+    .update({ status: "processing" })
+    .eq("id", item.job_id)
+    .eq("status", "queued");
+
   const recipient = item.recipient_snapshot as unknown as RecipientAddress;
   const addressLines = buildRecipientAddressLines(recipient);
   const senderSnapshot = job.sender_snapshot as { sender_line?: string; city?: string } | null;
