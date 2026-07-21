@@ -100,3 +100,11 @@ Admin erstellt Gutscheincodes (fester Betrag), die Kunden im Guthaben-Bereich ei
 - **Löschschutz:** eingelöste Gutscheine sind FK-geschützt (`on delete restrict`) → nur deaktivierbar, nicht löschbar; ungenutzte löschbar.
 - **RLS:** `vouchers` nur für Admins lesbar (Codes sind Geheimnisse), alle Schreibzugriffe über Service-Role/RPC; `voucher_redemptions` eigene Zeilen lesbar.
 - ⚠️ **Operator-Schritt:** Migration `20260721110000_vouchers.sql` wurde bereits angewendet (RPC transaktional gegen Prod verifiziert, ohne echte Buchung).
+
+## A-018 — SSO-Login: Google + Microsoft über Supabase OAuth (2026-07-21)
+Login/Registrierung zusätzlich per Google (Workspace) und Microsoft (Supabase-Provider-Key `azure` — M365/Azure AD), passend zum B2B-Zielmarkt. Nicht-offensichtliche Festlegungen:
+- **Bestehende Pfade tragen alles:** Der PKCE-Callback (`/auth/callback`) tauscht auch OAuth-Codes (inkl. Welcome-Mail-One-Shot über `welcome_sent_at` — feuert beim ersten SSO-Login genau einmal); der `handle_new_user`-Trigger legt das Profil an. Migration `20260721130000` coalesced dafür den Anzeigenamen `display_name → full_name → name` (OAuth liefert `full_name`/`name`). MFA-Step-up (`enforceMfaStepUp`) greift session-basiert unverändert.
+- **Start-Action** `signInWithProviderAction`: Zod-Enum `google|azure`, per-IP-Rate-Limit (Login-Scope), `skipBrowserRedirect` + `redirect(data.url)`; Azure mit explizitem `email`-Scope (sonst fehlt der E-Mail-Claim). SSO-Signup = SSO-Login (ein Flow).
+- **Identity-Linking:** Supabase-Default — gleiche, vom Provider verifizierte E-Mail wird automatisch mit einem bestehenden Konto verknüpft.
+- **`company` bleibt bei SSO leer** — wird spätestens mit der Pflicht-Rechnungsadresse vor der ersten Aufladung erfasst.
+- ⚠️ **Operator-Schritte:** (1) Google Cloud Console: OAuth-Client (Web), Redirect `https://<project-ref>.supabase.co/auth/v1/callback` → Client-ID/Secret in Supabase → Auth → Providers → Google. (2) Azure-Portal: App-Registrierung (empfohlen multi-tenant „common"), gleiche Callback-URI → Supabase → Providers → Azure. (3) Redirect-URLs (`https://app.versendio.de/auth/callback`, localhost) prüfen. (4) Datenschutzerklärung um Google/Microsoft ergänzen. Der volle Roundtrip ist erst nach (1)/(2) testbar.

@@ -374,3 +374,12 @@ Abschlussbericht abarbeiten.
   RPC transaktional gegen die DB verifiziert (Happy Path + alle Fehlerpfade), Migration angewendet
 - [x] Details → `docs/ASSUMPTIONS.md` A-017
 - [x] DoD: Build ✅ Lint ✅ Typecheck ✅ **172 Unit-Tests** ✅
+
+## Nach Übergabe — SSO-Login Google + Microsoft (2026-07-21)
+- [x] „Weiter mit Google" / „Weiter mit Microsoft" auf Login + Registrierung (ein OAuth-Flow für beides);
+  Start-Action mit Rate-Limit; Azure mit email-Scope; Trigger coalesced full_name/name (Migration
+  20260721130000, angewendet); Welcome-Mail/MFA/Profil-Bootstrap laufen über bestehende Pfade
+- [x] Consent-Links im Registrieren-Formular → versendio.de/agb + /datenschutz (neuer Tab)
+- [x] Smoke: /login rendert beide Buttons + Trenner; DoD: Build ✅ Lint ✅ Typecheck ✅ 173 Tests ✅
+  - ⚠️ **Operator:** Provider-Credentials im Supabase-Dashboard hinterlegen (Details → A-018);
+    voller Roundtrip erst danach testbar

@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
+import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { serverEnv } from "@/lib/server/env";
 import { checkRateLimit, clientIp } from "@/lib/server/rate-limit";
@@ -69,6 +70,49 @@ export async function loginAction(_prev: unknown, formData: FormData): Promise<A
   }
 
   redirect("/app");
+}
+
+// Supabase provider keys: Microsoft is "azure". Adding a provider here also
+// requires enabling it (client id/secret) in the Supabase dashboard.
+const ssoProviderSchema = z.object({ provider: z.enum(["google", "azure"]) });
+
+/**
+ * Starts an OAuth (SSO) sign-in. The @supabase/ssr server client stores the
+ * PKCE code verifier in a cookie here; the provider redirects back to
+ * /auth/callback, which exchanges the code for a session (same handler as
+ * e-mail confirmation links). MFA step-up and profile bootstrap apply
+ * unchanged. Signup and login are the same flow for OAuth.
+ */
+export async function signInWithProviderAction(
+  _prev: unknown,
+  formData: FormData,
+): Promise<ActionResult> {
+  const parsed = ssoProviderSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { ok: false, error: de.common.genericError };
+
+  // Per-IP only — no account is known before the provider round-trip.
+  const ip = await clientIp();
+  if (!(await checkRateLimit("login", `ip:${ip}`))) {
+    return { ok: false, error: de.common.rateLimited };
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: parsed.data.provider,
+    options: {
+      redirectTo: `${await baseUrl()}/auth/callback?next=/app`,
+      // Azure needs the email scope explicitly for a usable e-mail claim.
+      scopes: parsed.data.provider === "azure" ? "email" : undefined,
+      skipBrowserRedirect: true,
+    },
+  });
+
+  if (error || !data?.url) {
+    console.error("sso_start_failed", { provider: parsed.data.provider, code: error?.code });
+    return { ok: false, error: de.auth.ssoStartFailed };
+  }
+
+  redirect(data.url);
 }
 
 export async function registerAction(_prev: unknown, formData: FormData): Promise<ActionResult> {

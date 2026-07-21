@@ -64,6 +64,11 @@ export const de = {
     company: "Firma",
     loginButton: "Anmelden",
     registerButton: "Konto erstellen",
+    continueWithGoogle: "Weiter mit Google",
+    continueWithMicrosoft: "Weiter mit Microsoft",
+    ssoDivider: "oder mit E-Mail",
+    ssoStartFailed:
+      "Die Anmeldung über den Anbieter konnte nicht gestartet werden. Bitte versuchen Sie es erneut.",
     forgotPassword: "Passwort vergessen?",
     noAccount: "Noch kein Konto?",
     hasAccount: "Bereits registriert?",
