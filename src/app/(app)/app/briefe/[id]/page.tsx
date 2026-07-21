@@ -8,7 +8,7 @@ import { LetterPreview } from "@/components/letters/letter-preview";
 import { ValidationReport } from "@/components/letters/validation-report";
 import type { PdfValidation } from "@/lib/shared/validation-result";
 import { de } from "@/lib/i18n/de";
-import { LetterActions } from "./letter-actions";
+import { LetterActions, CoverToggle } from "./letter-actions";
 import { ButtonLink } from "@/components/ui-ext/button-link";
 
 export const metadata: Metadata = { title: de.letters.title };
@@ -65,7 +65,7 @@ export default async function LetterDetailPage({ params }: { params: Promise<{ i
           ) : null}
 
           {letter.source === "upload" ? (
-            <LetterActions.CoverToggle
+            <CoverToggle
               letterId={letter.id}
               useCover={letter.use_cover_letter}
               recommended={letter.needs_cover_letter}

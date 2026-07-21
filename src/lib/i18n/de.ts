@@ -270,7 +270,11 @@ export const de = {
     showZones: "Adresszonen einblenden",
     coverLetter: "Deckblatt voranstellen",
     coverLetterHint:
-      "Stellt ein Deckblatt mit der Empfängeranschrift voran. Empfohlen, wenn Ihr PDF keine sichtbare Adresse im Anschriftenfeld enthält.",
+      "Stellt ein Deckblatt mit der Empfängeranschrift voran – Ihr PDF muss die Adresszonen dann nicht selbst einhalten. Empfohlen, wenn Ihr PDF keine sichtbare Adresse im Anschriftenfeld enthält.",
+    coverDisableTitle: "Deckblatt wirklich deaktivieren?",
+    coverDisableWarning:
+      "Ohne Deckblatt muss Ihr PDF der Deutsche-Post-Schablone exakt entsprechen: Empfängeradresse im Anschriftenfeld auf Seite 1, Frankier-Sperrbereich vollständig frei, druckfreie Ränder (12 mm links, 2 mm umlaufend). Die automatische Prüfung konnte das für dieses PDF nicht bestätigen – der Versand kann von der Deutschen Post abgelehnt werden.",
+    coverDisableConfirm: "Ohne Deckblatt fortfahren",
     editorTitle: "Brief-Editor",
     editorSubtitle: "Erstellen Sie Ihren Brief. Platzhalter wie {{vorname}} werden beim Versand je Empfänger ersetzt.",
     addBlock: "Baustein hinzufügen",

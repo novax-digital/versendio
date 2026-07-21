@@ -61,7 +61,13 @@ export function LetterActions({ letterId }: { letterId: string }) {
   );
 }
 
-function CoverToggle({
+/**
+ * Cover-page toggle. NOTE: exported directly — static properties on a client
+ * component (the old `LetterActions.CoverToggle = …`) are lost on the client
+ * reference proxy when imported from a Server Component, rendering `undefined`
+ * and crashing the page.
+ */
+export function CoverToggle({
   letterId,
   useCover,
   recommended,
@@ -72,9 +78,10 @@ function CoverToggle({
 }) {
   const router = useRouter();
   const [checked, setChecked] = useState(useCover);
+  const [confirmOff, setConfirmOff] = useState(false);
   const [pending, startTransition] = useTransition();
 
-  const onToggle = (value: boolean) => {
+  const apply = (value: boolean) => {
     setChecked(value);
     const fd = new FormData();
     fd.set("id", letterId);
@@ -89,6 +96,16 @@ function CoverToggle({
         setChecked(!value);
       }
     });
+  };
+
+  const onToggle = (value: boolean) => {
+    // Turning the cover OFF while it is recommended means the PDF itself must
+    // carry the Schablone layout — make that an explicit, confirmed decision.
+    if (!value && recommended) {
+      setConfirmOff(true);
+      return;
+    }
+    apply(value);
   };
 
   return (
@@ -108,8 +125,26 @@ function CoverToggle({
           </Label>
         </div>
       </CardContent>
+
+      <AlertDialog open={confirmOff} onOpenChange={setConfirmOff}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{de.letters.coverDisableTitle}</AlertDialogTitle>
+            <AlertDialogDescription>{de.letters.coverDisableWarning}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{de.common.cancel}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setConfirmOff(false);
+                apply(false);
+              }}
+            >
+              {de.letters.coverDisableConfirm}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }
-
-LetterActions.CoverToggle = CoverToggle;

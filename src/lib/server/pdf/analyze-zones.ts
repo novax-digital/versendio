@@ -37,8 +37,16 @@ export async function analyzeAddressZones(bytes: Uint8Array): Promise<ZoneAnalys
   };
 
   try {
-    // Legacy build runs in Node without a worker/canvas.
+    // Legacy build runs in Node without a worker/canvas. The worker MODULE must
+    // still be imported statically: pdf.js's "fake worker" otherwise tries a
+    // dynamic import of pdf.worker.mjs, which bundlers (Turbopack/webpack)
+    // cannot resolve at runtime — the import below registers
+    // globalThis.pdfjsWorker, which the fake-worker setup picks up first.
+    // Without it EVERY analysis failed and uploads fell back to "zone unknown".
     const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+    // @ts-expect-error -- no type declarations for the worker entry; imported
+    // solely for its globalThis.pdfjsWorker side effect.
+    await import("pdfjs-dist/legacy/build/pdf.worker.mjs");
     const loadingTask = pdfjs.getDocument({
       // Copy: pdf.js takes ownership of `data` and detaches its buffer. Passing
       // the caller's array directly would leave validateLetterPdf's input empty
