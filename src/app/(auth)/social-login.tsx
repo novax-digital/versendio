@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { de } from "@/lib/i18n/de";
 
 /**
- * SSO buttons (Google / Microsoft) shared by the login and register forms —
+ * SSO buttons (Google / Facebook) shared by the login and register forms —
  * OAuth makes no distinction between the two. One form, two submit buttons:
  * the clicked button's name/value carries the provider to the action, which
  * redirects to the provider's consent screen.
@@ -31,13 +31,13 @@ export function SocialLogin() {
         <Button
           type="submit"
           name="provider"
-          value="azure"
+          value="facebook"
           variant="outline"
           className="w-full"
           disabled={pending}
         >
-          <MicrosoftIcon />
-          {de.auth.continueWithMicrosoft}
+          <FacebookIcon />
+          {de.auth.continueWithFacebook}
         </Button>
         {state && !state.ok && state.error ? (
           <p role="alert" className="text-destructive text-sm">
@@ -79,14 +79,14 @@ function GoogleIcon() {
   );
 }
 
-/** Microsoft four-square mark. */
-function MicrosoftIcon() {
+/** Facebook "f" mark (official brand blue). */
+function FacebookIcon() {
   return (
     <svg className="size-4" viewBox="0 0 24 24" aria-hidden>
-      <path fill="#F25022" d="M1 1h10.5v10.5H1z" />
-      <path fill="#7FBA00" d="M12.5 1H23v10.5H12.5z" />
-      <path fill="#00A4EF" d="M1 12.5h10.5V23H1z" />
-      <path fill="#FFB900" d="M12.5 12.5H23V23H12.5z" />
+      <path
+        fill="#1877F2"
+        d="M24 12.07C24 5.4 18.63 0 12 0S0 5.4 0 12.07c0 6.02 4.39 11.01 10.13 11.93v-8.44H7.08v-3.49h3.05V9.41c0-3.02 1.79-4.69 4.53-4.69 1.31 0 2.68.24 2.68.24v2.97h-1.51c-1.49 0-1.96.93-1.96 1.89v2.25h3.33l-.53 3.49h-2.8v8.44C19.61 23.08 24 18.09 24 12.07Z"
+      />
     </svg>
   );
 }

@@ -72,9 +72,9 @@ export async function loginAction(_prev: unknown, formData: FormData): Promise<A
   redirect("/app");
 }
 
-// Supabase provider keys: Microsoft is "azure". Adding a provider here also
-// requires enabling it (client id/secret) in the Supabase dashboard.
-const ssoProviderSchema = z.object({ provider: z.enum(["google", "azure"]) });
+// Supabase provider keys. Adding a provider here also requires enabling it
+// (client id/secret) in the Supabase dashboard.
+const ssoProviderSchema = z.object({ provider: z.enum(["google", "facebook"]) });
 
 /**
  * Starts an OAuth (SSO) sign-in. The @supabase/ssr server client stores the
@@ -101,8 +101,8 @@ export async function signInWithProviderAction(
     provider: parsed.data.provider,
     options: {
       redirectTo: `${await baseUrl()}/auth/callback?next=/app`,
-      // Azure needs the email scope explicitly for a usable e-mail claim.
-      scopes: parsed.data.provider === "azure" ? "email" : undefined,
+      // Facebook needs the email scope explicitly for a usable e-mail claim.
+      scopes: parsed.data.provider === "facebook" ? "email" : undefined,
       skipBrowserRedirect: true,
     },
   });

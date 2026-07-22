@@ -66,7 +66,7 @@ export const de = {
     loginButton: "Anmelden",
     registerButton: "Konto erstellen",
     continueWithGoogle: "Weiter mit Google",
-    continueWithMicrosoft: "Weiter mit Microsoft",
+    continueWithFacebook: "Weiter mit Facebook",
     ssoDivider: "oder mit E-Mail",
     ssoStartFailed:
       "Die Anmeldung über den Anbieter konnte nicht gestartet werden. Bitte versuchen Sie es erneut.",
@@ -202,6 +202,11 @@ export const de = {
     setupSenderAddress: "Absenderadresse anlegen",
     setupCredit: "Guthaben aufladen",
     setupLetter: "Ersten Brief erstellen und versenden",
+    freeCreditBannerTitle: "Sichern Sie sich kostenloses Guthaben",
+    freeCreditBannerText:
+      "Sammeln Sie Guthaben für Ihren Briefversand – ganz ohne Aufladung. Jetzt entdecken.",
+    freeCreditBannerCta: "Kostenloses Guthaben",
+    freeCreditBannerDismiss: "Hinweis ausblenden",
   },
   letters: {
     title: "Briefe",

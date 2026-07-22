@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { formatCents } from "@/lib/shared/money";
 import { de } from "@/lib/i18n/de";
 import { ButtonLink } from "@/components/ui-ext/button-link";
+import { FreeCreditBanner } from "./free-credit-banner";
 
 export const metadata: Metadata = { title: de.dashboard.title };
 
@@ -53,6 +54,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
+      <FreeCreditBanner />
       <div>
         <h1 className="text-2xl font-semibold">{de.dashboard.title}</h1>
         <p className="text-muted-foreground text-sm">

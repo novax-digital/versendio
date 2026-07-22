@@ -186,9 +186,9 @@ function LinkList({
       </div>
 
       {/* Highlighted promo entry — earn credit via reviews / (soon) referrals.
-          Pushed to the bottom of the sidebar with breathing room (no divider)
+          Sits right under the nav with a bit of breathing room (no divider)
           and styled bolder than a nav item so it doesn't drown. */}
-      <div className="mt-auto pt-4 pb-3">
+      <div className="mt-3">
         <Link
           href="/app/kostenloses-guthaben"
           onClick={onNavigate}
