@@ -34,7 +34,7 @@ export function LaunchBanner() {
   }
 
   return (
-    <div className="flex items-center gap-3 bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-2.5 text-sm text-white">
+    <div className="flex items-center gap-3 bg-gradient-to-r from-[#2c4be8] to-[#1c33af] px-4 py-2.5 text-sm text-white">
       <Megaphone className="size-4 shrink-0" aria-hidden />
       <p className="min-w-0 flex-1">
         <span className="font-semibold">{de.common.launchBannerLabel}</span>{" "}
