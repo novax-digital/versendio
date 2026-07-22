@@ -2,11 +2,9 @@ import type { Metadata } from "next";
 import Script from "next/script";
 import { Geist_Mono, Inter, Poppins } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
+import { ConsentManager } from "@/components/consent/consent-manager";
 import { de } from "@/lib/i18n/de";
 import "./globals.css";
-
-// Google Ads conversion tracking (gtag).
-const GOOGLE_ADS_ID = "AW-18340516455";
 
 // Brandbook: Poppins for brand & headings, Inter for interface & body copy.
 const inter = Inter({ variable: "--font-inter", subsets: ["latin"] });
@@ -36,19 +34,27 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       suppressHydrationWarning
       className={`${inter.variable} ${poppins.variable} ${geistMono.variable}`}
     >
+      <head>
+        {/* Consent Mode v2 stub — must run before anything else so gtag() calls
+            never crash and the default (all denied) is set prior to any tag.
+            gtag.js itself is loaded later, and only after a marketing grant
+            (strict Basic Mode). This is the single place the stub is defined. */}
+        <Script id="consent-stub" strategy="beforeInteractive">
+          {`window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            window.gtag = gtag;
+            gtag('consent', 'default', {
+              ad_storage: 'denied',
+              ad_user_data: 'denied',
+              ad_personalization: 'denied',
+              analytics_storage: 'denied'
+            });`}
+        </Script>
+      </head>
       <body className="antialiased">
         {children}
         <Toaster position="top-right" richColors />
-        <Script
-          src={`https://www.googletagmanager.com/gtag/js?id=${GOOGLE_ADS_ID}`}
-          strategy="afterInteractive"
-        />
-        <Script id="gtag-init" strategy="afterInteractive">
-          {`window.dataLayer = window.dataLayer || [];
-            function gtag(){dataLayer.push(arguments);}
-            gtag('js', new Date());
-            gtag('config', '${GOOGLE_ADS_ID}');`}
-        </Script>
+        <ConsentManager />
       </body>
     </html>
   );

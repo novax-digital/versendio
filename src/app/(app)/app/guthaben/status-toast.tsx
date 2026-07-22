@@ -2,10 +2,20 @@
 
 import { useEffect, useRef } from "react";
 import { toast } from "sonner";
+import { fireTopupConversion } from "@/lib/analytics/gtag";
 import { de } from "@/lib/i18n/de";
 
 /** Surfaces the Stripe redirect outcome once (query params from success/cancel URLs). */
-export function StatusToast({ status, setup }: { status: string | null; setup: string | null }) {
+export function StatusToast({
+  status,
+  setup,
+  topup,
+}: {
+  status: string | null;
+  setup: string | null;
+  /** Present on a successful topup return — drives the Ads conversion. */
+  topup: { valueCents: number; currency: string; transactionId: string; email?: string } | null;
+}) {
   const shown = useRef(false);
   useEffect(() => {
     if (shown.current) return;
@@ -14,6 +24,15 @@ export function StatusToast({ status, setup }: { status: string | null; setup: s
     if (status === "abgebrochen") toast.info(de.credits.topupCanceled);
     if (setup === "erfolgreich") toast.success(de.credits.setupSuccess);
     if (setup === "abgebrochen") toast.info(de.credits.setupCanceled);
-  }, [status, setup]);
+
+    if (status === "erfolgreich" && topup) {
+      fireTopupConversion({
+        transactionId: topup.transactionId,
+        value: topup.valueCents / 100,
+        currency: topup.currency,
+        email: topup.email,
+      });
+    }
+  }, [status, setup, topup]);
   return null;
 }

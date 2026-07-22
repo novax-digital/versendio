@@ -92,7 +92,9 @@ export async function startTopupAction(_prev: unknown, formData: FormData): Prom
       metadata: { user_id: profile.id, amount_cents: String(amount), purpose: "topup" },
     },
     invoice_creation: { enabled: true },
-    success_url: `${base}/app/guthaben?status=erfolgreich`,
+    // Extra params drive the client-side Google Ads topup conversion. Stripe
+    // substitutes {CHECKOUT_SESSION_ID}; cval is the net credit in cents.
+    success_url: `${base}/app/guthaben?status=erfolgreich&cval=${amount}&ccur=eur&ctxn={CHECKOUT_SESSION_ID}`,
     cancel_url: `${base}/app/guthaben?status=abgebrochen`,
   });
 

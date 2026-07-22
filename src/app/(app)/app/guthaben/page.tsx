@@ -29,11 +29,29 @@ export const metadata: Metadata = { title: de.credits.title };
 export default async function CreditsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; setup?: string }>;
+  searchParams: Promise<{
+    status?: string;
+    setup?: string;
+    cval?: string;
+    ccur?: string;
+    ctxn?: string;
+  }>;
 }) {
   const profile = await requireProfile();
   const params = await searchParams;
   const supabase = await createClient();
+
+  // Topup conversion payload, only when Stripe returned a valid transaction.
+  const topupValueCents = Number(params.cval);
+  const topup =
+    params.status === "erfolgreich" && params.ctxn && Number.isFinite(topupValueCents)
+      ? {
+          valueCents: topupValueCents,
+          currency: params.ccur ?? "eur",
+          transactionId: params.ctxn,
+          email: profile.email ?? undefined,
+        }
+      : null;
 
   const [transactions, amounts, minCents, bonusTiers] = await Promise.all([
     supabase
@@ -79,7 +97,7 @@ export default async function CreditsPage({
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
-      <StatusToast status={params.status ?? null} setup={params.setup ?? null} />
+      <StatusToast status={params.status ?? null} setup={params.setup ?? null} topup={topup} />
       <div>
         <h1 className="text-2xl font-semibold">{de.credits.title}</h1>
         <p className="text-muted-foreground text-sm">{de.credits.subtitle}</p>

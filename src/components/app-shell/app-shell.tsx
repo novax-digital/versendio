@@ -7,6 +7,7 @@ import type { Profile } from "@/lib/server/auth-context";
 import { NavLinks, MobileNav } from "./nav-links";
 import { UserMenu } from "./user-menu";
 import { LaunchBanner } from "./launch-banner";
+import { CookieSettingsLink } from "@/components/consent/cookie-settings-link";
 
 // Legal pages live on the public marketing site (versendio.de), opened in a new
 // tab so the app session stays put.
@@ -92,6 +93,7 @@ export function AppShell({
                   {link.label}
                 </a>
               ))}
+              <CookieSettingsLink />
             </nav>
           </div>
         </footer>

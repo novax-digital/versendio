@@ -1,0 +1,173 @@
+/**
+ * Google Consent Mode v2 — strict Basic Mode, identical cookie contract to the
+ * marketing site (versendio.de) so a decision made there is honored in the app
+ * and vice versa. No external CMP library.
+ *
+ * Basic Mode means: with no marketing grant, gtag.js is never loaded and no
+ * request ever reaches googletagmanager.com / google.com. The inline stub in
+ * the root layout defines the consent *default* (all denied) before anything
+ * runs, so gtag() calls never crash even when the library is absent.
+ *
+ * All functions are SSR-safe: they no-op outside the browser.
+ */
+
+const COOKIE_NAME = "versendio_consent";
+const APEX_DOMAIN = "versendio.de";
+const GOOGLE_ADS_ID = "AW-18340516455";
+
+/** Bump when the consent schema/meaning changes → re-prompts everyone. */
+export const CONSENT_VERSION = 1;
+
+export type Consent = { v: number; ts: string; marketing: boolean };
+
+function isBrowser(): boolean {
+  return typeof window !== "undefined" && typeof document !== "undefined";
+}
+
+// ---------------------------------------------------------------------------
+// Cookie read/write (shared contract with the website — do not change shape)
+// ---------------------------------------------------------------------------
+
+export function readConsent(): Consent | null {
+  if (!isBrowser()) return null;
+  const prefix = `${COOKIE_NAME}=`;
+  const entry = document.cookie.split("; ").find((c) => c.startsWith(prefix));
+  if (!entry) return null;
+  try {
+    const parsed = JSON.parse(decodeURIComponent(entry.slice(prefix.length)));
+    if (typeof parsed?.v === "number" && typeof parsed?.marketing === "boolean") {
+      return parsed as Consent;
+    }
+  } catch {
+    // Malformed cookie → treat as no decision.
+  }
+  return null;
+}
+
+/** True when we must (re-)ask: no cookie, or an older consent version. */
+export function needsConsentDecision(): boolean {
+  const c = readConsent();
+  return !c || c.v < CONSENT_VERSION;
+}
+
+function writeConsentCookie(marketing: boolean): void {
+  if (!isBrowser()) return;
+  const value: Consent = { v: CONSENT_VERSION, ts: new Date().toISOString(), marketing };
+  const parts = [
+    `${COOKIE_NAME}=${encodeURIComponent(JSON.stringify(value))}`,
+    "Path=/",
+    "Max-Age=31536000", // 12 months
+    "SameSite=Lax",
+  ];
+  const host = window.location.hostname;
+  if (host === APEX_DOMAIN || host.endsWith(`.${APEX_DOMAIN}`)) {
+    // Production: share the decision across the apex + all subdomains.
+    parts.push(`Domain=.${APEX_DOMAIN}`, "Secure");
+  } else if (host === "localhost" || host === "127.0.0.1") {
+    // Dev: host-only, no Secure (served over http) — a Domain attribute here
+    // would silently drop the cookie.
+  } else if (window.location.protocol === "https:") {
+    // Preview deployments (e.g. *.vercel.app): host-only but Secure.
+    parts.push("Secure");
+  }
+  document.cookie = parts.join("; ");
+}
+
+// ---------------------------------------------------------------------------
+// gtag consent state + conditional library load
+// ---------------------------------------------------------------------------
+
+let gtagLoaded = false;
+
+function loadGtagJs(): void {
+  if (gtagLoaded || !isBrowser()) return;
+  gtagLoaded = true;
+  // Queued on the stub's dataLayer; processed once the library arrives. Any
+  // conversion event pushed before the load completes is queued too (covers
+  // the Stripe-return race).
+  window.gtag("js", new Date());
+  window.gtag("config", GOOGLE_ADS_ID);
+  const script = document.createElement("script");
+  script.async = true;
+  script.src = `https://www.googletagmanager.com/gtag/js?id=${GOOGLE_ADS_ID}`;
+  document.head.appendChild(script);
+}
+
+/** Pushes the consent update and, on grant, loads gtag.js. */
+function applyConsent(marketing: boolean): void {
+  if (!isBrowser() || typeof window.gtag !== "function") return;
+  if (marketing) {
+    window.gtag("consent", "update", {
+      ad_storage: "granted",
+      ad_user_data: "granted",
+      ad_personalization: "granted",
+      // analytics_storage intentionally stays denied — we run Google Ads only.
+    });
+    loadGtagJs();
+  } else {
+    window.gtag("consent", "update", {
+      ad_storage: "denied",
+      ad_user_data: "denied",
+      ad_personalization: "denied",
+    });
+  }
+}
+
+export function grantConsent(): void {
+  writeConsentCookie(true);
+  applyConsent(true);
+}
+
+export function denyConsent(): void {
+  writeConsentCookie(false);
+  applyConsent(false);
+}
+
+/** True iff the user actively granted marketing consent. */
+export function hasMarketingConsent(): boolean {
+  return readConsent()?.marketing === true;
+}
+
+// ---------------------------------------------------------------------------
+// Banner open/close store (tiny external store so React can subscribe without
+// a setState-in-effect lint smell)
+// ---------------------------------------------------------------------------
+
+let bannerOpen = false;
+const listeners = new Set<() => void>();
+function emit(): void {
+  listeners.forEach((l) => l());
+}
+
+export function subscribeBanner(cb: () => void): () => void {
+  listeners.add(cb);
+  return () => listeners.delete(cb);
+}
+export function isBannerOpen(): boolean {
+  return bannerOpen;
+}
+export function openConsentBanner(): void {
+  bannerOpen = true;
+  emit();
+}
+export function closeConsentBanner(): void {
+  bannerOpen = false;
+  emit();
+}
+
+let initialized = false;
+
+/**
+ * Run once on app start (from the client ConsentManager). Applies a stored
+ * decision (loading gtag.js only on grant) or opens the banner when none/stale.
+ */
+export function initConsent(): void {
+  if (!isBrowser() || initialized) return;
+  initialized = true;
+  const c = readConsent();
+  if (!c || c.v < CONSENT_VERSION) {
+    openConsentBanner();
+    return;
+  }
+  applyConsent(c.marketing);
+}

@@ -1156,6 +1156,7 @@ export const de = {
     imprint: "Impressum",
     privacy: "Datenschutz",
     terms: "AGB",
+    cookieSettings: "Cookie-Einstellungen",
     dpa: "AVV",
     placeholder: "Platzhalter — Inhalt folgt.",
   },
