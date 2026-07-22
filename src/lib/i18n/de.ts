@@ -85,6 +85,8 @@ export const de = {
       "Bitte bestätigen Sie zuerst Ihre E-Mail-Adresse. Wir haben Ihnen einen Bestätigungslink gesendet.",
     registerSuccess:
       "Vielen Dank für Ihre Registrierung! Bitte bestätigen Sie Ihre E-Mail-Adresse über den Link, den wir Ihnen gesendet haben.",
+    welcomeHeading: "Fast geschafft!",
+    registerRedirecting: "Sie werden weitergeleitet …",
     passwordMismatch: "Die Passwörter stimmen nicht überein.",
     passwordTooShort: "Das Passwort muss mindestens 8 Zeichen lang sein.",
     passwordHint: "Mindestens 8 Zeichen.",

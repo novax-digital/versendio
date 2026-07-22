@@ -1,23 +1,33 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { registerAction } from "../actions";
 import { SocialLogin } from "../social-login";
 import { FormField } from "@/components/forms/form-field";
 import { Button } from "@/components/ui/button";
+import { armRegistrationConversion } from "@/lib/analytics/gtag";
 import { de } from "@/lib/i18n/de";
 
 export function RegisterForm() {
+  const router = useRouter();
   const [state, formAction, pending] = useActionState(registerAction, null);
   const fieldErrors = state && !state.ok ? state.fieldErrors : undefined;
+  // Captured for Enhanced Conversions — the server action's payload is unchanged.
+  const emailRef = useRef("");
+
+  useEffect(() => {
+    if (state?.ok) {
+      armRegistrationConversion(emailRef.current);
+      router.replace("/willkommen");
+    }
+  }, [state, router]);
 
   if (state?.ok) {
+    // Brief placeholder while the redirect to /willkommen resolves.
     return (
-      <p
-        role="status"
-        className="rounded-md bg-emerald-50 p-4 text-sm text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200"
-      >
-        {de.auth.registerSuccess}
+      <p role="status" className="text-muted-foreground text-sm">
+        {de.auth.registerRedirecting}
       </p>
     );
   }
@@ -47,6 +57,9 @@ export function RegisterForm() {
           autoComplete="email"
           required
           error={fieldErrors?.email}
+          onChange={(e) => {
+            emailRef.current = e.target.value;
+          }}
         />
         <FormField
           label={de.auth.password}

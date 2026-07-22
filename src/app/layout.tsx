@@ -1,8 +1,12 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import { Geist_Mono, Inter, Poppins } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import { de } from "@/lib/i18n/de";
 import "./globals.css";
+
+// Google Ads conversion tracking (gtag).
+const GOOGLE_ADS_ID = "AW-18340516455";
 
 // Brandbook: Poppins for brand & headings, Inter for interface & body copy.
 const inter = Inter({ variable: "--font-inter", subsets: ["latin"] });
@@ -35,6 +39,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="antialiased">
         {children}
         <Toaster position="top-right" richColors />
+        <Script
+          src={`https://www.googletagmanager.com/gtag/js?id=${GOOGLE_ADS_ID}`}
+          strategy="afterInteractive"
+        />
+        <Script id="gtag-init" strategy="afterInteractive">
+          {`window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', '${GOOGLE_ADS_ID}');`}
+        </Script>
       </body>
     </html>
   );
