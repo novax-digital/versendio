@@ -31,6 +31,11 @@ export const de = {
     mockBadge: "Testmodus",
     mockBadgeTooltip:
       "Die Anwendung läuft im Testmodus – es werden keine echten Briefe versendet.",
+    launchBannerLabel: "Launch-Angebot:",
+    launchBannerText:
+      "Versendio ist live – 20 % zusätzliches Guthaben on top bei jeder Aufladung bis zum 30.08.2026.",
+    launchBannerCta: "Jetzt sichern",
+    launchBannerDismiss: "Banner ausblenden",
   },
   nav: {
     dashboard: "Übersicht",

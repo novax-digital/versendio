@@ -6,6 +6,7 @@ import { de } from "@/lib/i18n/de";
 import type { Profile } from "@/lib/server/auth-context";
 import { NavLinks, MobileNav } from "./nav-links";
 import { UserMenu } from "./user-menu";
+import { LaunchBanner } from "./launch-banner";
 
 // Legal pages live on the public marketing site (versendio.de), opened in a new
 // tab so the app session stays put.
@@ -50,6 +51,7 @@ export function AppShell({
         ) : null}
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">
+        <LaunchBanner />
         <header className="bg-background flex h-14 items-center justify-between gap-2 border-b px-4">
           <div className="flex items-center gap-2">
             <MobileNav isAdmin={profile.role === "admin"} isWhitelabel={profile.is_whitelabel} />
