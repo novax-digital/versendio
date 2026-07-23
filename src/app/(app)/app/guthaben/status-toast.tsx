@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { fireTopupConversion } from "@/lib/analytics/gtag";
+import { fireMetaPurchase } from "@/lib/analytics/meta";
 import { de } from "@/lib/i18n/de";
 
 /** Surfaces the Stripe redirect outcome once (query params from success/cancel URLs). */
@@ -31,6 +32,11 @@ export function StatusToast({
         value: topup.valueCents / 100,
         currency: topup.currency,
         email: topup.email,
+      });
+      fireMetaPurchase({
+        transactionId: topup.transactionId,
+        value: topup.valueCents / 100,
+        currency: topup.currency,
       });
     }
   }, [status, setup, topup]);

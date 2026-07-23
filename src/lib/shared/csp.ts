@@ -25,9 +25,11 @@ export function buildCsp(nonce: string, supabaseOrigin: string, isDev = false): 
     `script-src ${scriptSrc}`,
     "style-src 'self' 'unsafe-inline'",
     // Stripe embedded checkout renders payment-method icons from stripe.com.
-    "img-src 'self' data: blob: https://*.stripe.com",
+    // Meta Pixel delivers events as image GETs to facebook.com/tr (fbevents.js
+    // itself loads via script-src strict-dynamic; consent-gated).
+    "img-src 'self' data: blob: https://*.stripe.com https://www.facebook.com",
     "font-src 'self' data:",
-    `connect-src 'self' ${supabaseOrigin} https://api.stripe.com https://checkout.stripe.com https://js.stripe.com`
+    `connect-src 'self' ${supabaseOrigin} https://api.stripe.com https://checkout.stripe.com https://js.stripe.com https://connect.facebook.net https://www.facebook.com`
       .replace(/\s+/g, " ")
       .trim(),
     // 'self' (not 'none'): the letter preview embeds our own PDF route.

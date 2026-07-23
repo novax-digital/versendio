@@ -93,24 +93,41 @@ function loadGtagJs(): void {
   document.head.appendChild(script);
 }
 
-/** Pushes the consent update and, on grant, loads gtag.js. */
+// Other tag modules (Meta Pixel) subscribe here instead of being imported —
+// keeps the dependency one-way (tag module → consent) and this file vendor-free.
+type ConsentListener = (marketing: boolean) => void;
+const consentListeners = new Set<ConsentListener>();
+
+/**
+ * Registers a callback invoked every time a consent decision is APPLIED: the
+ * stored decision on app start and every banner action. Callbacks must be
+ * idempotent (a stored grant re-fires on each page load).
+ */
+export function onConsentApplied(cb: ConsentListener): void {
+  consentListeners.add(cb);
+}
+
+/** Pushes the consent update, on grant loads gtag.js, and notifies listeners. */
 function applyConsent(marketing: boolean): void {
-  if (!isBrowser() || typeof window.gtag !== "function") return;
-  if (marketing) {
-    window.gtag("consent", "update", {
-      ad_storage: "granted",
-      ad_user_data: "granted",
-      ad_personalization: "granted",
-      // analytics_storage intentionally stays denied — we run Google Ads only.
-    });
-    loadGtagJs();
-  } else {
-    window.gtag("consent", "update", {
-      ad_storage: "denied",
-      ad_user_data: "denied",
-      ad_personalization: "denied",
-    });
+  if (!isBrowser()) return;
+  if (typeof window.gtag === "function") {
+    if (marketing) {
+      window.gtag("consent", "update", {
+        ad_storage: "granted",
+        ad_user_data: "granted",
+        ad_personalization: "granted",
+        // analytics_storage intentionally stays denied — we run Google Ads only.
+      });
+      loadGtagJs();
+    } else {
+      window.gtag("consent", "update", {
+        ad_storage: "denied",
+        ad_user_data: "denied",
+        ad_personalization: "denied",
+      });
+    }
   }
+  consentListeners.forEach((cb) => cb(marketing));
 }
 
 export function grantConsent(): void {

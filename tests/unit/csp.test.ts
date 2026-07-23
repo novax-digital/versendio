@@ -25,6 +25,15 @@ describe("buildCsp", () => {
     expect(connect).toContain("https://api.stripe.com");
   });
 
+  it("allows Meta Pixel event delivery (img + connect), scripts via strict-dynamic", () => {
+    const csp = buildCsp(NONCE, SUPABASE);
+    const img = csp.split("; ").find((d) => d.startsWith("img-src"))!;
+    const connect = csp.split("; ").find((d) => d.startsWith("connect-src"))!;
+    expect(img).toContain("https://www.facebook.com");
+    expect(connect).toContain("https://www.facebook.com");
+    expect(connect).toContain("https://connect.facebook.net");
+  });
+
   it("permits same-origin framing so the letter preview iframe works", () => {
     const csp = buildCsp(NONCE, SUPABASE);
     expect(csp).toContain("frame-src 'self'");

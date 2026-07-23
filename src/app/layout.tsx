@@ -3,6 +3,7 @@ import Script from "next/script";
 import { Geist_Mono, Inter, Poppins } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import { ConsentManager } from "@/components/consent/consent-manager";
+import { MetaPageView } from "@/components/analytics/meta-pageview";
 import { de } from "@/lib/i18n/de";
 import "./globals.css";
 
@@ -55,6 +56,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {children}
         <Toaster position="top-right" richColors />
         <ConsentManager />
+        {/* Meta Pixel: library load + initial PageView are handled by the
+            consent module (only after a marketing grant); this component adds
+            the per-route-change PageViews for soft navigations. */}
+        <MetaPageView />
       </body>
     </html>
   );

@@ -7,6 +7,7 @@ import { SocialLogin } from "../social-login";
 import { FormField } from "@/components/forms/form-field";
 import { Button } from "@/components/ui/button";
 import { armRegistrationConversion } from "@/lib/analytics/gtag";
+import { armMetaLead } from "@/lib/analytics/meta";
 import { de } from "@/lib/i18n/de";
 
 export function RegisterForm() {
@@ -19,6 +20,7 @@ export function RegisterForm() {
   useEffect(() => {
     if (state?.ok) {
       armRegistrationConversion(emailRef.current);
+      armMetaLead();
       router.replace("/willkommen");
     }
   }, [state, router]);

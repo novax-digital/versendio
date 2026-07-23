@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import Link from "next/link";
 import { MailCheck } from "lucide-react";
 import { fireRegistrationConversion } from "@/lib/analytics/gtag";
+import { fireMetaLead } from "@/lib/analytics/meta";
 import { de } from "@/lib/i18n/de";
 
 /**
@@ -13,7 +14,10 @@ import { de } from "@/lib/i18n/de";
  * the message and tracks nothing.
  */
 export function WelcomeClient() {
-  useEffect(() => fireRegistrationConversion(), []);
+  useEffect(() => {
+    fireMetaLead();
+    return fireRegistrationConversion();
+  }, []);
 
   return (
     <div className="space-y-6">
