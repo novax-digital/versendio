@@ -115,9 +115,21 @@ if (isBrowser()) {
   onConsentApplied((marketing) => {
     if (marketing) {
       loadMetaPixel();
-    } else if (pixelLoaded) {
-      // In-session withdrawal: stop the already-loaded pixel from tracking.
-      window.fbq?.("consent", "revoke");
+      return;
+    }
+    const fbq = window.fbq;
+    if (!fbq || !pixelLoaded) return;
+    if (!fbq.callMethod && fbq.queue) {
+      // Withdrawal while fbevents.js is still loading: the stub queue drains
+      // strictly FIFO, so an APPENDED revoke would run only after the queued
+      // init (+_fbp cookie) and PageView already fired. Scrub pending tracks
+      // and make the revoke precede init instead.
+      const kept = fbq.queue.filter((args) => args[0] !== "track");
+      fbq.queue.length = 0;
+      fbq.queue.push(["consent", "revoke"], ...kept);
+    } else {
+      // Library is live: stop the already-loaded pixel from tracking.
+      fbq("consent", "revoke");
     }
   });
 }
@@ -157,15 +169,21 @@ export type MetaPurchase = {
   currency: string;
 };
 
-/** Fires Purchase at most once per transaction id (survives reloads). */
+/**
+ * Fires Purchase at most once per transaction id. The sessionStorage guard
+ * covers reloads within the tab; the eventID (Meta dedups same event name +
+ * id within 48 h) covers a reopened success URL in another tab or session.
+ */
 export function fireMetaPurchase(input: MetaPurchase): void {
   if (!isBrowser() || !input.transactionId || !Number.isFinite(input.value)) return;
   const guardKey = PURCHASE_KEY_PREFIX + input.transactionId;
   if (safeGet(guardKey)) return;
   safeSet(guardKey, "1");
   if (!canFire()) return;
-  window.fbq?.("track", "Purchase", {
-    value: input.value,
-    currency: input.currency.toUpperCase(),
-  });
+  window.fbq?.(
+    "track",
+    "Purchase",
+    { value: input.value, currency: input.currency.toUpperCase() },
+    { eventID: `topup-${input.transactionId}` },
+  );
 }

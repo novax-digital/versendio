@@ -39,6 +39,12 @@ export function StatusToast({
         currency: topup.currency,
       });
     }
+
+    // Strip the Stripe return params once handled: a reload or bookmark of
+    // the success URL must not re-trigger toasts or conversion events.
+    if ((status || setup) && window.location.search) {
+      window.history.replaceState(null, "", window.location.pathname);
+    }
   }, [status, setup, topup]);
   return null;
 }

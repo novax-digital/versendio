@@ -107,9 +107,30 @@ export function onConsentApplied(cb: ConsentListener): void {
   consentListeners.add(cb);
 }
 
+// Identifier cookies the vendor libraries set under a grant. On withdrawal
+// they must be removed, not just left to expire (~90 days): _fbp/_fbc are
+// Meta's browser ids, _gcl_* Google's conversion linker.
+const VENDOR_COOKIES = ["_fbp", "_fbc", "_gcl_au", "_gcl_aw", "_gcl_dc", "_gcl_gb"];
+
+function expireVendorCookies(): void {
+  if (!isBrowser()) return;
+  const host = window.location.hostname;
+  const onApex = host === APEX_DOMAIN || host.endsWith(`.${APEX_DOMAIN}`);
+  for (const name of VENDOR_COOKIES) {
+    // Both variants: the libraries set Domain=.versendio.de in production,
+    // host-only on previews/localhost.
+    if (onApex) document.cookie = `${name}=; Path=/; Max-Age=0; Domain=.${APEX_DOMAIN}`;
+    document.cookie = `${name}=; Path=/; Max-Age=0`;
+  }
+}
+
+/** The decision this tab last applied — drives the cross-tab cookie sync. */
+let lastApplied: boolean | null = null;
+
 /** Pushes the consent update, on grant loads gtag.js, and notifies listeners. */
 function applyConsent(marketing: boolean): void {
   if (!isBrowser()) return;
+  lastApplied = marketing;
   if (typeof window.gtag === "function") {
     if (marketing) {
       window.gtag("consent", "update", {
@@ -127,6 +148,7 @@ function applyConsent(marketing: boolean): void {
       });
     }
   }
+  if (!marketing) expireVendorCookies();
   consentListeners.forEach((cb) => cb(marketing));
 }
 
@@ -175,12 +197,36 @@ export function closeConsentBanner(): void {
 let initialized = false;
 
 /**
+ * The versendio_consent cookie is shared across the apex + subdomains, so the
+ * user can grant/withdraw on the marketing site or another tab while this tab
+ * stays open — without this, an already-loaded pixel would keep tracking
+ * after a withdrawal elsewhere. On focus/visibility we diff the cookie
+ * against what this tab last applied and re-apply on change (listeners are
+ * idempotent). A decision arriving while our banner is still open adopts it
+ * and closes the banner.
+ */
+function syncConsentFromCookie(): void {
+  const c = readConsent();
+  if (!c || c.v < CONSENT_VERSION) return;
+  if (lastApplied === null) {
+    applyConsent(c.marketing);
+    if (isBannerOpen()) closeConsentBanner();
+    return;
+  }
+  if (c.marketing !== lastApplied) applyConsent(c.marketing);
+}
+
+/**
  * Run once on app start (from the client ConsentManager). Applies a stored
  * decision (loading gtag.js only on grant) or opens the banner when none/stale.
  */
 export function initConsent(): void {
   if (!isBrowser() || initialized) return;
   initialized = true;
+  window.addEventListener("focus", syncConsentFromCookie);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") syncConsentFromCookie();
+  });
   const c = readConsent();
   if (!c || c.v < CONSENT_VERSION) {
     openConsentBanner();
