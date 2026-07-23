@@ -130,6 +130,38 @@ describe("validate structural rules", () => {
   });
 });
 
+describe("zone findings resolve via auto cover page", () => {
+  it("empty recipient zone: positive note + cover, still submittable", async () => {
+    const pdf = await PDFDocument.create();
+    pdf.addPage([A4.widthPt, A4.heightPt]);
+    const validation = await validateLetterPdf(await pdf.save());
+    const rule = validation.rules.find((r) => r.id === "recipient_zone_empty");
+    expect(rule?.severity).toBe("ok");
+    expect(validation.needsCoverLetter).toBe(true);
+    expect(validation.rules.some((r) => r.severity === "error")).toBe(false);
+  });
+
+  it("content in the DVF strip: warning + forced cover instead of a reject", async () => {
+    const { StandardFonts } = await import("pdf-lib");
+    const pdf = await PDFDocument.create();
+    const font = await pdf.embedFont(StandardFonts.Helvetica);
+    const page = pdf.addPage([A4.widthPt, A4.heightPt]);
+    // 60 mm from top / 60 mm from left — inside the blocked DVF zone (y 52–68).
+    page.drawText("Logo im Sperrbereich", {
+      x: (60 / 210) * A4.widthPt,
+      y: A4.heightPt - (60 / 297) * A4.heightPt,
+      size: 10,
+      font,
+    });
+    const validation = await validateLetterPdf(await pdf.save());
+    const rule = validation.rules.find((r) => r.id === "dvf_zone");
+    expect(rule?.severity).toBe("warning");
+    expect(validation.needsCoverLetter).toBe(true);
+    expect(validation.addressZoneResult).toBe("fail");
+    expect(validation.rules.some((r) => r.severity === "error")).toBe(false);
+  });
+});
+
 describe("cover letter", () => {
   it("prepends exactly one A4 page", async () => {
     const original = await PDFDocument.create();

@@ -18,6 +18,16 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // Letter PDFs bypass Server Actions entirely (signed direct-to-storage
+  // upload — see createLetterUploadUrlAction); this limit exists for the
+  // remaining in-action file transfer, logo uploads (uploadAssetAction,
+  // 5 MB cap) plus multipart overhead. Deliberately NOT sized for letters:
+  // the limit is app-global and pre-auth actions share it, so every MB here
+  // is anonymous request-buffering surface. Default (1 MB) crashed logo
+  // uploads with Next's generic error page before our size check could run.
+  experimental: {
+    serverActions: { bodySizeLimit: "6mb" },
+  },
   // The PDF renderer reads public/fonts TTFs via fs at runtime. File tracing
   // must include them in every serverless bundle that renders letters:
   // editor server actions (page routes), the preview route, and the queue

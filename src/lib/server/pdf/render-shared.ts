@@ -67,6 +67,26 @@ export function drawCoverLabel(page: PDFPage, font: PDFFont) {
   }
 }
 
+/**
+ * Small centered service notice at the bottom of generated cover pages
+ * ("sent via versendio.de"). Sits at 288 mm — inside the printable area
+ * (bottom print-free margin starts at 295 mm) and clear of the fold marks.
+ * Users can disable it in their settings (profiles.cover_letter_footer).
+ */
+export function drawCoverFooter(page: PDFPage, font: PDFFont, text: string) {
+  const gray = rgb(0.55, 0.55, 0.55);
+  const size = 7;
+  const clamped = clampToWidth(text, font, size, mmToPt(A4.widthMm - 2 * 15));
+  const width = font.widthOfTextAtSize(clamped, size);
+  page.drawText(clamped, {
+    x: (A4.widthPt - width) / 2,
+    y: topMmToBaselinePt(288, size),
+    size,
+    font,
+    color: gray,
+  });
+}
+
 /** Truncates text with an ellipsis so it never exceeds maxWidth. */
 export function clampToWidth(text: string, font: PDFFont, size: number, maxWidth: number): string {
   const sanitized = sanitizeText(text);

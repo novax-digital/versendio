@@ -74,10 +74,13 @@ export function CoverToggle({
   letterId,
   useCover,
   recommended,
+  locked = false,
 }: {
   letterId: string;
   useCover: boolean;
   recommended: boolean;
+  /** Cover cannot be disabled (confirmed content in the DVF franking strip). */
+  locked?: boolean;
 }) {
   const router = useRouter();
   const [checked, setChecked] = useState(useCover);
@@ -122,11 +125,19 @@ export function CoverToggle({
       <CardContent className="space-y-3">
         <p className="text-muted-foreground text-sm">{de.letters.coverLetterHint}</p>
         <div className="flex items-center gap-2">
-          <Switch id="cover" checked={checked} disabled={pending} onCheckedChange={onToggle} />
+          <Switch
+            id="cover"
+            checked={locked ? true : checked}
+            disabled={pending || locked}
+            onCheckedChange={onToggle}
+          />
           <Label htmlFor="cover" className="font-normal">
             {de.letters.coverLetter}
           </Label>
         </div>
+        {locked ? (
+          <p className="text-muted-foreground text-xs">{de.letters.coverLockedHint}</p>
+        ) : null}
       </CardContent>
 
       <AlertDialog open={confirmOff} onOpenChange={setConfirmOff}>

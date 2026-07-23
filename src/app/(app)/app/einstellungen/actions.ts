@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/server/auth-context";
 import { checkRateLimit, clientIp } from "@/lib/server/rate-limit";
 import { type ActionResult, fieldErrorsFromZod } from "@/lib/server/action-result";
-import { profileSchema, senderAddressSchema } from "@/lib/shared/schemas/profile";
+import { coverFooterSchema, profileSchema, senderAddressSchema } from "@/lib/shared/schemas/profile";
 import { changePasswordSchema } from "@/lib/shared/schemas/auth";
 import { de } from "@/lib/i18n/de";
 import { z } from "zod";
@@ -39,6 +39,34 @@ export async function updateProfileAction(
   }
 
   revalidatePath("/app", "layout");
+  return { ok: true };
+}
+
+/**
+ * Saves the cover-page footer opt-out ("sent via versendio.de" notice on
+ * auto-generated cover pages). Plain profile boolean, default on — writable
+ * through the standard profiles_update_own RLS policy (notify_* precedent).
+ */
+export async function updateCoverFooterAction(
+  _prev: unknown,
+  formData: FormData,
+): Promise<ActionResult> {
+  const profile = await requireProfile();
+  const parsed = coverFooterSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { ok: false, error: de.common.genericError };
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("profiles")
+    .update({ cover_letter_footer: parsed.data.coverFooter })
+    .eq("id", profile.id);
+
+  if (error) {
+    console.error("cover_footer_save_failed", { error: error.message });
+    return { ok: false, error: de.common.genericError };
+  }
+
+  revalidatePath("/app/einstellungen");
   return { ok: true };
 }
 

@@ -26,6 +26,7 @@ export const de = {
     required: "Pflichtfeld",
     error: "Fehler",
     retry: "Erneut versuchen",
+    errorPageTitle: "Diese Seite konnte nicht geladen werden.",
     genericError: "Es ist ein unerwarteter Fehler aufgetreten. Bitte versuchen Sie es erneut.",
     rateLimited: "Zu viele Anfragen. Bitte warten Sie einen Moment und versuchen Sie es erneut.",
     mockBadge: "Testmodus",
@@ -127,6 +128,10 @@ export const de = {
     city: "Ort",
     country: "Land",
     saved: "Ihre Änderungen wurden gespeichert.",
+    coverFooterTitle: "Deckblatt",
+    coverFooterLabel: "Versendio-Hinweis auf dem Deckblatt",
+    coverFooterHint:
+      "Druckt unten auf automatisch erzeugte Deckblätter den Hinweis „Dieser Brief wurde automatisch mit versendio.de versendet.“",
     changePassword: "Passwort ändern",
     changePasswordSuccess: "Ihr Passwort wurde geändert.",
     currentPlan: "Preisstufe",
@@ -233,7 +238,7 @@ export const de = {
     uploadDropzone: "PDF hierher ziehen oder klicken zum Auswählen",
     uploadHint: "DIN A4 Hochformat, max. 94 Blatt, max. 20 MB. Ziel-Format: PDF/A-1b.",
     uploadZoneNotice:
-      "Ihr PDF wird beim Hochladen automatisch technisch geprüft (Format, Adresszonen, druckfreie Ränder). Halten Sie den Adressbereich auf Seite 1 gemäß Muster ein – oder lassen Sie ihn komplett frei und aktivieren Sie das Deckblatt: Dann erzeugt Versendio die Seite mit Absenderzeile und Empfängeradresse automatisch.",
+      "Ihr PDF wird beim Hochladen automatisch technisch geprüft (Format, Adresszonen, druckfreie Ränder); geringe Format-Abweichungen werden automatisch auf DIN A4 korrigiert. Halten Sie den Adressbereich auf Seite 1 gemäß Muster ein – oder lassen Sie ihn komplett frei: Versendio stellt dann automatisch ein Deckblatt mit Absenderzeile und Empfängeradresse voran.",
     uploadMusterDownload: "Muster-PDF mit Adresszonen herunterladen",
     musterTitle: "Muster: PDF-Layout für den Briefversand (Schablone V3)",
     musterViewOnly: "Dieses Muster dient nur zur Ansicht und kann nicht versendet werden.",
@@ -242,10 +247,10 @@ export const de = {
     musterZoneRecipient: "Empfängeradresse (max. 6 Zeilen)",
     musterZoneMargins: "Druckfreier Bereich: links 12 mm, oben/rechts/unten 2 mm",
     musterNotes: [
-      "DIN A4 Hochformat, exakt 210 × 297 mm – andere Formate werden abgelehnt.",
+      "DIN A4 Hochformat, 210 × 297 mm – geringe Abweichungen korrigiert Versendio beim Hochladen automatisch, deutlich andere Formate werden abgelehnt.",
       "Die rot markierte DV-Freimachungszone muss auf Seite 1 vollständig frei bleiben.",
       "Empfängeradresse in das markierte Fenster setzen (max. 6 Zeilen), Absenderzeile einzeilig darüber.",
-      "Alternativ: Adressbereich komplett freilassen und beim Upload das Deckblatt aktivieren – Versendio erzeugt die Adressseite dann automatisch.",
+      "Alternativ: Adressbereich komplett freilassen – Versendio stellt beim Hochladen automatisch ein Deckblatt mit der Adressseite voran.",
       "Der linke Rand (12 mm) und 2 mm an allen übrigen Rändern bleiben auf allen Seiten druckfrei.",
       "Keine eigenen Falzmarken drucken – die Deutsche Post fügt sie hinzu.",
       "Eigene Kopf- und Fußzeilen sind außerhalb der markierten Zonen erlaubt.",
@@ -255,6 +260,10 @@ export const de = {
     noFile: "Bitte wählen Sie eine PDF-Datei aus.",
     notPdf: "Es sind nur PDF-Dateien erlaubt.",
     tooLarge: "Die Datei ist zu groß (max. 20 MB).",
+    uploadMissing:
+      "Die hochgeladene Datei wurde nicht gefunden. Bitte versuchen Sie es erneut.",
+    uploadTransferFailed:
+      "Die Datei konnte nicht übertragen werden. Bitte prüfen Sie Ihre Internetverbindung und versuchen Sie es erneut.",
     assetNotImage: "Es sind nur PNG- oder JPG-Bilder erlaubt.",
     assetTooLarge: "Das Bild ist zu groß (max. 5 MB).",
     uploadImage: "Bild hochladen",
@@ -287,6 +296,11 @@ export const de = {
     coverDisableWarning:
       "Ohne Deckblatt muss Ihr PDF der Deutsche-Post-Schablone exakt entsprechen: Empfängeradresse im Anschriftenfeld auf Seite 1, Frankier-Sperrbereich vollständig frei, druckfreie Ränder (12 mm links, 2 mm umlaufend). Die automatische Prüfung konnte das für dieses PDF nicht bestätigen – der Versand kann von der Deutschen Post abgelehnt werden.",
     coverDisableConfirm: "Ohne Deckblatt fortfahren",
+    coverRequiredDvf:
+      "Das Deckblatt kann für diesen Brief nicht deaktiviert werden: Im Frankier-Sperrbereich Ihres PDFs befindet sich Inhalt. Ohne Deckblatt würde die Deutsche Post den Brief ablehnen.",
+    coverLockedHint:
+      "Für diesen Brief erforderlich: Ihr PDF enthält Inhalt im Frankier-Sperrbereich (Schablone V3). Das Deckblatt wird als Seite 1 vorangestellt, damit die Deutsche Post den Brief annimmt.",
+    coverFooterText: "Dieser Brief wurde automatisch mit versendio.de versendet.",
     editorTitle: "Brief-Editor",
     editorSubtitle: "Erstellen Sie Ihren Brief. Platzhalter wie {{vorname}} werden beim Versand je Empfänger ersetzt.",
     addBlock: "Baustein hinzufügen",

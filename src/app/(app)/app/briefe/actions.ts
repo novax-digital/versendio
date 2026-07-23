@@ -13,6 +13,7 @@ import { downloadObject } from "@/lib/server/storage";
 import { type ActionResult, fieldErrorsFromZod } from "@/lib/server/action-result";
 import { checkRateLimit, clientIp } from "@/lib/server/rate-limit";
 import { uploadObject, removeObject, BUCKETS } from "@/lib/server/storage";
+import { normalizePdfToA4 } from "@/lib/server/pdf/normalize";
 import { validateLetterPdf } from "@/lib/server/pdf/validate";
 import { isSubmittable } from "@/lib/shared/validation-result";
 import type { PdfValidation } from "@/lib/shared/validation-result";
@@ -34,10 +35,17 @@ export type UploadLetterResult =
 
 const MAX_UPLOAD = LIMITS.maxFileSizeBytes;
 
-export async function uploadLetterAction(
-  _prev: unknown,
-  formData: FormData,
-): Promise<UploadLetterResult> {
+/**
+ * Step 1 of the two-step upload: mints a short-lived signed upload URL so the
+ * browser sends the PDF DIRECTLY to Supabase Storage. Server Actions are the
+ * wrong transport for 20 MB files — Next buffers and parses the whole body
+ * before any auth/rate-limit code runs, and Vercel caps function request
+ * bodies at ~4.5 MB anyway. The object path is minted server-side (owner
+ * prefix + fresh UUID) so the client can never choose where it writes.
+ */
+export async function createLetterUploadUrlAction(): Promise<
+  { ok: true; path: string; token: string } | { ok: false; error: string }
+> {
   const profile = await requireProfile();
   const blocked = blockedActionError(profile);
   if (blocked) return { ok: false, error: blocked };
@@ -47,35 +55,89 @@ export async function uploadLetterAction(
     return { ok: false, error: de.common.rateLimited };
   }
 
+  const supabase = await createClient();
+  const path = `${profile.id}/letters/${randomUUID()}.pdf`;
+  const { data, error } = await supabase.storage
+    .from(BUCKETS.letters)
+    .createSignedUploadUrl(path);
+  if (error || !data) {
+    console.error("letter_upload_url_failed", { error: error?.message });
+    return { ok: false, error: de.common.genericError };
+  }
+  return { ok: true, path, token: data.token };
+}
+
+// Object paths minted by createLetterUploadUrlAction: <userId>/letters/<uuid>.pdf
+const UPLOAD_BASENAME_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.pdf$/;
+
+/**
+ * Step 2: validates and persists a PDF the browser already placed in storage
+ * via the signed URL. Rate-limited separately from URL issuance because this
+ * step carries the CPU cost (normalize + validate) and could otherwise be
+ * replayed against the same object.
+ */
+export async function uploadLetterAction(
+  _prev: unknown,
+  formData: FormData,
+): Promise<UploadLetterResult> {
+  const profile = await requireProfile();
+  const blocked = blockedActionError(profile);
+  if (blocked) return { ok: false, error: blocked };
+
+  const ip = await clientIp();
+  if (!(await checkRateLimit("upload", `finalize:${profile.id}:${ip}`))) {
+    return { ok: false, error: de.common.rateLimited };
+  }
+
   const titleParse = letterTitleSchema.safeParse(formData.get("title"));
-  const file = formData.get("file");
   if (!titleParse.success) {
     return { ok: false, error: "", fieldErrors: { title: titleParse.error.issues[0].message } };
   }
-  if (!(file instanceof File) || file.size === 0) {
-    return { ok: false, error: de.letters.noFile };
+
+  // Ownership boundary: only paths this action's step 1 could have minted for
+  // THIS user are accepted — no traversal, no foreign prefixes.
+  const storagePath = formData.get("path");
+  const prefix = `${profile.id}/letters/`;
+  if (
+    typeof storagePath !== "string" ||
+    !storagePath.startsWith(prefix) ||
+    !UPLOAD_BASENAME_RE.test(storagePath.slice(prefix.length))
+  ) {
+    return { ok: false, error: de.common.genericError };
   }
-  if (file.type !== "application/pdf") {
-    return { ok: false, error: de.letters.notPdf };
+
+  const raw = await downloadObject(BUCKETS.letters, storagePath);
+  if (!raw || raw.byteLength === 0) {
+    return { ok: false, error: de.letters.uploadMissing };
   }
-  if (file.size > MAX_UPLOAD) {
+  if (raw.byteLength > MAX_UPLOAD) {
+    await removeObject(BUCKETS.letters, storagePath);
     return { ok: false, error: de.letters.tooLarge };
   }
 
-  const bytes = new Uint8Array(await file.arrayBuffer());
-  const validation = await validateLetterPdf(bytes);
+  // Fix small A4 deviations (rounded exports, 209×296 generators) before
+  // validation so the zone analysis sees — and storage keeps — the geometry
+  // that is actually dispatched.
+  const { bytes, adjusted } = await normalizePdfToA4(raw);
+  const validation = await validateLetterPdf(bytes, { a4Normalized: adjusted });
 
   // Hard errors: don't persist — the user must fix and re-upload.
   if (!isSubmittable(validation)) {
+    await removeObject(BUCKETS.letters, storagePath);
     return { ok: false, error: de.letters.validationFailed, validation };
   }
 
-  const letterId = randomUUID();
-  const storagePath = `${profile.id}/letters/${letterId}.pdf`;
-  const upload = await uploadObject(BUCKETS.letters, storagePath, bytes, "application/pdf");
-  if (!upload.ok) {
-    return { ok: false, error: de.common.genericError };
+  // The stored object must be the exact bytes that will be dispatched: when
+  // normalization rewrote the PDF, replace the browser-uploaded original.
+  if (adjusted) {
+    await removeObject(BUCKETS.letters, storagePath);
+    const replace = await uploadObject(BUCKETS.letters, storagePath, bytes, "application/pdf");
+    if (!replace.ok) {
+      return { ok: false, error: de.common.genericError };
+    }
   }
+
+  const letterId = randomUUID();
 
   // sheet_count reflects what will physically be sent: the cover page adds a
   // sheet and can push the letter into the next postage tier. Send-time
@@ -470,9 +532,18 @@ export async function setCoverLetterAction(_prev: unknown, formData: FormData): 
   // Keep sheet_count in sync with the cover choice (cover adds one sheet).
   const { data: letter } = await supabase
     .from("letters")
-    .select("page_count")
+    .select("page_count, validation")
     .eq("id", parsed.data.id)
     .single();
+
+  // Server-side invariant, not just UI copy: a letter with content in the
+  // DVF franking strip is only accepted BECAUSE the cover page becomes page 1.
+  // Refuse to switch that cover off (the send worker re-checks the final PDF
+  // as defence in depth against direct DB writes).
+  const storedRules = (letter?.validation as { rules?: { id: string }[] } | null)?.rules ?? [];
+  if (!useCover && storedRules.some((r) => r.id === "dvf_zone")) {
+    return { ok: false, error: de.letters.coverRequiredDvf };
+  }
 
   const { error } = await supabase
     .from("letters")

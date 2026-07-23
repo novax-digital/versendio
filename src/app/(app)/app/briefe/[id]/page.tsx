@@ -71,6 +71,7 @@ export default async function LetterDetailPage({ params }: { params: Promise<{ i
               letterId={letter.id}
               useCover={letter.use_cover_letter}
               recommended={letter.needs_cover_letter}
+              locked={validation?.rules.some((r) => r.id === "dvf_zone") ?? false}
             />
           ) : null}
         </div>

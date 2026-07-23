@@ -59,6 +59,10 @@ export const notificationPrefsSchema = z.object({
   flowActivity: formBoolean,
 });
 
+export const coverFooterSchema = z.object({
+  coverFooter: formBoolean,
+});
+
 export type ProfileInput = z.infer<typeof profileSchema>;
 export type SenderAddressInput = z.infer<typeof senderAddressSchema>;
 export type NotificationPrefsInput = z.infer<typeof notificationPrefsSchema>;

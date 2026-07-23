@@ -396,3 +396,27 @@ Abschlussbericht abarbeiten.
   (Attribution, Usage-Summen, Unique/FK/GDPR)
 - [x] Details → `docs/ASSUMPTIONS.md` A-019; Ideen I-030/I-031
 - [x] DoD: Build ✅ Lint ✅ Typecheck ✅ 173 Tests ✅
+
+## Nach Übergabe — Upload-Robustheit, A4-Autokorrektur & Deckblatt-Hinweis (2026-07-23)
+- [x] **Production-Bug behoben**: PDF-Upload > 1 MB crashte mit Nexts generischer Fehlerseite
+  (Server-Action-Body-Limit 1 MB, App erlaubt 20 MB). Fix: **zweistufiger Upload** — Action prägt
+  signierte Storage-URL (Pfad serverseitig, Owner-Prefix + UUID), Browser lädt direkt zu Supabase
+  (umgeht auch Vercels ~4,5-MB-Funktionslimit), Finalize-Action validiert + persistiert. Action-Limit
+  global nur 6 MB (für Logo-Uploads); Client-Vorprüfung Typ/Größe; deutsche Error-Boundary (`app/error.tsx`)
+- [x] **A4-Autokorrektur**: `normalizePdfToA4` skaliert Seiten mit ≤ 10 mm Abweichung je Dimension
+  exakt auf die API-Box 595.276 × 841.89 (läuft vor der Validierung; gespeichert wird das korrigierte
+  PDF; grüner Hinweis im Prüfbericht). Guards: Seiten-Cap, CropBox ≠ MediaBox, verschlüsselt/unparsebar
+  unangetastet; PDF/A-Konvertierungs-Hinweis nach Anpassung wieder aktiv
+- [x] **Adresszonen entschärft**: leere Empfängerzone = grüner Hinweis „Deckblatt automatisch aktiviert
+  (+1 Seite)" statt Warnung; DVF-Verstoß kein Upload-Reject mehr — Deckblatt wird erzwungen
+  (Server-Guard in `setCoverLetterAction`, Send-Time-Backstop im Queue-Worker gegen direkte DB-Writes,
+  Toggle in der Detailseite gesperrt mit Begründung)
+- [x] **Deckblatt-Fußzeile** „Dieser Brief wurde automatisch mit versendio.de versendet." (7 pt grau,
+  288 mm, zonensicher); neue Spalte `profiles.cover_letter_footer` (Default **an**, Migration
+  20260723090000, notify_*-Muster), Opt-out unter Einstellungen → Profil; wirkt in Versand + Vorschau
+  (Owner-Präferenz, nicht Betrachter)
+- [x] **Ultracode-Review** (18 Agenten: 4 Dimensionen + adversariale Verifikation): 10 bestätigte Funde
+  gefixt — u. a. DoS-Fläche des globalen Body-Limits, nicht durchgesetzte DVF-Invariante, Ressourcen-
+  Guard in normalize, PDF/A-Suppression, Copy-Konsistenz (musterNotes, „+1 Seite"), CropBox-Reveal
+  - ⚠️ **Operator-Schritt:** Migration anwenden (`npx supabase db push` oder SQL-Editor)
+- [x] DoD: Build ✅ Lint ✅ Typecheck ✅ **189 Unit-Tests** ✅

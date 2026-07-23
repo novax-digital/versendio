@@ -133,9 +133,16 @@ export async function processSubmitItem(itemId: string): Promise<ProcessResult> 
     return { outcome: "failed_permanent", reason };
   }
 
+  // dvf_zone is only a warning at UPLOAD time because the auto cover page
+  // resolves it — but here pdfBytes IS the final document (cover already
+  // merged by buildItemPdf). Content in the franking strip of the outgoing
+  // page 1 can no longer be rescued and must hard-stop before the provider
+  // POST, exactly like a severity error. This also catches use_cover_letter
+  // flipped off through direct DB writes that bypassed setCoverLetterAction.
   const validation = await validateLetterPdf(pdfBytes);
-  if (!isSubmittable(validation)) {
-    const firstError = validation.rules.find((r) => r.severity === "error");
+  const finalDvf = validation.rules.find((r) => r.id === "dvf_zone");
+  if (!isSubmittable(validation) || finalDvf) {
+    const firstError = validation.rules.find((r) => r.severity === "error") ?? finalDvf;
     await failItem(item.id, item.user_id, job.is_test, item.vk_cents, "validation_failed",
       firstError?.message ?? "PDF-Validierung fehlgeschlagen");
     return { outcome: "failed_permanent", reason: "validation_failed" };
@@ -347,9 +354,18 @@ export async function buildItemPdf(
   if (!file) throw new Error("letter_pdf_missing");
   const original = new Uint8Array(await file.arrayBuffer());
 
-  return letter.use_cover_letter
-    ? prependCoverLetter(original, senderLine, addressLines)
-    : original;
+  if (!letter.use_cover_letter) return original;
+
+  // Owner preference for the "sent via versendio.de" footer; defaults to on
+  // when the row (or column, pre-migration) is missing.
+  const { data: pref } = await admin
+    .from("profiles")
+    .select("cover_letter_footer")
+    .eq("id", letter.user_id)
+    .maybeSingle();
+  return prependCoverLetter(original, senderLine, addressLines, {
+    footerNotice: pref?.cover_letter_footer ?? true,
+  });
 }
 
 async function recordSubmitted(itemId: string, providerLetterId: string): Promise<void> {

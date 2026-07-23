@@ -19,7 +19,7 @@ export async function GET(_request: Request, ctx: { params: Promise<{ id: string
 
   const { data: letter, error } = await supabase
     .from("letters")
-    .select("id, source, storage_path, editor_document, use_cover_letter")
+    .select("id, user_id, source, storage_path, editor_document, use_cover_letter")
     .eq("id", id)
     .single();
 
@@ -52,14 +52,23 @@ export async function GET(_request: Request, ctx: { params: Promise<{ id: string
     } else if (letter.storage_path) {
       const stored = await downloadObject(BUCKETS.letters, letter.storage_path);
       if (!stored) return NextResponse.json({ error: "not_found" }, { status: 404 });
-      bytes =
-        letter.use_cover_letter && recipient.addressLines.length > 0
-          ? await prependCoverLetter(
-              stored,
-              (await defaultSenderLine(supabase, profile.id)).line,
-              recipient.addressLines,
-            )
-          : stored;
+      if (letter.use_cover_letter && recipient.addressLines.length > 0) {
+        // Preview mirrors send-time: the LETTER OWNER's footer preference
+        // (relevant when an admin previews; falls back to on if unreadable).
+        const { data: pref } = await supabase
+          .from("profiles")
+          .select("cover_letter_footer")
+          .eq("id", letter.user_id)
+          .maybeSingle();
+        bytes = await prependCoverLetter(
+          stored,
+          (await defaultSenderLine(supabase, profile.id)).line,
+          recipient.addressLines,
+          { footerNotice: pref?.cover_letter_footer ?? true },
+        );
+      } else {
+        bytes = stored;
+      }
     }
 
     if (!bytes) return NextResponse.json({ error: "no_content" }, { status: 404 });

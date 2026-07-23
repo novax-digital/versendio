@@ -4,11 +4,7 @@ import { A4, LIMITS } from "@/lib/shared/schablone";
 import { sheetsFromPages } from "@/lib/shared/sheets";
 import type { PdfValidation, ValidationRule, ZoneResult } from "@/lib/shared/validation-result";
 import { analyzeAddressZones } from "./analyze-zones";
-
-// The API rejects A4 boxes that are even fractionally off (595.28 → W208, a
-// 0.004pt delta), so the tolerance covers float noise only — anything looser
-// would pass PDFs the API later rejects. Our renderer emits the exact values.
-const A4_TOLERANCE_PT = 0.003;
+import { A4_EXACT_TOLERANCE_PT } from "./normalize";
 
 /**
  * The single validation path for both uploaded and generated PDFs (ADR-0006).
@@ -24,7 +20,7 @@ const A4_TOLERANCE_PT = 0.003;
  */
 export async function validateLetterPdf(
   bytes: Uint8Array,
-  opts: { source?: "upload" | "editor" } = {},
+  opts: { source?: "upload" | "editor"; a4Normalized?: boolean } = {},
 ): Promise<PdfValidation> {
   const isEditor = opts.source === "editor";
   const rules: ValidationRule[] = [];
@@ -105,13 +101,15 @@ export async function validateLetterPdf(
     });
   }
 
-  // A4 portrait, exact box. Check every page.
+  // A4 portrait, exact box. Check every page. Small deviations were already
+  // rescaled by normalizePdfToA4 before this runs — a remaining mismatch is a
+  // genuine format problem a cover page cannot fix (the API checks every page).
   let a4Ok = true;
   for (const page of doc.getPages()) {
     const { width, height } = page.getSize();
     if (
-      Math.abs(width - A4.widthPt) > A4_TOLERANCE_PT ||
-      Math.abs(height - A4.heightPt) > A4_TOLERANCE_PT
+      Math.abs(width - A4.widthPt) > A4_EXACT_TOLERANCE_PT ||
+      Math.abs(height - A4.heightPt) > A4_EXACT_TOLERANCE_PT
     ) {
       a4Ok = false;
       break;
@@ -122,14 +120,23 @@ export async function validateLetterPdf(
       id: "a4",
       severity: "error",
       message:
-        "Alle Seiten müssen exaktes DIN A4 Hochformat sein (210 × 297 mm). Bitte passen Sie das Format an oder stellen Sie ein Deckblatt voran.",
+        "Alle Seiten müssen DIN A4 Hochformat sein (210 × 297 mm). Die Abweichung ist zu groß für eine automatische Korrektur – bitte exportieren Sie Ihr Dokument im Format DIN A4 und laden Sie es erneut hoch.",
+    });
+  } else if (opts.a4Normalized) {
+    rules.push({
+      id: "a4_adjusted",
+      severity: "ok",
+      message:
+        "Das Seitenformat wich geringfügig von DIN A4 ab und wurde automatisch auf 210 × 297 mm angepasst.",
     });
   }
 
   // PDF/A heuristic via XMP metadata marker. Editor PDFs embed subset fonts and
   // use no transparency, so their send-time conversion is lossless — the caveat
-  // only applies to arbitrary uploads.
-  const isPdfA = detectPdfA(bytes);
+  // only applies to arbitrary uploads. A normalized (rescaled) document no
+  // longer conforms even if its XMP claim survived the re-save, so the
+  // conversion advisory must fire again.
+  const isPdfA = detectPdfA(bytes) && !opts.a4Normalized;
   if (!isPdfA && !isEditor) {
     rules.push({
       id: "pdfa",
@@ -160,16 +167,20 @@ export async function validateLetterPdf(
         id: "zone_unknown",
         severity: "warning",
         message:
-          "Die Anschriftenzone konnte nicht automatisch geprüft werden. Wir empfehlen, ein Deckblatt mit der Adresse voranzustellen.",
+          "Die Anschriftenzone konnte nicht automatisch geprüft werden – sicherheitshalber ist das Deckblatt mit der Empfängeradresse automatisch aktiviert (+1 Seite).",
       });
     } else {
       if (zones.dvfViolation) {
+        // Not a reject: the auto-prepended cover page becomes page 1 and
+        // carries address + franking, so the original page no longer has to
+        // keep the DVF strip clear (same contract the cover toggle promises).
         addressZoneResult = "fail";
+        needsCoverLetter = true;
         rules.push({
           id: "dvf_zone",
-          severity: "error",
+          severity: "warning",
           message:
-            "Im Frankier-Sperrbereich (Schablone V3) befindet sich Inhalt. Dieser Bereich muss frei bleiben – bitte anpassen oder Deckblatt voranstellen.",
+            "Im Frankier-Sperrbereich (Schablone V3) befindet sich Inhalt. Damit die Deutsche Post den Brief annimmt, wird automatisch ein Deckblatt vorangestellt (+1 Seite); es kann für diesen Brief nicht deaktiviert werden.",
         });
       }
       if (zones.marginViolation) {
@@ -186,9 +197,9 @@ export async function validateLetterPdf(
         if (addressZoneResult === "ok") addressZoneResult = "warning";
         rules.push({
           id: "recipient_zone_empty",
-          severity: "warning",
+          severity: "ok",
           message:
-            "In der Empfängerzone wurde keine Anschrift erkannt. Falls Ihr PDF keine sichtbare Adresse enthält, stellen Sie bitte ein Deckblatt voran.",
+            "In der Empfängerzone wurde keine Anschrift erkannt – das Deckblatt mit der Empfängeradresse ist daher automatisch aktiviert (+1 Seite).",
         });
       }
     }
