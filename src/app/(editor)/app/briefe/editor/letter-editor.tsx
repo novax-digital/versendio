@@ -9,20 +9,18 @@ import {
   Eye,
   FileStack,
   FileText,
-  Frame,
   Info,
   LayoutTemplate,
   PenLine,
   Plus,
   Sparkles,
-  Users,
 } from "lucide-react";
 import {
   saveEditorLetterAction,
   saveTemplateAction,
   saveTemplateDocAction,
   uploadAssetAction,
-} from "../actions";
+} from "@/app/(app)/app/briefe/actions";
 import { safeParseLetterDocument } from "@/lib/shared/letter-document";
 import type { LetterBlock, LetterDocument, LetterTheme } from "@/lib/shared/letter-document";
 import type { DraftBlock } from "@/lib/server/ai/draft-provider";
@@ -47,12 +45,19 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { BLOCK_TYPE_META } from "@/components/letters/block-insert-menu";
 import { LetterPreview } from "@/components/letters/letter-preview";
 import { LetterCanvas } from "@/components/letters/letter-canvas";
 import { BlockInspector } from "@/components/letters/block-inspector";
 import { BlockInsertMenuContent } from "@/components/letters/block-insert-menu";
 import { AiDraftDialog } from "@/components/letters/ai-draft-dialog";
-import { PLACEHOLDER_KEYS, PLACEHOLDER_LABELS, unknownPlaceholders } from "@/lib/shared/placeholders";
+import {
+  PLACEHOLDER_KEYS,
+  PLACEHOLDER_LABELS,
+  unknownPlaceholders,
+} from "@/lib/shared/placeholders";
 import { sheetsFromPages } from "@/lib/shared/sheets";
 import { cn } from "@/lib/utils";
 import { de } from "@/lib/i18n/de";
@@ -76,7 +81,14 @@ function newBlock(type: LetterBlock["type"]): LetterBlock {
     case "heading":
       return { type: "heading", id: nextId(), text: "", level: 2, align: "left", color: "default" };
     case "text":
-      return { type: "text", id: nextId(), text: "", align: "left", sizeDeltaPt: 0, color: "default" };
+      return {
+        type: "text",
+        id: nextId(),
+        text: "",
+        align: "left",
+        sizeDeltaPt: 0,
+        color: "default",
+      };
     case "divider":
       return { type: "divider", id: nextId(), widthPct: 100, thicknessPt: 0.75, color: "muted" };
     case "spacer":
@@ -149,6 +161,7 @@ export function LetterEditor({
   const [zoom, setZoom] = useState<"fit" | "full">("fit");
   const [estimatedPages, setEstimatedPages] = useState(1);
   const [forceOpenHeaderFooter, setForceOpenHeaderFooter] = useState(0);
+  const [rightTab, setRightTab] = useState<"baustein" | "dokument">("dokument");
   const [leaveHref, setLeaveHref] = useState<string | null>(null);
   const bypassGuardRef = useRef(false);
   const activeTextRef = useRef<
@@ -218,6 +231,16 @@ export function LetterEditor({
   );
 
   const selectedBlock = doc.blocks.find((b) => b.id === selectedId) ?? null;
+
+  // Selecting a block surfaces its properties; deselecting falls back to the
+  // document tab (fullscreen designer's Baustein/Dokument split). Canonical
+  // adjust-state-during-render pattern — no effect, no cascading re-render.
+  const [prevSelected, setPrevSelected] = useState<string | null>(selectedId);
+  if (prevSelected !== selectedId) {
+    setPrevSelected(selectedId);
+    const target = selectedId ? "baustein" : "dokument";
+    if (rightTab !== target) setRightTab(target);
+  }
 
   // Pristine document → Schnellstart card (gated on !dirty per jury verdict).
   const pristine =
@@ -348,10 +371,12 @@ export function LetterEditor({
   /** Inserts after the selected block (or at the end) and selects the new block. */
   const insertBlock = (block: LetterBlock, at?: number) => {
     updateDoc((prev) => {
-      const idx = at ?? (() => {
-        const selIdx = prev.blocks.findIndex((b) => b.id === selectedId);
-        return selIdx >= 0 ? selIdx + 1 : prev.blocks.length;
-      })();
+      const idx =
+        at ??
+        (() => {
+          const selIdx = prev.blocks.findIndex((b) => b.id === selectedId);
+          return selIdx >= 0 ? selIdx + 1 : prev.blocks.length;
+        })();
       const blocks = [...prev.blocks];
       blocks.splice(Math.min(idx, blocks.length), 0, block);
       return { ...prev, blocks };
@@ -393,7 +418,13 @@ export function LetterEditor({
 
   const reorderBlock = (from: number, to: number) =>
     updateDoc((prev) => {
-      if (from === to || from < 0 || to < 0 || from >= prev.blocks.length || to >= prev.blocks.length)
+      if (
+        from === to ||
+        from < 0 ||
+        to < 0 ||
+        from >= prev.blocks.length ||
+        to >= prev.blocks.length
+      )
         return prev;
       const blocks = [...prev.blocks];
       const [moved] = blocks.splice(from, 1);
@@ -473,7 +504,10 @@ export function LetterEditor({
       });
     } else if (active.kind === "header") {
       updateDocFields({
-        header: { ...doc.header, text: doc.header.text.slice(0, start) + token + doc.header.text.slice(end) },
+        header: {
+          ...doc.header,
+          text: doc.header.text.slice(0, start) + token + doc.header.text.slice(end),
+        },
       });
     } else {
       updateDocFields({
@@ -514,8 +548,10 @@ export function LetterEditor({
         if (isContent && prevIsContent) {
           draftBlocks.push({ type: "spacer", id: nextId(), heightMm: AI_GAP_MM });
         }
-        if (b.kind === "heading") draftBlocks.push({ ...newBlock("heading"), text: b.text } as LetterBlock);
-        else if (b.kind === "paragraph") draftBlocks.push({ ...newBlock("text"), text: b.text } as LetterBlock);
+        if (b.kind === "heading")
+          draftBlocks.push({ ...newBlock("heading"), text: b.text } as LetterBlock);
+        else if (b.kind === "paragraph")
+          draftBlocks.push({ ...newBlock("text"), text: b.text } as LetterBlock);
         else if (b.kind === "divider") draftBlocks.push(newBlock("divider"));
         else draftBlocks.push({ type: "spacer", id: nextId(), heightMm: AI_GAP_MM });
       }
@@ -610,7 +646,8 @@ export function LetterEditor({
       }
       const target = e.target as HTMLElement | null;
       const inText =
-        target && (target.tagName === "TEXTAREA" || target.tagName === "INPUT" || target.isContentEditable);
+        target &&
+        (target.tagName === "TEXTAREA" || target.tagName === "INPUT" || target.isContentEditable);
       if (inText || !selectedId) return;
       if (e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
         e.preventDefault();
@@ -620,7 +657,10 @@ export function LetterEditor({
         duplicateBlock(selectedId);
       } else if (e.key === "Delete" || e.key === "Backspace") {
         const block = doc.blocks.find((b) => b.id === selectedId);
-        if (block && (block.type === "divider" || block.type === "spacer" || block.type === "image")) {
+        if (
+          block &&
+          (block.type === "divider" || block.type === "spacer" || block.type === "image")
+        ) {
           e.preventDefault();
           removeBlock(selectedId);
         }
@@ -631,6 +671,7 @@ export function LetterEditor({
   });
 
   const onEditChrome = (kind: "header" | "footer") => {
+    setRightTab("dokument");
     setForceOpenHeaderFooter((n) => n + 1);
     requestAnimationFrame(() => {
       const el = document.getElementById(kind === "header" ? "header-text" : "footer-text");
@@ -671,11 +712,61 @@ export function LetterEditor({
     onEstimate: setEstimatedPages,
   };
 
+  const placeholderChips = (
+    <div className="flex flex-wrap items-center gap-1.5">
+      {PLACEHOLDER_KEYS.map((key) => (
+        <Button
+          key={key}
+          type="button"
+          variant="secondary"
+          size="xs"
+          className="h-6 rounded-full px-2.5"
+          onClick={() => insertPlaceholder(key)}
+        >
+          <span aria-hidden className="text-primary/60">
+            {"{}"}
+          </span>
+          {PLACEHOLDER_LABELS[key]}
+        </Button>
+      ))}
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <button
+              type="button"
+              aria-label={de.letters.placeholdersHint}
+              className="text-muted-foreground"
+            />
+          }
+        >
+          <Info className="size-3.5" aria-hidden />
+        </TooltipTrigger>
+        <TooltipContent className="max-w-72">
+          {de.letters.placeholdersHint} {de.letters.perRecipientHint}
+        </TooltipContent>
+      </Tooltip>
+      {unknownTokens.length > 0 ? (
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Badge variant="outline" className="border-warning text-warning cursor-default" />
+            }
+          >
+            {de.letters.unknownPlaceholderBadge}
+          </TooltipTrigger>
+          <TooltipContent className="max-w-72">
+            {de.letters.unknownPlaceholderWarning} {unknownTokens.map((t) => `{{${t}}}`).join(", ")}
+          </TooltipContent>
+        </Tooltip>
+      ) : null}
+    </div>
+  );
+
   return (
-    <div className="-mx-4 -mt-4 md:-mx-8 md:-mt-8">
-      {/* Sticky top bar */}
-      <div className="bg-background/95 sticky top-0 z-30 border-b backdrop-blur">
-        <div className="mx-auto flex h-14 max-w-[1400px] items-center gap-2 overflow-x-hidden px-4 md:px-8">
+    <div className="bg-background flex h-svh flex-col overflow-hidden">
+      {/* Top bar */}
+      <div className="bg-background z-30 shrink-0 border-b">
+        <div className="flex h-14 items-center gap-2 overflow-x-hidden px-4">
           <Link
             href={templateMode ? "/app/briefe/vorlagen" : "/app/briefe"}
             className="text-muted-foreground hover:text-foreground shrink-0 text-sm transition-colors"
@@ -698,7 +789,9 @@ export function LetterEditor({
               setTitleInvalid(false);
               setDirty(true);
             }}
-            placeholder={templateMode ? de.letters.templateNamePlaceholder : de.letters.letterNamePlaceholder}
+            placeholder={
+              templateMode ? de.letters.templateNamePlaceholder : de.letters.letterNamePlaceholder
+            }
             className={cn(
               "font-heading hover:bg-muted/60 focus-visible:bg-background h-9 w-full min-w-0 flex-1 border-transparent bg-transparent px-2 text-lg font-medium shadow-none sm:max-w-[22rem]",
               titleInvalid && "border-destructive ring-destructive/30 ring-2",
@@ -785,10 +878,12 @@ export function LetterEditor({
             </Button>
             {templateMode ? null : (
               <Button
-                onClick={() => save((id) => {
-                  bypassGuardRef.current = true;
-                  router.push(`/app/briefe/${id}`);
-                })}
+                onClick={() =>
+                  save((id) => {
+                    bypassGuardRef.current = true;
+                    router.push(`/app/briefe/${id}`);
+                  })
+                }
                 disabled={isSaving || !hasSender}
               >
                 {de.common.next}
@@ -798,33 +893,98 @@ export function LetterEditor({
         </div>
       </div>
 
-      {/* Notice banners */}
-      <div className="mx-auto max-w-[1400px] px-4 md:px-8">
-        {!templateMode && !hasSender ? (
-          <div className="border-destructive/40 bg-destructive/10 text-destructive mt-4 flex flex-wrap items-center justify-between gap-2 rounded-md border p-3 text-sm">
-            <span>{de.letters.noSenderAddress}</span>
-            <Link
-              href="/app/einstellungen/absenderadressen"
-              className="font-medium underline underline-offset-4"
-            >
-              {de.letters.createSenderAddress}
-            </Link>
-          </div>
-        ) : null}
-        {marginUpgraded && dirty ? (
-          <p className="border-warning/40 bg-warning/10 text-foreground mt-4 rounded-md border p-3 text-sm">
-            {de.letters.marginUpgradeNotice}
-          </p>
-        ) : null}
-        <p className="bg-muted text-muted-foreground mt-4 rounded-md p-2 text-xs md:hidden">
-          {de.letters.mobileReadOnlyHint}
-        </p>
+      {/* Three-column workspace */}
+      <div className="flex min-h-0 flex-1">
+        {/* LEFT: outline, recipient, placeholders, view */}
+        <aside className="bg-background hidden w-64 shrink-0 flex-col gap-5 overflow-y-auto border-r p-4 lg:flex">
+          <section>
+            <h2 className="text-muted-foreground mb-2 text-xs font-medium tracking-wide uppercase">
+              {de.letters.editorOutline}
+            </h2>
+            {doc.blocks.length === 0 ? (
+              <p className="text-muted-foreground text-xs">{de.letters.editorOutlineEmpty}</p>
+            ) : (
+              <ul className="space-y-0.5">
+                {doc.blocks.map((b) => {
+                  const meta = BLOCK_TYPE_META[b.type];
+                  const Icon = meta.icon;
+                  const snippet = "text" in b && b.text.trim() ? b.text.trim() : meta.label;
+                  return (
+                    <li key={b.id}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedId(b.id);
+                          document
+                            .querySelector(`[data-block-id="${b.id}"]`)
+                            ?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+                        }}
+                        className={cn(
+                          "hover:bg-muted flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs",
+                          selectedId === b.id && "bg-muted text-foreground font-medium",
+                        )}
+                      >
+                        <Icon className="text-muted-foreground size-3.5 shrink-0" aria-hidden />
+                        <span className="truncate">{snippet}</span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </section>
 
-        <div className="grid gap-6 py-4 xl:grid-cols-[minmax(0,1fr)_320px]">
-          {/* Canvas column */}
-          <div className="min-w-0">
-            {/* Canvas chrome bar */}
-            <div className="mb-2 hidden items-center justify-between gap-2 md:flex">
+          {templateMode ? null : (
+            <section className="rounded-lg border p-3">
+              <h2 className="text-muted-foreground mb-2 text-xs font-medium tracking-wide uppercase">
+                {de.letters.editorRecipient}
+              </h2>
+              <div className="space-y-0.5 text-xs">
+                {recipientLines.map((line) => (
+                  <p key={line}>{line}</p>
+                ))}
+              </div>
+              <p className="text-muted-foreground mt-2 text-xs">{de.letters.editorRecipientHint}</p>
+              <label className="mt-3 flex items-center gap-2 text-xs">
+                <Switch checked={showSampleData} onCheckedChange={setShowSampleData} />
+                {de.letters.sampleDataToggle}
+              </label>
+            </section>
+          )}
+
+          <section>
+            <h2 className="text-muted-foreground mb-2 text-xs font-medium tracking-wide uppercase">
+              {de.letters.placeholdersLabel}
+            </h2>
+            {placeholderChips}
+          </section>
+
+          <section>
+            <h2 className="text-muted-foreground mb-2 text-xs font-medium tracking-wide uppercase">
+              {de.letters.editorView}
+            </h2>
+            <div className="space-y-2">
+              <div className="bg-muted flex items-center gap-0.5 rounded-lg p-0.5">
+                {(["fit", "full"] as const).map((z) => (
+                  <Button
+                    key={z}
+                    variant="ghost"
+                    size="sm"
+                    aria-pressed={zoom === z}
+                    className={cn(
+                      "h-6.5 flex-1 px-2 text-xs",
+                      zoom === z && "bg-background text-foreground hover:bg-background shadow-sm",
+                    )}
+                    onClick={() => setZoom(z)}
+                  >
+                    {z === "fit" ? de.letters.zoomFit : de.letters.zoom100}
+                  </Button>
+                ))}
+              </div>
+              <label className="flex items-center gap-2 text-xs">
+                <Switch checked={showZones} onCheckedChange={setShowZones} />
+                {de.letters.showZones}
+              </label>
               <Tooltip>
                 <TooltipTrigger render={<Badge variant="outline" className="cursor-default" />}>
                   <FileText className="size-3.5" aria-hidden />
@@ -835,246 +995,240 @@ export function LetterEditor({
                   {de.letters.estimateDisclaimer} {de.letters.perRecipientHint}
                 </TooltipContent>
               </Tooltip>
-              <div className="bg-muted flex items-center gap-0.5 rounded-lg p-0.5">
-                <Tooltip>
-                  <TooltipTrigger
-                    render={
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        aria-label={de.letters.showZones}
-                        aria-pressed={showZones}
-                        className={cn(showZones && "bg-background text-primary shadow-sm hover:bg-background")}
-                        onClick={() => setShowZones((v) => !v)}
-                      />
-                    }
-                  >
-                    <Frame className="size-3.5" />
-                  </TooltipTrigger>
-                  <TooltipContent>{de.letters.showZones}</TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger
-                    render={
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        aria-label={de.letters.sampleDataToggle}
-                        aria-pressed={showSampleData}
-                        className={cn(showSampleData && "bg-background text-primary shadow-sm hover:bg-background")}
-                        onClick={() => setShowSampleData((v) => !v)}
-                      />
-                    }
-                  >
-                    <Users className="size-3.5" />
-                  </TooltipTrigger>
-                  <TooltipContent>{de.letters.sampleDataToggle}</TooltipContent>
-                </Tooltip>
-                <span className="bg-border mx-0.5 h-4 w-px" aria-hidden />
-                {(["fit", "full"] as const).map((z) => (
-                  <Button
-                    key={z}
-                    variant="ghost"
-                    size="sm"
-                    aria-pressed={zoom === z}
-                    className={cn(
-                      "h-6.5 px-2 text-xs",
-                      zoom === z && "bg-background text-foreground shadow-sm hover:bg-background",
-                    )}
-                    onClick={() => setZoom(z)}
-                  >
-                    {z === "fit" ? de.letters.zoomFit : de.letters.zoom100}
-                  </Button>
-                ))}
-              </div>
             </div>
+          </section>
+        </aside>
 
-            {/* Placeholder strip (Serienbrief) */}
-            <div className="bg-background/95 sticky top-14 z-20 mb-3 hidden flex-wrap items-center gap-1.5 py-2 backdrop-blur md:flex">
-              <span className="text-muted-foreground mr-1 text-xs font-medium">
-                {de.letters.placeholdersLabel}:
-              </span>
-              {PLACEHOLDER_KEYS.map((key) => (
-                <Button
-                  key={key}
-                  type="button"
-                  variant="secondary"
-                  size="xs"
-                  className="h-6 rounded-full px-2.5"
-                  onClick={() => insertPlaceholder(key)}
+        {/* CENTER: document canvas */}
+        <main className="bg-workspace min-w-0 flex-1 overflow-y-auto">
+          <div className="mx-auto max-w-4xl px-4 py-6 md:px-8">
+            {!templateMode && !hasSender ? (
+              <div className="border-destructive/40 bg-destructive/10 text-destructive mb-4 flex flex-wrap items-center justify-between gap-2 rounded-md border p-3 text-sm">
+                <span>{de.letters.noSenderAddress}</span>
+                <Link
+                  href="/app/einstellungen/absenderadressen"
+                  className="font-medium underline underline-offset-4"
                 >
-                  <span aria-hidden className="text-primary/60">
-                    {"{}"}
-                  </span>
-                  {PLACEHOLDER_LABELS[key]}
-                </Button>
-              ))}
-              <Tooltip>
-                <TooltipTrigger
-                  render={
+                  {de.letters.createSenderAddress}
+                </Link>
+              </div>
+            ) : null}
+            {marginUpgraded && dirty ? (
+              <p className="border-warning/40 bg-warning/10 text-foreground mb-4 rounded-md border p-3 text-sm">
+                {de.letters.marginUpgradeNotice}
+              </p>
+            ) : null}
+            <p className="bg-muted text-muted-foreground mb-4 rounded-md p-2 text-xs md:hidden">
+              {de.letters.mobileReadOnlyHint}
+            </p>
+
+            {/* Placeholder strip for md screens without the left panel */}
+            <div className="mb-3 hidden md:block lg:hidden">{placeholderChips}</div>
+
+            {pristine ? (
+              <div className="bg-background mx-auto mb-6 hidden max-w-md rounded-xl border p-5 shadow-sm md:block">
+                <p className="font-heading mb-4 text-center text-base font-semibold">
+                  {de.letters.starterTitle}
+                </p>
+                <div className="space-y-2">
+                  {aiEnabled ? (
                     <button
                       type="button"
-                      aria-label={de.letters.placeholdersHint}
-                      className="text-muted-foreground ml-1"
-                    />
-                  }
-                >
-                  <Info className="size-3.5" aria-hidden />
-                </TooltipTrigger>
-                <TooltipContent className="max-w-72">
-                  {de.letters.placeholdersHint} {de.letters.perRecipientHint}
-                </TooltipContent>
-              </Tooltip>
-              {unknownTokens.length > 0 ? (
-                <Tooltip>
-                  <TooltipTrigger
-                    render={<Badge variant="outline" className="border-warning text-warning ml-auto cursor-default" />}
-                  >
-                    {de.letters.unknownPlaceholderBadge}
-                  </TooltipTrigger>
-                  <TooltipContent className="max-w-72">
-                    {de.letters.unknownPlaceholderWarning}{" "}
-                    {unknownTokens.map((t) => `{{${t}}}`).join(", ")}
-                  </TooltipContent>
-                </Tooltip>
-              ) : null}
-            </div>
-
-            {/* Workspace well */}
-            <div className="bg-workspace overflow-hidden rounded-xl p-4 md:p-10">
-              {pristine ? (
-                <div className="bg-background mx-auto mb-6 hidden max-w-xl rounded-lg border p-4 md:block">
-                  <p className="font-heading mb-3 text-sm font-medium">{de.letters.starterTitle}</p>
-                  <div className="flex flex-wrap gap-2">
-                    {aiEnabled ? (
-                      <Button variant="outline" size="sm" onClick={() => setAiOpen(true)}>
-                        <Sparkles className="size-3.5" aria-hidden />
-                        {de.letters.startAi}
-                      </Button>
-                    ) : null}
-                    {templates.length > 0 ? (
-                      <Button variant="outline" size="sm" onClick={() => requestTemplate(templates[0])}>
-                        <LayoutTemplate className="size-3.5" aria-hidden />
-                        {de.letters.useTemplate}
-                      </Button>
-                    ) : null}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        const first = doc.blocks.find((b) => b.type === "subject") ?? doc.blocks[0];
-                        if (first) {
-                          setSelectedId(first.id);
-                          (
-                            document.querySelector(
-                              `[data-block-id="${first.id}"] textarea`,
-                            ) as HTMLTextAreaElement | null
-                          )?.focus();
-                        }
-                      }}
+                      onClick={() => setAiOpen(true)}
+                      className="hover:border-primary hover:bg-muted/50 flex w-full items-start gap-3 rounded-lg border p-3 text-left transition-colors"
                     >
-                      <PenLine className="size-3.5" aria-hidden />
-                      {de.letters.startBlank}
-                    </Button>
-                  </div>
-                </div>
-              ) : null}
-
-              <div className="hidden md:block">
-                <LetterCanvas
-                  {...canvasProps}
-                  readOnly={false}
-                  zoom={zoom}
-                  onFocusText={(blockId, el) =>
-                    (activeTextRef.current = { kind: "block", blockId, el })
-                  }
-                  onEditChrome={onEditChrome}
-                  onReorderBlock={reorderBlock}
-                  onInsertBlockAt={insertBlockAt}
-                  onInsertImageAt={requestImageAt}
-                />
-              </div>
-              <input
-                ref={gapImageRef}
-                type="file"
-                accept="image/png,image/jpeg"
-                className="hidden"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file && pendingImageAt !== null) addImageBlock(file, pendingImageAt);
-                  setPendingImageAt(null);
-                  e.target.value = "";
-                }}
-              />
-              <div className="md:hidden">
-                <LetterCanvas
-                  {...canvasProps}
-                  readOnly
-                  showZones={false}
-                  zoom="fit"
-                  onFocusText={() => undefined}
-                />
-              </div>
-
-              <div className="mt-4 hidden items-center justify-center gap-2 md:flex">
-                <DropdownMenu>
-                  <DropdownMenuTrigger
-                    render={<Button variant="outline" size="sm" className="bg-background" />}
+                      <Sparkles className="text-primary mt-0.5 size-4 shrink-0" aria-hidden />
+                      <span>
+                        <span className="block text-sm font-medium">{de.letters.startAi}</span>
+                        <span className="text-muted-foreground block text-xs">
+                          {de.letters.starterAiHint}
+                        </span>
+                      </span>
+                    </button>
+                  ) : null}
+                  {templates.length > 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => requestTemplate(templates[0])}
+                      className="hover:border-primary hover:bg-muted/50 flex w-full items-start gap-3 rounded-lg border p-3 text-left transition-colors"
+                    >
+                      <LayoutTemplate
+                        className="text-muted-foreground mt-0.5 size-4 shrink-0"
+                        aria-hidden
+                      />
+                      <span>
+                        <span className="block text-sm font-medium">{de.letters.useTemplate}</span>
+                        <span className="text-muted-foreground block text-xs">
+                          {de.letters.starterTemplateHint(templates.length)}
+                        </span>
+                      </span>
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const first = doc.blocks.find((b) => b.type === "subject") ?? doc.blocks[0];
+                      if (first) {
+                        setSelectedId(first.id);
+                        (
+                          document.querySelector(
+                            `[data-block-id="${first.id}"] textarea`,
+                          ) as HTMLTextAreaElement | null
+                        )?.focus();
+                      }
+                    }}
+                    className="hover:border-primary hover:bg-muted/50 flex w-full items-start gap-3 rounded-lg border p-3 text-left transition-colors"
                   >
-                    <Plus className="size-3.5" aria-hidden />
-                    {de.letters.addBlock}
-                  </DropdownMenuTrigger>
-                  <BlockInsertMenuContent
-                    align="center"
-                    onInsert={appendBlock}
-                    onInsertImage={() => wellImageRef.current?.click()}
-                  />
-                </DropdownMenu>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="bg-background"
-                  onClick={addPage}
-                >
-                  <FileStack className="size-3.5" aria-hidden />
-                  {de.letters.addPage}
-                </Button>
+                    <PenLine className="text-muted-foreground mt-0.5 size-4 shrink-0" aria-hidden />
+                    <span>
+                      <span className="block text-sm font-medium">{de.letters.startBlank}</span>
+                      <span className="text-muted-foreground block text-xs">
+                        {de.letters.starterBlankHint}
+                      </span>
+                    </span>
+                  </button>
+                </div>
               </div>
-              <input
-                ref={wellImageRef}
-                type="file"
-                accept="image/png,image/jpeg"
-                className="hidden"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) addImageBlock(file, doc.blocks.length);
-                  e.target.value = "";
-                }}
+            ) : null}
+
+            <div className="hidden md:block">
+              <LetterCanvas
+                {...canvasProps}
+                readOnly={false}
+                zoom={zoom}
+                onFocusText={(blockId, el) =>
+                  (activeTextRef.current = { kind: "block", blockId, el })
+                }
+                onEditChrome={onEditChrome}
+                onReorderBlock={reorderBlock}
+                onInsertBlockAt={insertBlockAt}
+                onInsertImageAt={requestImageAt}
               />
             </div>
-          </div>
+            <input
+              ref={gapImageRef}
+              type="file"
+              accept="image/png,image/jpeg"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file && pendingImageAt !== null) addImageBlock(file, pendingImageAt);
+                setPendingImageAt(null);
+                e.target.value = "";
+              }}
+            />
+            <div className="md:hidden">
+              <LetterCanvas
+                {...canvasProps}
+                readOnly
+                showZones={false}
+                zoom="fit"
+                onFocusText={() => undefined}
+              />
+            </div>
 
-          {/* Inspector column */}
-          <div className="min-w-0 xl:sticky xl:top-[4.5rem] xl:max-h-[calc(100vh-5.5rem)] xl:self-start xl:overflow-y-auto xl:pr-1">
-            <BlockInspector
-              doc={doc}
-              selected={selectedBlock}
-              senderAddresses={senderAddresses}
-              letterheads={letterheads.map((l) => ({ id: l.id, name: l.name }))}
-              onChangeBlock={updateBlock}
-              onChangeTheme={updateTheme}
-              onChangeDoc={updateDocFields}
-              onApplyLetterhead={applyLetterhead}
-              onSaveLetterhead={saveLetterhead}
-              onFocusChromeText={(kind, el) => (activeTextRef.current = { kind, el })}
-              onAddBlock={addBlock}
-              onAddImage={(file) => addImageBlock(file)}
-              onDuplicateBlock={duplicateBlock}
-              onRemoveBlock={removeBlock}
-              forceOpenHeaderFooter={forceOpenHeaderFooter}
+            <div className="mt-4 hidden items-center justify-center gap-2 md:flex">
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  render={<Button variant="outline" size="sm" className="bg-background" />}
+                >
+                  <Plus className="size-3.5" aria-hidden />
+                  {de.letters.addBlock}
+                </DropdownMenuTrigger>
+                <BlockInsertMenuContent
+                  align="center"
+                  onInsert={appendBlock}
+                  onInsertImage={() => wellImageRef.current?.click()}
+                />
+              </DropdownMenu>
+              <Button
+                variant="outline"
+                size="sm"
+                className="bg-background"
+                onClick={() => appendBlock("pagebreak")}
+              >
+                {de.letters.blockPageBreak}
+              </Button>
+              <Button variant="outline" size="sm" className="bg-background" onClick={addPage}>
+                <FileStack className="size-3.5" aria-hidden />
+                {de.letters.addPage}
+              </Button>
+            </div>
+            <input
+              ref={wellImageRef}
+              type="file"
+              accept="image/png,image/jpeg"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) addImageBlock(file, doc.blocks.length);
+                e.target.value = "";
+              }}
             />
           </div>
-        </div>
+        </main>
+
+        {/* RIGHT: Baustein/Dokument tabs */}
+        <aside className="bg-background hidden w-80 shrink-0 flex-col border-l md:flex">
+          <Tabs
+            value={rightTab}
+            onValueChange={(v) => setRightTab(v as "baustein" | "dokument")}
+            className="flex min-h-0 flex-1 flex-col gap-0"
+          >
+            <div className="shrink-0 border-b p-2">
+              <TabsList className="w-full">
+                <TabsTrigger value="baustein" className="flex-1">
+                  {de.letters.editorTabBlock}
+                </TabsTrigger>
+                <TabsTrigger value="dokument" className="flex-1">
+                  {de.letters.editorTabDocument}
+                </TabsTrigger>
+              </TabsList>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto p-3">
+              <TabsContent value="baustein">
+                <BlockInspector
+                  show="block"
+                  doc={doc}
+                  selected={selectedBlock}
+                  senderAddresses={senderAddresses}
+                  letterheads={letterheads.map((l) => ({ id: l.id, name: l.name }))}
+                  onChangeBlock={updateBlock}
+                  onChangeTheme={updateTheme}
+                  onChangeDoc={updateDocFields}
+                  onApplyLetterhead={applyLetterhead}
+                  onSaveLetterhead={saveLetterhead}
+                  onFocusChromeText={(kind, el) => (activeTextRef.current = { kind, el })}
+                  onAddBlock={addBlock}
+                  onAddImage={(file) => addImageBlock(file)}
+                  onDuplicateBlock={duplicateBlock}
+                  onRemoveBlock={removeBlock}
+                  forceOpenHeaderFooter={forceOpenHeaderFooter}
+                />
+              </TabsContent>
+              <TabsContent value="dokument">
+                <BlockInspector
+                  show="document"
+                  doc={doc}
+                  selected={selectedBlock}
+                  senderAddresses={senderAddresses}
+                  letterheads={letterheads.map((l) => ({ id: l.id, name: l.name }))}
+                  onChangeBlock={updateBlock}
+                  onChangeTheme={updateTheme}
+                  onChangeDoc={updateDocFields}
+                  onApplyLetterhead={applyLetterhead}
+                  onSaveLetterhead={saveLetterhead}
+                  onFocusChromeText={(kind, el) => (activeTextRef.current = { kind, el })}
+                  onAddBlock={addBlock}
+                  onAddImage={(file) => addImageBlock(file)}
+                  onDuplicateBlock={duplicateBlock}
+                  onRemoveBlock={removeBlock}
+                  forceOpenHeaderFooter={forceOpenHeaderFooter}
+                />
+              </TabsContent>
+            </div>
+          </Tabs>
+        </aside>
       </div>
 
       {/* AI draft dialog (controlled — opened from top bar or starter card) */}
@@ -1136,10 +1290,7 @@ export function LetterEditor({
             <Button variant="ghost" onClick={() => setLeaveHref(null)}>
               {de.common.cancel}
             </Button>
-            <Button
-              variant="outline"
-              onClick={() => leaveHref && leave(leaveHref, false)}
-            >
+            <Button variant="outline" onClick={() => leaveHref && leave(leaveHref, false)}>
               {de.letters.leaveWithoutSaving}
             </Button>
             <Button

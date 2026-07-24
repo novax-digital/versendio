@@ -38,3 +38,4 @@ test-results/
 *.log
 npm-debug.log*
 supabase/.temp/
+NEW_DESIGNER/

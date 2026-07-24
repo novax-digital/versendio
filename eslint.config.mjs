@@ -14,6 +14,8 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Legacy reference codebase — never linted, never built.
     "old_app/**",
+    // Claude-Design exports (visual reference only) — never linted, never built.
+    "NEW_DESIGNER/**",
   ]),
 ]);
 

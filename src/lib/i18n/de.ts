@@ -482,6 +482,18 @@ export const de = {
     editHeaderZone: "Kopfbereich bearbeiten",
     editFooterZone: "Fußbereich bearbeiten",
     starterTitle: "Wie möchten Sie beginnen?",
+    starterAiHint: "Anlass beschreiben – Betreff und Text werden vorgeschlagen.",
+    starterTemplateHint: (n: number) =>
+      n === 1 ? "1 Vorlage verfügbar." : `${n} Vorlagen – z. B. Angebot, Mahnung, Rundschreiben.`,
+    starterBlankHint: "Bausteine selbst hinzufügen.",
+    editorOutline: "Gliederung",
+    editorOutlineEmpty: "Noch keine Bausteine. Beginnen Sie im Dokument.",
+    editorRecipient: "Empfänger",
+    editorRecipientHint:
+      "Musterdaten – die echten Empfänger wählen Sie beim Versand (Kontakt oder Liste).",
+    editorView: "Ansicht",
+    editorTabBlock: "Baustein",
+    editorTabDocument: "Dokument",
     startAi: "Mit KI entwerfen",
     startBlank: "Leer beginnen",
     undo: "Rückgängig",

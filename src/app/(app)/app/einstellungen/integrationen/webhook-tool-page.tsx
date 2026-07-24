@@ -1,10 +1,10 @@
 import Link from "next/link";
-import Image from "next/image";
 import { ArrowLeft } from "lucide-react";
 import { serverEnv } from "@/lib/server/env";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ButtonLink } from "@/components/ui-ext/button-link";
+import { IntegrationLogo } from "./integration-logo";
 import { de } from "@/lib/i18n/de";
 
 const t = de.integrations;
@@ -39,13 +39,7 @@ export function WebhookToolPage({ tool }: { tool: WebhookToolKey }) {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-3 text-base">
-            <Image
-              src={LOGOS[tool]}
-              alt={content.title}
-              width={96}
-              height={28}
-              className="h-6 w-auto"
-            />
+            <IntegrationLogo src={LOGOS[tool]} alt={content.title} />
             <Badge variant="outline">{t.viaRestBadge}</Badge>
           </CardTitle>
         </CardHeader>

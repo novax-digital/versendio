@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import Image from "next/image";
 import { ArrowLeft, Link2 } from "lucide-react";
 import { requireProfile } from "@/lib/server/auth-context";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -12,6 +11,7 @@ import {
   type CanvaDesign,
 } from "@/lib/server/canva/client";
 import { Badge } from "@/components/ui/badge";
+import { IntegrationLogo } from "../integration-logo";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { de } from "@/lib/i18n/de";
 import { CanvaDesignGrid, CanvaDisconnectButton, CanvaStatusToast } from "./canva-designs";
@@ -91,13 +91,7 @@ export default async function CanvaIntegrationPage({
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-3 text-base">
-            <Image
-              src="/integrationen/logo_canva.svg"
-              alt={t.canvaTitle}
-              width={88}
-              height={28}
-              className="h-6 w-auto"
-            />
+            <IntegrationLogo src="/integrationen/logo_canva.svg" alt={t.canvaTitle} />
             {account ? (
               account.status === "active" && !needsReconnect ? (
                 <Badge variant="secondary">{t.canvaConnected}</Badge>

@@ -3,15 +3,7 @@
 import Link from "next/link";
 import { useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
-import {
-  AlignCenter,
-  AlignLeft,
-  AlignRight,
-  Copy,
-  ImagePlus,
-  Info,
-  Trash2,
-} from "lucide-react";
+import { AlignCenter, AlignLeft, AlignRight, Copy, ImagePlus, Info, Trash2 } from "lucide-react";
 import { uploadAssetAction } from "@/app/(app)/app/briefe/actions";
 import type { LetterBlock, LetterDocument, LetterTheme } from "@/lib/shared/letter-document";
 import { ACCENT_SWATCHES } from "@/lib/shared/letter-document";
@@ -81,7 +73,11 @@ function SegmentedGroup<T extends string | number>({
   ariaLabel?: string;
 }) {
   return (
-    <div className="bg-muted inline-flex gap-0.5 rounded-lg p-0.5" role="group" aria-label={ariaLabel}>
+    <div
+      className="bg-muted inline-flex gap-0.5 rounded-lg p-0.5"
+      role="group"
+      aria-label={ariaLabel}
+    >
       {options.map((o) => (
         <Button
           key={String(o.value)}
@@ -92,7 +88,7 @@ function SegmentedGroup<T extends string | number>({
           aria-pressed={value === o.value}
           className={cn(
             "h-6.5 px-2",
-            value === o.value && "bg-background text-foreground shadow-sm hover:bg-background",
+            value === o.value && "bg-background text-foreground hover:bg-background shadow-sm",
           )}
           onClick={() => onChange(o.value)}
         >
@@ -124,6 +120,7 @@ export function BlockInspector({
   onDuplicateBlock,
   onRemoveBlock,
   forceOpenHeaderFooter,
+  show = "both",
 }: {
   doc: LetterDocument;
   selected: LetterBlock | null;
@@ -141,6 +138,9 @@ export function BlockInspector({
   onRemoveBlock: (id: string) => void;
   /** Bumped counter: force-opens the "Kopf & Fuß" section (sheet chrome-zone click). */
   forceOpenHeaderFooter?: number;
+  /** Panel split for the tabbed fullscreen editor: block card only,
+   *  document sections only, or the classic single column. */
+  show?: "block" | "document" | "both";
 }) {
   const paletteFileRef = useRef<HTMLInputElement>(null);
   const selectedMeta = selected ? BLOCK_TYPE_META[selected.type] : null;
@@ -148,269 +148,275 @@ export function BlockInspector({
   return (
     <div className="space-y-3">
       {/* Contextual block card */}
-      <Card className="gap-3 py-4">
-        <CardHeader className="px-4">
-          {selected && selectedMeta ? (
-            <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2 text-sm">
-                <selectedMeta.icon className="text-muted-foreground size-4" aria-hidden />
-                {selectedMeta.label}
-              </CardTitle>
-              <div className="flex gap-0.5">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label={de.letters.duplicateBlock}
-                  title={de.letters.duplicateBlock}
-                  onClick={() => onDuplicateBlock(selected.id)}
-                >
-                  <Copy className="size-3.5" />
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  className="text-destructive"
-                  aria-label={de.letters.removeBlock}
-                  title={de.letters.removeBlock}
-                  onClick={() => onRemoveBlock(selected.id)}
-                >
-                  <Trash2 className="size-3.5" />
-                </Button>
+      {show !== "document" ? (
+        <Card className="gap-3 py-4">
+          <CardHeader className="px-4">
+            {selected && selectedMeta ? (
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2 text-sm">
+                  <selectedMeta.icon className="text-muted-foreground size-4" aria-hidden />
+                  {selectedMeta.label}
+                </CardTitle>
+                <div className="flex gap-0.5">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={de.letters.duplicateBlock}
+                    title={de.letters.duplicateBlock}
+                    onClick={() => onDuplicateBlock(selected.id)}
+                  >
+                    <Copy className="size-3.5" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    className="text-destructive"
+                    aria-label={de.letters.removeBlock}
+                    title={de.letters.removeBlock}
+                    onClick={() => onRemoveBlock(selected.id)}
+                  >
+                    <Trash2 className="size-3.5" />
+                  </Button>
+                </div>
               </div>
-            </div>
-          ) : (
-            <CardTitle className="text-sm">{de.letters.addBlock}</CardTitle>
-          )}
-        </CardHeader>
-        <CardContent className="px-4">
-          {selected ? (
-            <BlockControls
-              block={selected}
-              theme={doc.theme}
-              onChange={(patch) => onChangeBlock(selected.id, patch)}
-            />
-          ) : (
-            <>
-              <input
-                ref={paletteFileRef}
-                type="file"
-                accept="image/png,image/jpeg"
-                className="hidden"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) onAddImage(file);
-                  e.target.value = "";
-                }}
+            ) : (
+              <CardTitle className="text-sm">{de.letters.addBlock}</CardTitle>
+            )}
+          </CardHeader>
+          <CardContent className="px-4">
+            {selected ? (
+              <BlockControls
+                block={selected}
+                theme={doc.theme}
+                onChange={(patch) => onChangeBlock(selected.id, patch)}
               />
-              <div className="grid grid-cols-2 gap-1.5">
-                {(Object.keys(BLOCK_TYPE_META) as LetterBlock["type"][]).map((type) => {
-                  const meta = BLOCK_TYPE_META[type];
-                  const Icon = meta.icon;
-                  return (
-                    <Button
-                      key={type}
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="justify-start"
-                      onClick={() =>
-                        type === "image" ? paletteFileRef.current?.click() : onAddBlock(type)
-                      }
-                    >
-                      <Icon className="size-3.5" aria-hidden />
-                      {meta.label}
-                    </Button>
-                  );
-                })}
-              </div>
-            </>
-          )}
-        </CardContent>
-      </Card>
+            ) : (
+              <>
+                <input
+                  ref={paletteFileRef}
+                  type="file"
+                  accept="image/png,image/jpeg"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) onAddImage(file);
+                    e.target.value = "";
+                  }}
+                />
+                <div className="grid grid-cols-2 gap-1.5">
+                  {(Object.keys(BLOCK_TYPE_META) as LetterBlock["type"][]).map((type) => {
+                    const meta = BLOCK_TYPE_META[type];
+                    const Icon = meta.icon;
+                    return (
+                      <Button
+                        key={type}
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="justify-start"
+                        onClick={() =>
+                          type === "image" ? paletteFileRef.current?.click() : onAddBlock(type)
+                        }
+                      >
+                        <Icon className="size-3.5" aria-hidden />
+                        {meta.label}
+                      </Button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      ) : null}
 
       {/* Document sections, ordered by editing frequency */}
-      <InspectorSection id="versand" title={de.letters.sectionShipping} defaultOpen>
-        <div className="space-y-1.5">
-          <Label>{de.letters.senderAddressSelect}</Label>
-          {senderAddresses.length === 0 ? (
-            <Link
-              href="/app/einstellungen/absenderadressen"
-              className="text-primary block text-sm underline-offset-4 hover:underline"
-            >
-              {de.letters.createSenderAddress}
-            </Link>
-          ) : (
-            <Select
-              value={doc.senderAddressId ?? undefined}
-              onValueChange={(v) => onChangeDoc({ senderAddressId: v })}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder={de.letters.senderAddressSelect}>
-                  {senderAddresses.find((a) => a.id === doc.senderAddressId)?.label}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {senderAddresses.map((a) => (
-                  <SelectItem key={a.id} value={a.id}>
-                    {a.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          <Switch
-            id="show-date"
-            checked={doc.showDate}
-            onCheckedChange={(checked) => onChangeDoc({ showDate: checked })}
-          />
-          <Label htmlFor="show-date" className="font-normal">
-            {de.letters.themeShowDate}
-          </Label>
-          <InfoTip text={de.letters.themeShowDateHint} />
-        </div>
-        {doc.showDate ? (
-          <>
+      {show !== "block" ? (
+        <>
+          <InspectorSection id="versand" title={de.letters.sectionShipping} defaultOpen>
             <div className="space-y-1.5">
-              <Label>{de.letters.dateStyleLabel}</Label>
-              <SegmentedGroup
-                value={doc.dateStyle}
-                options={[
-                  { value: "short" as const, label: de.letters.dateStyleShort },
-                  { value: "long" as const, label: de.letters.dateStyleLong },
-                ]}
-                onChange={(dateStyle) => onChangeDoc({ dateStyle })}
-                ariaLabel={de.letters.dateStyleLabel}
-              />
+              <Label>{de.letters.senderAddressSelect}</Label>
+              {senderAddresses.length === 0 ? (
+                <Link
+                  href="/app/einstellungen/absenderadressen"
+                  className="text-primary block text-sm underline-offset-4 hover:underline"
+                >
+                  {de.letters.createSenderAddress}
+                </Link>
+              ) : (
+                <Select
+                  value={doc.senderAddressId ?? undefined}
+                  onValueChange={(v) => onChangeDoc({ senderAddressId: v })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={de.letters.senderAddressSelect}>
+                      {senderAddresses.find((a) => a.id === doc.senderAddressId)?.label}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {senderAddresses.map((a) => (
+                      <SelectItem key={a.id} value={a.id}>
+                        {a.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
             <div className="flex items-center gap-2">
               <Switch
-                id="date-place"
-                checked={doc.dateWithPlace}
-                onCheckedChange={(checked) => onChangeDoc({ dateWithPlace: checked })}
+                id="show-date"
+                checked={doc.showDate}
+                onCheckedChange={(checked) => onChangeDoc({ showDate: checked })}
               />
-              <Label htmlFor="date-place" className="font-normal">
-                {de.letters.dateWithPlace}
+              <Label htmlFor="show-date" className="font-normal">
+                {de.letters.themeShowDate}
               </Label>
-              <InfoTip text={de.letters.dateWithPlaceHint} />
+              <InfoTip text={de.letters.themeShowDateHint} />
             </div>
-          </>
-        ) : null}
-      </InspectorSection>
+            {doc.showDate ? (
+              <>
+                <div className="space-y-1.5">
+                  <Label>{de.letters.dateStyleLabel}</Label>
+                  <SegmentedGroup
+                    value={doc.dateStyle}
+                    options={[
+                      { value: "short" as const, label: de.letters.dateStyleShort },
+                      { value: "long" as const, label: de.letters.dateStyleLong },
+                    ]}
+                    onChange={(dateStyle) => onChangeDoc({ dateStyle })}
+                    ariaLabel={de.letters.dateStyleLabel}
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Switch
+                    id="date-place"
+                    checked={doc.dateWithPlace}
+                    onCheckedChange={(checked) => onChangeDoc({ dateWithPlace: checked })}
+                  />
+                  <Label htmlFor="date-place" className="font-normal">
+                    {de.letters.dateWithPlace}
+                  </Label>
+                  <InfoTip text={de.letters.dateWithPlaceHint} />
+                </div>
+              </>
+            ) : null}
+          </InspectorSection>
 
-      <InspectorSection id="briefpapier" title={de.letters.letterheadSection} defaultOpen>
-        <p className="text-muted-foreground text-xs">{de.letters.letterheadHint}</p>
-        {letterheads.length > 0 ? (
-          <LetterheadApply letterheads={letterheads} onApply={onApplyLetterhead} />
-        ) : (
-          <p className="text-muted-foreground text-xs">{de.letters.noLetterheads}</p>
-        )}
-        <LetterheadSave onSave={onSaveLetterhead} />
-      </InspectorSection>
+          <InspectorSection id="briefpapier" title={de.letters.letterheadSection} defaultOpen>
+            <p className="text-muted-foreground text-xs">{de.letters.letterheadHint}</p>
+            {letterheads.length > 0 ? (
+              <LetterheadApply letterheads={letterheads} onApply={onApplyLetterhead} />
+            ) : (
+              <p className="text-muted-foreground text-xs">{de.letters.noLetterheads}</p>
+            )}
+            <LetterheadSave onSave={onSaveLetterhead} />
+          </InspectorSection>
 
-      <InspectorSection id="gestaltung" title={de.letters.sectionDesign}>
-        <div className="space-y-1.5">
-          <Label>{de.letters.themeFont}</Label>
-          <Select
-            value={doc.theme.fontFamily}
-            onValueChange={(v) => onChangeTheme({ fontFamily: v as LetterTheme["fontFamily"] })}
-          >
-            <SelectTrigger>
-              <SelectValue>
-                <span style={{ fontFamily: LETTER_FONTS[doc.theme.fontFamily].cssStack }}>
-                  {LETTER_FONTS[doc.theme.fontFamily].label}
-                </span>
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {LETTER_FONT_IDS.map((id) => (
-                <SelectItem key={id} value={id}>
-                  <span style={{ fontFamily: LETTER_FONTS[id].cssStack }}>
-                    {LETTER_FONTS[id].label}
-                  </span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+          <InspectorSection id="gestaltung" title={de.letters.sectionDesign}>
+            <div className="space-y-1.5">
+              <Label>{de.letters.themeFont}</Label>
+              <Select
+                value={doc.theme.fontFamily}
+                onValueChange={(v) => onChangeTheme({ fontFamily: v as LetterTheme["fontFamily"] })}
+              >
+                <SelectTrigger>
+                  <SelectValue>
+                    <span style={{ fontFamily: LETTER_FONTS[doc.theme.fontFamily].cssStack }}>
+                      {LETTER_FONTS[doc.theme.fontFamily].label}
+                    </span>
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {LETTER_FONT_IDS.map((id) => (
+                    <SelectItem key={id} value={id}>
+                      <span style={{ fontFamily: LETTER_FONTS[id].cssStack }}>
+                        {LETTER_FONTS[id].label}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-        <div className="space-y-1.5">
-          <Label>{de.letters.themeBaseSize}</Label>
-          <SegmentedGroup
-            value={doc.theme.baseSizePt}
-            options={[10, 11, 12].map((size) => ({ value: size, label: `${size} pt` }))}
-            onChange={(size) => onChangeTheme({ baseSizePt: size })}
-            ariaLabel={de.letters.themeBaseSize}
-          />
-        </div>
-
-        <div className="space-y-1.5">
-          <div className="flex items-center gap-1.5">
-            <Label>{de.letters.themeAccent}</Label>
-            <InfoTip text={de.letters.colorPrintHint} />
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            {ACCENT_SWATCHES.map((hex) => (
-              <button
-                key={hex}
-                type="button"
-                aria-label={hex}
-                className={cn(
-                  "size-6 rounded-full border transition-transform",
-                  doc.theme.accentColor === hex
-                    ? "ring-ring scale-110 ring-2 ring-offset-1"
-                    : "hover:scale-105",
-                )}
-                style={{ backgroundColor: hex }}
-                onClick={() => onChangeTheme({ accentColor: hex })}
+            <div className="space-y-1.5">
+              <Label>{de.letters.themeBaseSize}</Label>
+              <SegmentedGroup
+                value={doc.theme.baseSizePt}
+                options={[10, 11, 12].map((size) => ({ value: size, label: `${size} pt` }))}
+                onChange={(size) => onChangeTheme({ baseSizePt: size })}
+                ariaLabel={de.letters.themeBaseSize}
               />
-            ))}
-          </div>
-        </div>
-      </InspectorSection>
+            </div>
 
-      <InspectorSection
-        id="kopf-fuss"
-        title={de.letters.sectionHeaderFooter}
-        forceOpen={forceOpenHeaderFooter}
-      >
-        <LogoCluster doc={doc} onChangeDoc={onChangeDoc} />
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-1.5">
+                <Label>{de.letters.themeAccent}</Label>
+                <InfoTip text={de.letters.colorPrintHint} />
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {ACCENT_SWATCHES.map((hex) => (
+                  <button
+                    key={hex}
+                    type="button"
+                    aria-label={hex}
+                    className={cn(
+                      "size-6 rounded-full border transition-transform",
+                      doc.theme.accentColor === hex
+                        ? "ring-ring scale-110 ring-2 ring-offset-1"
+                        : "hover:scale-105",
+                    )}
+                    style={{ backgroundColor: hex }}
+                    onClick={() => onChangeTheme({ accentColor: hex })}
+                  />
+                ))}
+              </div>
+            </div>
+          </InspectorSection>
 
-        <div className="space-y-1.5">
-          <div className="flex items-center gap-1.5">
-            <Label htmlFor="header-text">{de.letters.headerTextLabel}</Label>
-            <InfoTip text={de.letters.headerTextHint} />
-          </div>
-          <Textarea
-            id="header-text"
-            value={doc.header.text}
-            rows={3}
-            maxLength={400}
-            placeholder={de.letters.headerTextPlaceholder}
-            onChange={(e) => onChangeDoc({ header: { ...doc.header, text: e.target.value } })}
-            onFocus={(e) => onFocusChromeText("header", e.currentTarget)}
-          />
-        </div>
+          <InspectorSection
+            id="kopf-fuss"
+            title={de.letters.sectionHeaderFooter}
+            forceOpen={forceOpenHeaderFooter}
+          >
+            <LogoCluster doc={doc} onChangeDoc={onChangeDoc} />
 
-        <div className="space-y-1.5">
-          <div className="flex items-center gap-1.5">
-            <Label htmlFor="footer-text">{de.letters.footerTextLabel}</Label>
-            <InfoTip text={de.letters.footerTextHint} />
-          </div>
-          <Textarea
-            id="footer-text"
-            value={doc.footer.text}
-            rows={3}
-            maxLength={600}
-            placeholder={de.letters.footerTextPlaceholder}
-            onChange={(e) => onChangeDoc({ footer: { text: e.target.value } })}
-            onFocus={(e) => onFocusChromeText("footer", e.currentTarget)}
-          />
-        </div>
-      </InspectorSection>
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-1.5">
+                <Label htmlFor="header-text">{de.letters.headerTextLabel}</Label>
+                <InfoTip text={de.letters.headerTextHint} />
+              </div>
+              <Textarea
+                id="header-text"
+                value={doc.header.text}
+                rows={3}
+                maxLength={400}
+                placeholder={de.letters.headerTextPlaceholder}
+                onChange={(e) => onChangeDoc({ header: { ...doc.header, text: e.target.value } })}
+                onFocus={(e) => onFocusChromeText("header", e.currentTarget)}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-1.5">
+                <Label htmlFor="footer-text">{de.letters.footerTextLabel}</Label>
+                <InfoTip text={de.letters.footerTextHint} />
+              </div>
+              <Textarea
+                id="footer-text"
+                value={doc.footer.text}
+                rows={3}
+                maxLength={600}
+                placeholder={de.letters.footerTextPlaceholder}
+                onChange={(e) => onChangeDoc({ footer: { text: e.target.value } })}
+                onFocus={(e) => onFocusChromeText("footer", e.currentTarget)}
+              />
+            </div>
+          </InspectorSection>
+        </>
+      ) : null}
     </div>
   );
 }
@@ -614,9 +620,21 @@ function BlockControls({
           <SegmentedGroup
             value={block.align}
             options={[
-              { value: "left" as const, label: <AlignLeft className="size-3.5" aria-hidden />, ariaLabel: de.letters.alignLeft },
-              { value: "center" as const, label: <AlignCenter className="size-3.5" aria-hidden />, ariaLabel: de.letters.alignCenter },
-              { value: "right" as const, label: <AlignRight className="size-3.5" aria-hidden />, ariaLabel: de.letters.alignRight },
+              {
+                value: "left" as const,
+                label: <AlignLeft className="size-3.5" aria-hidden />,
+                ariaLabel: de.letters.alignLeft,
+              },
+              {
+                value: "center" as const,
+                label: <AlignCenter className="size-3.5" aria-hidden />,
+                ariaLabel: de.letters.alignCenter,
+              },
+              {
+                value: "right" as const,
+                label: <AlignRight className="size-3.5" aria-hidden />,
+                ariaLabel: de.letters.alignRight,
+              },
             ]}
             onChange={(align) => onChange({ align })}
             ariaLabel={de.letters.alignLabel}
@@ -740,9 +758,21 @@ function BlockControls({
           <SegmentedGroup
             value={block.align}
             options={[
-              { value: "left" as const, label: <AlignLeft className="size-3.5" aria-hidden />, ariaLabel: de.letters.alignLeft },
-              { value: "center" as const, label: <AlignCenter className="size-3.5" aria-hidden />, ariaLabel: de.letters.alignCenter },
-              { value: "right" as const, label: <AlignRight className="size-3.5" aria-hidden />, ariaLabel: de.letters.alignRight },
+              {
+                value: "left" as const,
+                label: <AlignLeft className="size-3.5" aria-hidden />,
+                ariaLabel: de.letters.alignLeft,
+              },
+              {
+                value: "center" as const,
+                label: <AlignCenter className="size-3.5" aria-hidden />,
+                ariaLabel: de.letters.alignCenter,
+              },
+              {
+                value: "right" as const,
+                label: <AlignRight className="size-3.5" aria-hidden />,
+                ariaLabel: de.letters.alignRight,
+              },
             ]}
             onChange={(align) => onChange({ align })}
             ariaLabel={de.letters.alignLabel}

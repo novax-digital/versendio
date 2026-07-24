@@ -491,3 +491,16 @@ Abschlussbericht abarbeiten.
     Vercel; (4) Resend-Dashboard: Zustellstatus prüfen (novax/versendio-Adressen hinter
     mailspamprotection → ggf. Allowlist)
 - [x] DoD: Build ✅ Lint ✅ Typecheck ✅ **203 Unit-Tests** ✅
+
+## Nach Übergabe — Brief-Designer im Vollbild (Claude-Design-Vorlage) & Logo-Normalisierung (2026-07-24)
+- [x] **Fullscreen-Designer**: Editor + Vorlagen-Editor in Route-Gruppe `(editor)` (gleiche URLs, ohne
+  App-Shell); Dreispalten-Layout — links Gliederung (klickbare Baustein-Liste), Empfänger-Karte
+  (Musterdaten + Beispieldaten-Schalter), Platzhalter-Chips, Ansicht (Zoom/Zonen/Seitenschätzung);
+  Mitte A4-Canvas **unverändert mit Schablone-V3-Adressblock & DIN-5008** + Startkarte „Wie möchten
+  Sie beginnen?" (KI/Vorlage/Leer) + Seitenumbruch-Direktbutton; rechts Tabs „Baustein"/„Dokument"
+  (BlockInspector per `show`-Prop geteilt, Auto-Wechsel bei Auswahl, Panels unmounten → keine ID-Dubletten)
+- [x] Alle Funktionen erhalten (KI-Entwurf, Vorlagen, Briefpapier, Ungespeichert-Wächter, Shortcuts,
+  Mobile-Lesemodus); Auth weiterhin Proxy + requireProfile
+- [x] **Integrations-Logos normalisiert** (gemeinsame `IntegrationLogo`-Box, einheitliche optische Größe)
+- [x] `NEW_DESIGNER/` (Design-Referenz) von Lint/Repo ausgeschlossen
+- [x] DoD: Build ✅ Lint ✅ Typecheck ✅ **203 Unit-Tests** ✅ (Review-Workflow läuft, Fixes folgen ggf.)

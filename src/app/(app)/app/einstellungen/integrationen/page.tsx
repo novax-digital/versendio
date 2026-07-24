@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import Image from "next/image";
+import { IntegrationLogo } from "./integration-logo";
 import { ChevronRight, KeyRound } from "lucide-react";
 import { requireProfile } from "@/lib/server/auth-context";
 import { createClient } from "@/lib/supabase/server";
@@ -49,28 +49,14 @@ export default async function IntegrationsOverviewPage() {
         <IntegrationTile
           href="/app/einstellungen/integrationen/moco"
           logo={
-            <Image
-              src="/integrationen/logo_moco.svg"
-              alt={t.mocoTitle}
-              width={96}
-              height={24}
-              className="h-6 w-auto dark:invert"
-            />
+            <IntegrationLogo src="/integrationen/logo_moco.svg" alt={t.mocoTitle} className="dark:invert" size="lg" />
           }
           hint={t.mocoTileHint}
           badge={mocoBadge}
         />
         <IntegrationTile
           href="/app/einstellungen/integrationen/canva"
-          logo={
-            <Image
-              src="/integrationen/logo_canva.svg"
-              alt={t.canvaTitle}
-              width={96}
-              height={30}
-              className="h-7 w-auto"
-            />
-          }
+          logo={<IntegrationLogo src="/integrationen/logo_canva.svg" alt={t.canvaTitle} size="lg" />}
           hint={t.canvaTileHint}
           badge={canvaBadge}
         />
@@ -79,12 +65,10 @@ export default async function IntegrationsOverviewPage() {
             key={tool}
             href={`/app/einstellungen/integrationen/${tool}`}
             logo={
-              <Image
+              <IntegrationLogo
                 src={`/integrationen/logo_${tool}.${tool === "make" ? "png" : "svg"}`}
                 alt={t.webhookTools[tool].title}
-                width={96}
-                height={28}
-                className="h-6 w-auto"
+                size="lg"
               />
             }
             hint={t.webhookTools[tool].tileHint}
@@ -108,15 +92,7 @@ export default async function IntegrationsOverviewPage() {
         />
         <IntegrationTile
           href={null}
-          logo={
-            <Image
-              src="/integrationen/logo_hubspot.svg"
-              alt={t.hubspotTitle}
-              width={96}
-              height={28}
-              className="h-6 w-auto"
-            />
-          }
+          logo={<IntegrationLogo src="/integrationen/logo_hubspot.svg" alt={t.hubspotTitle} size="lg" />}
           hint={t.hubspotTileHint}
           badge={{ label: t.comingSoonBadge, variant: "outline" as const }}
         />

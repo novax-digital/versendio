@@ -1,10 +1,10 @@
 "use client";
 
 import { useActionState, useEffect, useState, useTransition } from "react";
-import Image from "next/image";
 import { toast } from "sonner";
 import { RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { IntegrationLogo } from "./integration-logo";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -76,13 +76,7 @@ export function MocoCard({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-3 text-base">
-          <Image
-            src="/integrationen/logo_moco.svg"
-            alt={t.mocoTitle}
-            width={88}
-            height={22}
-            className="h-5 w-auto dark:invert"
-          />
+          <IntegrationLogo src="/integrationen/logo_moco.svg" alt={t.mocoTitle} className="dark:invert" />
           {account ? (
             account.status === "active" ? (
               <Badge variant="secondary">{t.mocoConnected}</Badge>
