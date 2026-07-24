@@ -603,6 +603,8 @@ export const de = {
     mocoDisconnected: "Die MOCO-Verbindung wurde getrennt.",
     mocoLastSync: "Letzte Synchronisierung",
     mocoNeverSynced: "noch nie",
+    mocoTabSettings: "Einstellungen",
+    mocoTabDocuments: "Dokumente",
     mocoActivityTitle: "Zuletzt verarbeitete Dokumente",
     mocoActivityEmpty: "Noch keine Dokumente verarbeitet.",
     mocoDocInvoice: "Rechnung",

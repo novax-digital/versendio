@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -203,123 +204,134 @@ function ConnectedView({
   };
 
   return (
-    <div className="space-y-6">
-      <div className="text-sm">
-        <p>
-          {t.mocoConnectedAs}{" "}
-          <span className="font-medium">
-            {account.subdomain}
-            {t.mocoSubdomainSuffix}
-          </span>
-        </p>
-        <p className="text-muted-foreground">
-          {t.mocoLastSync}:{" "}
-          {account.lastSyncAt ? dateFormat.format(new Date(account.lastSyncAt)) : t.mocoNeverSynced}
-        </p>
-      </div>
+    <Tabs defaultValue="settings">
+      <TabsList>
+        <TabsTrigger value="settings">{t.mocoTabSettings}</TabsTrigger>
+        <TabsTrigger value="documents">{t.mocoTabDocuments}</TabsTrigger>
+      </TabsList>
 
-      {account.status !== "active" ? (
-        // Broken credentials: offer re-entry in place — rules survive.
-        <div className="space-y-4 rounded-md border border-dashed p-4">
-          <p className="text-destructive text-sm">{t.mocoReconnectHint}</p>
-          <ConnectForm defaultSubdomain={account.subdomain} />
-        </div>
-      ) : null}
-
-      <div className="space-y-4">
-        <div>
-          <h3 className="text-sm font-medium">{t.mocoRulesTitle}</h3>
-          <p className="text-muted-foreground text-sm">{t.mocoRulesHint}</p>
+      <TabsContent value="settings" className="space-y-6 pt-2">
+        <div className="text-sm">
+          <p>
+            {t.mocoConnectedAs}{" "}
+            <span className="font-medium">
+              {account.subdomain}
+              {t.mocoSubdomainSuffix}
+            </span>
+          </p>
+          <p className="text-muted-foreground">
+            {t.mocoLastSync}:{" "}
+            {account.lastSyncAt
+              ? dateFormat.format(new Date(account.lastSyncAt))
+              : t.mocoNeverSynced}
+          </p>
         </div>
 
-        <div className="flex items-center justify-between gap-4">
-          <div className="space-y-0.5">
-            <Label htmlFor="moco-inv">{t.mocoAutoInvoices}</Label>
-            <p className="text-muted-foreground text-sm">{t.mocoAutoInvoicesHint}</p>
-          </div>
-          <Switch
-            id="moco-inv"
-            checked={rules.autoInvoices}
-            onCheckedChange={(v) => setRules((r) => ({ ...r, autoInvoices: v === true }))}
-          />
-        </div>
-
-        {rules.autoInvoices ? (
-          <div className="space-y-1.5">
-            <Label htmlFor="moco-trigger">{t.mocoTriggerLabel}</Label>
-            <select
-              id="moco-trigger"
-              value={rules.invoiceTrigger}
-              onChange={(e) =>
-                setRules((r) => ({ ...r, invoiceTrigger: e.target.value as "created" | "sent" }))
-              }
-              className="border-input bg-background h-9 rounded-md border px-3 text-sm"
-            >
-              <option value="created">{t.mocoTriggerCreated}</option>
-              <option value="sent">{t.mocoTriggerSent}</option>
-            </select>
+        {account.status !== "active" ? (
+          // Broken credentials: offer re-entry in place — rules survive.
+          <div className="space-y-4 rounded-md border border-dashed p-4">
+            <p className="text-destructive text-sm">{t.mocoReconnectHint}</p>
+            <ConnectForm defaultSubdomain={account.subdomain} />
           </div>
         ) : null}
 
-        <div className="flex items-center justify-between gap-4">
-          <div className="space-y-0.5">
-            <Label htmlFor="moco-rem">{t.mocoAutoReminders}</Label>
-            <p className="text-muted-foreground text-sm">{t.mocoAutoRemindersHint}</p>
+        <div className="space-y-4">
+          <div>
+            <h3 className="text-sm font-medium">{t.mocoRulesTitle}</h3>
+            <p className="text-muted-foreground text-sm">{t.mocoRulesHint}</p>
           </div>
-          <Switch
-            id="moco-rem"
-            checked={rules.autoReminders}
-            onCheckedChange={(v) => setRules((r) => ({ ...r, autoReminders: v === true }))}
-          />
-        </div>
 
-        <div className="flex flex-wrap gap-6">
-          <label className="flex items-center gap-2 text-sm">
+          <div className="flex items-center justify-between gap-4">
+            <div className="space-y-0.5">
+              <Label htmlFor="moco-inv">{t.mocoAutoInvoices}</Label>
+              <p className="text-muted-foreground text-sm">{t.mocoAutoInvoicesHint}</p>
+            </div>
             <Switch
-              checked={rules.duplex}
-              onCheckedChange={(v) => setRules((r) => ({ ...r, duplex: v === true }))}
+              id="moco-inv"
+              checked={rules.autoInvoices}
+              onCheckedChange={(v) => setRules((r) => ({ ...r, autoInvoices: v === true }))}
             />
-            {t.mocoOptionDuplex}
-          </label>
-          <label className="flex items-center gap-2 text-sm">
+          </div>
+
+          {rules.autoInvoices ? (
+            <div className="space-y-1.5">
+              <Label htmlFor="moco-trigger">{t.mocoTriggerLabel}</Label>
+              <select
+                id="moco-trigger"
+                value={rules.invoiceTrigger}
+                onChange={(e) =>
+                  setRules((r) => ({ ...r, invoiceTrigger: e.target.value as "created" | "sent" }))
+                }
+                className="border-input bg-background h-9 rounded-md border px-3 text-sm"
+              >
+                <option value="created">{t.mocoTriggerCreated}</option>
+                <option value="sent">{t.mocoTriggerSent}</option>
+              </select>
+            </div>
+          ) : null}
+
+          <div className="flex items-center justify-between gap-4">
+            <div className="space-y-0.5">
+              <Label htmlFor="moco-rem">{t.mocoAutoReminders}</Label>
+              <p className="text-muted-foreground text-sm">{t.mocoAutoRemindersHint}</p>
+            </div>
             <Switch
-              checked={rules.color}
-              onCheckedChange={(v) => setRules((r) => ({ ...r, color: v === true }))}
+              id="moco-rem"
+              checked={rules.autoReminders}
+              onCheckedChange={(v) => setRules((r) => ({ ...r, autoReminders: v === true }))}
             />
-            {t.mocoOptionColor}
-          </label>
+          </div>
+
+          <div className="flex flex-wrap gap-6">
+            <label className="flex items-center gap-2 text-sm">
+              <Switch
+                checked={rules.duplex}
+                onCheckedChange={(v) => setRules((r) => ({ ...r, duplex: v === true }))}
+              />
+              {t.mocoOptionDuplex}
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <Switch
+                checked={rules.color}
+                onCheckedChange={(v) => setRules((r) => ({ ...r, color: v === true }))}
+              />
+              {t.mocoOptionColor}
+            </label>
+          </div>
+
+          <p className="text-muted-foreground text-xs">{t.mocoPartnerNote}</p>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <Button onClick={save} disabled={pending}>
+              {pending ? de.common.saving : de.common.save}
+            </Button>
+            <Button variant="outline" onClick={syncNow} disabled={syncing || dirty}>
+              <RefreshCw className={`size-4 ${syncing ? "animate-spin" : ""}`} aria-hidden />
+              {t.mocoSyncNow}
+            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger
+                render={<Button variant="outline" className="text-destructive" />}
+              >
+                {t.mocoDisconnect}
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>{t.mocoDisconnect}</AlertDialogTitle>
+                  <AlertDialogDescription>{t.mocoDisconnectConfirm}</AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>{de.common.cancel}</AlertDialogCancel>
+                  <AlertDialogAction onClick={disconnect}>{t.mocoDisconnect}</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+          {dirty ? <p className="text-muted-foreground text-xs">{t.mocoSyncSaveFirst}</p> : null}
         </div>
+      </TabsContent>
 
-        <p className="text-muted-foreground text-xs">{t.mocoPartnerNote}</p>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <Button onClick={save} disabled={pending}>
-            {pending ? de.common.saving : de.common.save}
-          </Button>
-          <Button variant="outline" onClick={syncNow} disabled={syncing || dirty}>
-            <RefreshCw className={`size-4 ${syncing ? "animate-spin" : ""}`} aria-hidden />
-            {t.mocoSyncNow}
-          </Button>
-          <AlertDialog>
-            <AlertDialogTrigger render={<Button variant="outline" className="text-destructive" />}>
-              {t.mocoDisconnect}
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>{t.mocoDisconnect}</AlertDialogTitle>
-                <AlertDialogDescription>{t.mocoDisconnectConfirm}</AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>{de.common.cancel}</AlertDialogCancel>
-                <AlertDialogAction onClick={disconnect}>{t.mocoDisconnect}</AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </div>
-        {dirty ? <p className="text-muted-foreground text-xs">{t.mocoSyncSaveFirst}</p> : null}
-      </div>
-
-      <div className="space-y-2">
+      <TabsContent value="documents" className="space-y-2 pt-2">
         <h3 className="text-sm font-medium">{t.mocoActivityTitle}</h3>
         {documents.length === 0 ? (
           <p className="text-muted-foreground text-sm">{t.mocoActivityEmpty}</p>
@@ -355,7 +367,7 @@ function ConnectedView({
             })}
           </ul>
         )}
-      </div>
-    </div>
+      </TabsContent>
+    </Tabs>
   );
 }

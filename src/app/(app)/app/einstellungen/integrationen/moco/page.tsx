@@ -43,7 +43,7 @@ export default async function MocoIntegrationPage() {
       .from("moco_documents")
       .select("id, doc_type, identifier, title, status, detail, created_at, send_job_id")
       .order("created_at", { ascending: false })
-      .limit(10);
+      .limit(25);
     documents = (docs ?? []).map((d) => ({
       id: d.id,
       docType: d.doc_type,
