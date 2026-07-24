@@ -53,8 +53,14 @@ export async function sendMail(message: MailMessage): Promise<{ ok: boolean; err
     }
   }
 
-  // No mail provider configured: log delivery intent only (no recipient
-  // address — an email is PII and must not be logged in cleartext).
+  // No mail provider configured. In dev/mock that is fine (log the intent —
+  // no recipient address, an e-mail is PII). In PRODUCTION it must be a loud
+  // failure: silently reporting success made every mail (auth hook, status
+  // digests, welcome) look sent while nothing ever left the system.
+  if (process.env.NODE_ENV === "production") {
+    console.error("mail_not_configured", { subject: message.subject });
+    return { ok: false, error: "mail_not_configured" };
+  }
   console.info("mail_skipped_no_provider", { subject: message.subject });
   return { ok: true };
 }
