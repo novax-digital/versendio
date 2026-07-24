@@ -1,7 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { serverEnv } from "@/lib/server/env";
-import { sendMail } from "@/lib/server/mail";
+import { sendMail, escapeHtml } from "@/lib/server/mail";
 import { renderBrandedEmail } from "@/lib/server/mail-template";
 import { de } from "@/lib/i18n/de";
 
@@ -83,11 +83,16 @@ export async function POST(request: Request) {
   }
 
   const env = serverEnv();
-  const supabaseUrl = env.NEXT_PUBLIC_SUPABASE_URL.replace(/\/$/, "");
   const appUrl = (env.APP_URL ?? "https://app.versendio.de").replace(/\/$/, "");
-  const redirect = data.redirect_to || `${appUrl}/app`;
-  const verifyUrl = (type: string, tokenHash: string) =>
-    `${supabaseUrl}/auth/v1/verify?token=${encodeURIComponent(tokenHash)}&type=${type}&redirect_to=${encodeURIComponent(redirect)}`;
+  // Links point at OUR confirm endpoint — customers must only ever see
+  // app.versendio.de, never the Supabase project URL. The target after
+  // verification is fixed per action type (recovery lands on the
+  // set-new-password page; everything else in the app).
+  const verifyUrl = (type: string, tokenHash: string) => {
+    const next = type === "recovery" ? "/passwort-zuruecksetzen" : "/app";
+    const params = new URLSearchParams({ token_hash: tokenHash, type, next });
+    return `${appUrl}/auth/confirm?${params}`;
+  };
 
   const displayName =
     payload.user?.user_metadata?.display_name ?? payload.user?.user_metadata?.full_name ?? null;
@@ -133,6 +138,14 @@ export async function POST(request: Request) {
     default:
       console.error("auth_email_unknown_type", { type: data.email_action_type });
       return NextResponse.json({ error: "unknown_action_type" }, { status: 400 });
+  }
+
+  // Plain-link fallback below the button — some clients block or mangle
+  // bulletproof buttons; the raw URL must always be reachable.
+  if (cta) {
+    paragraphs.push(
+      `<span style="font-size:12px;">${m.linkFallback}<br><a href="${escapeHtml(cta.url)}" style="word-break:break-all;">${escapeHtml(cta.url)}</a></span>`,
+    );
   }
 
   const { html, text } = renderBrandedEmail({ displayName, paragraphs, cta });

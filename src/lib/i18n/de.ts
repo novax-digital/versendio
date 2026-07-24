@@ -60,6 +60,8 @@ export const de = {
     inviteSubject: "Sie wurden zu Versendio eingeladen",
     inviteBody: "Sie wurden zu Versendio eingeladen. Legen Sie jetzt Ihr Konto an.",
     inviteCta: "Einladung annehmen",
+    linkFallback:
+      "Falls der Button nicht funktioniert, kopieren Sie bitte diesen Link in Ihren Browser:",
     reauthSubject: "Ihr Bestätigungscode – Versendio",
     reauthBody: (code: string) =>
       `Ihr Bestätigungscode lautet: <strong style="font-size:18px;letter-spacing:2px;">${code}</strong> – geben Sie ihn in der App ein, um fortzufahren.`,
@@ -1260,6 +1262,8 @@ export const de = {
     plan: "Preisstufe",
     statusActive: "Aktiv",
     emailUnconfirmed: "E-Mail unbestätigt",
+    showDeleted: "Gelöschte Konten anzeigen",
+    hideDeleted: "Gelöschte Konten ausblenden",
     statusBlocked: "Gesperrt",
     statusDeleted: "Gelöscht",
     role: "Rolle",

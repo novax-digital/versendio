@@ -23,10 +23,11 @@ const PAGE_SIZE = 50;
 export default async function AdminUsersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; seite?: string }>;
+  searchParams: Promise<{ q?: string; seite?: string; geloeschte?: string }>;
 }) {
   await requireAdmin();
-  const { q, seite } = await searchParams;
+  const { q, seite, geloeschte } = await searchParams;
+  const showDeleted = geloeschte === "1";
   const page = Math.max(1, Number(seite) || 1);
   const admin = createAdminClient();
 
@@ -37,6 +38,9 @@ export default async function AdminUsersPage({
     })
     .order("created_at", { ascending: false })
     .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
+  // Deleted accounts are ANONYMIZED shells kept for the append-only ledger
+  // (GoBD) — they clutter the working list, so they are hidden by default.
+  if (!showDeleted) query = query.neq("status", "deleted");
 
   const term = q ? sanitizeSearchTerm(q) : "";
   if (term) {
@@ -67,6 +71,14 @@ export default async function AdminUsersPage({
   return (
     <div className="space-y-4">
       <AdminSearch initialValue={q ?? ""} />
+      <p className="text-right text-sm">
+        <Link
+          className="text-muted-foreground hover:text-foreground underline underline-offset-4"
+          href={`/admin/nutzer?${new URLSearchParams({ ...(q ? { q } : {}), ...(showDeleted ? {} : { geloeschte: "1" }) })}`}
+        >
+          {showDeleted ? de.admin.hideDeleted : de.admin.showDeleted}
+        </Link>
+      </p>
 
       {!users || users.length === 0 ? (
         <p className="text-muted-foreground py-8 text-center text-sm">{de.admin.noUsers}</p>
