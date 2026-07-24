@@ -144,6 +144,11 @@ export async function registerAction(_prev: unknown, formData: FormData): Promis
 
   if (error) {
     console.error("register_failed", { code: error.code });
+    // The auth provider refuses to send the confirmation mail (SMTP rate
+    // limit) — an honest, actionable message instead of "unexpected error".
+    if (error.code === "over_email_send_rate_limit" || error.status === 429) {
+      return { ok: false, error: de.auth.emailRateLimited };
+    }
     return { ok: false, error: de.common.genericError };
   }
 

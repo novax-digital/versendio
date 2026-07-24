@@ -114,6 +114,8 @@ export const de = {
       "Vielen Dank für Ihre Registrierung! Bitte bestätigen Sie Ihre E-Mail-Adresse über den Link, den wir Ihnen gesendet haben.",
     welcomeHeading: "Fast geschafft!",
     registerRedirecting: "Sie werden weitergeleitet …",
+    emailRateLimited:
+      "Zurzeit können keine Bestätigungs-E-Mails versendet werden (Versandlimit erreicht). Bitte versuchen Sie es in etwa einer Stunde erneut.",
     passwordMismatch: "Die Passwörter stimmen nicht überein.",
     passwordTooShort: "Das Passwort muss mindestens 8 Zeichen lang sein.",
     passwordHint: "Mindestens 8 Zeichen.",
@@ -691,7 +693,9 @@ export const de = {
       "Das Design eignet sich nicht für den Briefversand – bitte verwenden Sie DIN A4 Hochformat.",
     canvaPages: (n: number) => (n === 1 ? "1 Seite" : `${n} Seiten`),
     canvaFlowNote:
-      "Importierte Designs sind normale Briefe: Sie können sie sofort versenden oder in einem Flow als Brief auswählen.",
+      "Importierte Designs sind normale Briefe: Sie können sie sofort versenden oder in einem Flow als Brief auswählen. Ein Deckblatt mit der Empfängeradresse wird automatisch vorangestellt.",
+    canvaCoverInfo:
+      "Canva-Import: Es wird automatisch ein Deckblatt mit der Empfängeradresse vorangestellt (+1 Seite) – Ihr Design muss die Post-Adresszonen dadurch nicht einhalten. Bitte beachten Sie bei randabfallenden Designs die druckfreien Ränder (12 mm links, 2 mm umlaufend).",
     // Webhook-Tools (Zapier/Make/n8n) + HubSpot-Platzhalter
     comingSoonBadge: "Bald verfügbar",
     viaRestBadge: "Über REST-API",

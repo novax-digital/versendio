@@ -353,6 +353,18 @@ export async function importCanvaDesignAction(
     return { ok: false, error };
   }
 
+  // Canva designs are VISUAL documents: the zone heuristic only sees text —
+  // image ink in the address window is invisible to it, and design text
+  // there is not a deliverable address. The cover page is therefore always
+  // enabled for Canva imports; it guarantees the recipient address no matter
+  // what the design does. (The letter page's toggle still allows an explicit,
+  // warned opt-out for deliberately Schablone-compliant designs.)
+  validation.needsCoverLetter = true;
+  validation.rules = [
+    ...validation.rules.filter((r) => r.id !== "recipient_zone_empty" && r.id !== "zone_unknown"),
+    { id: "canva_cover", severity: "ok", message: de.integrations.canvaCoverInfo },
+  ];
+
   const admin = createAdminClient();
   const letterId = crypto.randomUUID();
   const storagePath = `${profile.id}/letters/${letterId}.pdf`;
