@@ -38,6 +38,32 @@ export const de = {
     launchBannerCta: "Jetzt sichern",
     launchBannerDismiss: "Banner ausblenden",
   },
+  // Auth-Mails (Supabase Send-Email-Hook → gebrandete Zustellung via Resend)
+  authMails: {
+    confirmSubject: "Bitte bestätigen Sie Ihre E-Mail-Adresse – Versendio",
+    confirmBody:
+      "willkommen bei Versendio! Bitte bestätigen Sie Ihre E-Mail-Adresse, um Ihr Konto zu aktivieren.",
+    confirmCta: "E-Mail-Adresse bestätigen",
+    recoverySubject: "Passwort zurücksetzen – Versendio",
+    recoveryBody:
+      "Sie haben angefordert, Ihr Passwort zurückzusetzen. Klicken Sie auf den Button, um ein neues Passwort zu vergeben. Der Link ist aus Sicherheitsgründen nur begrenzt gültig.",
+    recoveryIgnore:
+      "Falls Sie das nicht waren, können Sie diese E-Mail ignorieren – Ihr Passwort bleibt unverändert.",
+    recoveryCta: "Neues Passwort vergeben",
+    magicSubject: "Ihr Anmeldelink – Versendio",
+    magicBody: "klicken Sie auf den Button, um sich ohne Passwort anzumelden.",
+    magicCta: "Jetzt anmelden",
+    emailChangeSubject: "Neue E-Mail-Adresse bestätigen – Versendio",
+    emailChangeBody:
+      "bitte bestätigen Sie Ihre neue E-Mail-Adresse, um die Änderung abzuschließen.",
+    emailChangeCta: "Neue Adresse bestätigen",
+    inviteSubject: "Sie wurden zu Versendio eingeladen",
+    inviteBody: "Sie wurden zu Versendio eingeladen. Legen Sie jetzt Ihr Konto an.",
+    inviteCta: "Einladung annehmen",
+    reauthSubject: "Ihr Bestätigungscode – Versendio",
+    reauthBody: (code: string) =>
+      `Ihr Bestätigungscode lautet: <strong style="font-size:18px;letter-spacing:2px;">${code}</strong> – geben Sie ihn in der App ein, um fortzufahren.`,
+  },
   nav: {
     dashboard: "Übersicht",
     letters: "Briefe",
@@ -631,6 +657,104 @@ export const de = {
     } as Record<string, string>,
     mocoPartnerNote:
       "Hinweis: Der Versand wird wie gewohnt von Ihrem Guthaben abgebucht. Sie finden jede Sendung unter „Sendungen“.",
+    // Canva
+    canvaTitle: "Canva",
+    canvaTileHint: "Canva-Designs direkt als versandfertige Briefe importieren.",
+    canvaHint:
+      "Verbinden Sie Ihr Canva-Konto und importieren Sie Ihre Designs als Briefe – ideal für gestaltete Mailings. Verwenden Sie in Canva das Format DIN A4 (21 × 29,7 cm); kleine Abweichungen korrigiert Versendio automatisch.",
+    canvaConnect: "Mit Canva verbinden",
+    canvaConnected: "Verbunden",
+    canvaConnectionErrorBadge: "Verbindungsfehler",
+    canvaConnectedNote: "Ihr Canva-Konto ist verbunden.",
+    canvaJustConnected: "Canva wurde erfolgreich verbunden.",
+    canvaReconnect:
+      "Die Canva-Verbindung ist abgelaufen oder wurde widerrufen. Bitte verbinden Sie Ihr Konto neu.",
+    canvaNotConnected: "Es ist kein Canva-Konto verbunden.",
+    canvaNotConfigured:
+      "Die Canva-Integration ist noch nicht konfiguriert (Client-ID/-Secret fehlen). Bitte wenden Sie sich an den Betreiber.",
+    canvaDisconnect: "Verbindung trennen",
+    canvaDisconnectConfirm:
+      "Canva-Verbindung wirklich trennen? Bereits importierte Briefe bleiben erhalten.",
+    canvaDisconnected: "Die Canva-Verbindung wurde getrennt.",
+    canvaDesignsTitle: "Ihre Designs",
+    canvaDesignsEmpty: "Keine Designs gefunden. Erstellen Sie zuerst ein Design in Canva.",
+    canvaDesignsLoadFailed:
+      "Ihre Designs konnten nicht geladen werden. Bitte versuchen Sie es erneut oder verbinden Sie Canva neu.",
+    canvaImport: "Als Brief importieren",
+    canvaImporting: "Wird importiert …",
+    canvaImported: "Das Design wurde als Brief importiert.",
+    canvaExportFailed:
+      "Canva konnte das Design gerade nicht exportieren. Bitte versuchen Sie es in einem Moment erneut.",
+    canvaExportRejected:
+      "Dieses Design konnte nicht als Brief importiert werden. Bitte prüfen Sie das Design in Canva (Format DIN A4, max. 20 MB).",
+    canvaNotA4:
+      "Das Design eignet sich nicht für den Briefversand – bitte verwenden Sie DIN A4 Hochformat.",
+    canvaPages: (n: number) => (n === 1 ? "1 Seite" : `${n} Seiten`),
+    canvaFlowNote:
+      "Importierte Designs sind normale Briefe: Sie können sie sofort versenden oder in einem Flow als Brief auswählen.",
+    // Webhook-Tools (Zapier/Make/n8n) + HubSpot-Platzhalter
+    comingSoonBadge: "Bald verfügbar",
+    viaRestBadge: "Über REST-API",
+    hubspotTitle: "HubSpot",
+    hubspotTileHint: "CRM-Kontakte und Workflows direkt mit dem Briefversand verbinden.",
+    webhookHowTitle: "So funktioniert die Anbindung",
+    webhookStep1: "Erzeugen Sie in Versendio einen API-Schlüssel (Integrationen → REST-API).",
+    webhookStep2: (module: string) =>
+      `Fügen Sie in Ihrem Szenario das Modul ${module} hinzu und hinterlegen Sie den Schlüssel als Authorization-Header.`,
+    webhookStep3:
+      "Senden Sie einen POST-Request an die Versendio-API – z. B. „Brief versenden“ mit Empfängeradresse. Die vollständige Referenz finden Sie auf der REST-API-Seite.",
+    webhookExamplesTitle: "Beispiel-Flows",
+    webhookRequestTitle: "Beispiel-Request",
+    webhookDocsCta: "Zur REST-API & API-Schlüsseln",
+    webhookTools: {
+      zapier: {
+        title: "Zapier",
+        tileHint: "Über 7.000 Apps per Zap mit dem Briefversand verbinden.",
+        intro:
+          "Zapier verbindet Versendio ohne eigene Programmierung mit tausenden Apps. Verwenden Sie „Webhooks by Zapier“ als Action – jeder Zap kann damit Briefe versenden oder Kontakte anlegen.",
+        module: "„Webhooks by Zapier“ (Action „Custom Request“)",
+        examples: [
+          "Neue Zeile in Google Sheets → Brief an die Adresse aus der Zeile versenden.",
+          "Formular ausgefüllt (z. B. Typeform) → Infobrief automatisch per Post.",
+          "Deal in Ihrem CRM gewonnen → Dankschreiben an den Kunden versenden.",
+        ],
+      },
+      make: {
+        title: "Make",
+        tileHint: "Szenarien in Make (ehem. Integromat) mit Briefversand erweitern.",
+        intro:
+          "In Make bauen Sie visuelle Szenarien – mit dem HTTP-Modul sprechen Sie die Versendio-API direkt an und machen den Briefversand zu einem Baustein Ihrer Automatisierung.",
+        module: "„HTTP“ (Aktion „Make a request“)",
+        examples: [
+          "Rechnung in Ihrer Buchhaltung erstellt → automatisch als Brief versenden.",
+          "Neuer Kunde im Shop → Willkommenskarte per Post.",
+          "Status in Airtable wechselt auf „Mahnung“ → Mahnbrief auslösen.",
+        ],
+      },
+      n8n: {
+        title: "n8n",
+        tileHint: "Self-hosted Workflows mit Briefversand – volle Datenkontrolle.",
+        intro:
+          "n8n läuft auf Wunsch komplett auf Ihrer eigenen Infrastruktur. Mit dem HTTP-Request-Node binden Sie Versendio in beliebige Workflows ein – ideal, wenn Daten das eigene Haus nicht verlassen sollen.",
+        module: "„HTTP Request“-Node",
+        examples: [
+          "Webhook aus Ihrem CRM → Kontakt anlegen und Brief versenden.",
+          "Zeitgesteuerter Workflow → monatliches Anschreiben an Partner per Post.",
+          "E-Mail unzustellbar → Dokument stattdessen automatisch als Brief zustellen.",
+        ],
+      },
+    } as Record<
+      string,
+      { title: string; tileHint: string; intro: string; module: string; examples: string[] }
+    >,
+    canvaOauthErrors: {
+      abgebrochen: "Die Verbindung wurde in Canva abgebrochen.",
+      ungueltig: "Die Anfrage war ungültig oder abgelaufen. Bitte versuchen Sie es erneut.",
+      token: "Canva hat die Verbindung abgelehnt. Bitte versuchen Sie es erneut.",
+      speichern: "Die Verbindung konnte nicht gespeichert werden. Bitte versuchen Sie es erneut.",
+      konfiguration:
+        "Die Canva-Integration ist noch nicht konfiguriert. Bitte wenden Sie sich an den Betreiber.",
+    } as Record<string, string>,
   },
   notifications: {
     title: "Benachrichtigungen",
@@ -916,6 +1040,35 @@ export const de = {
     stepSourceTitle: "1. Quelle",
     stepSourceHint:
       "Kontakte gelangen über manuelle Eintragung, CSV-Import oder die REST-API in die Liste. Jeder neue Kontakt startet den Flow automatisch.",
+    sourceListLabel: "Kontaktliste",
+    sourceListDesc: "Neue Kontakte einer Liste starten den Flow (manuell, CSV-Import oder REST-API).",
+    sourceMocoLabel: "MOCO-Integration",
+    sourceMocoDesc:
+      "Empfänger aus Ihrem MOCO-Konto starten den Flow – bei neuer Rechnung, Mahnung oder neuem Kunden.",
+    sourceMocoNotConnected:
+      "Verbinden Sie zuerst Ihr MOCO-Konto unter Einstellungen → Integrationen.",
+    sourceEditNote: "Die Quelle kann nach dem Anlegen nicht mehr geändert werden.",
+    mocoTriggerTitle: "2. MOCO-Ereignis",
+    mocoTriggerSelect: "Welches Ereignis startet den Flow?",
+    mocoTriggerInvoice: "Neue Rechnung",
+    mocoTriggerInvoiceDesc: "Der Rechnungsempfänger kommt in den Flow (Status wählbar).",
+    mocoTriggerReminder: "Neue Mahnung",
+    mocoTriggerReminderDesc: "Der Empfänger jeder neu erstellten Mahnung kommt in den Flow.",
+    mocoTriggerCustomer: "Neuer Kunde",
+    mocoTriggerCustomerDesc: "Jede neu in MOCO angelegte Kundenfirma kommt in den Flow.",
+    mocoInvoiceStatusLabel: "Rechnungs-Status",
+    mocoInvoiceStatusCreated: "Erstellt (noch nicht versendet)",
+    mocoInvoiceStatusSent: "Als versendet markiert",
+    mocoEnrollNote:
+      "Jeder Empfänger durchläuft den Flow genau einmal – auch bei mehreren Rechnungen oder Mahnungen. Es zählen nur Ereignisse ab Aktivierung des Flows.",
+    mocoNotConnected:
+      "Für einen MOCO-Flow muss zuerst ein MOCO-Konto verbunden werden (Einstellungen → Integrationen).",
+    mocoSourceBadge: "MOCO",
+    mocoTriggerShort: {
+      invoice: "Neue Rechnung",
+      reminder: "Neue Mahnung",
+      customer: "Neuer Kunde",
+    } as Record<string, string>,
     stepListTitle: "2. Kontaktliste",
     stepListNew: "Neue Liste automatisch anlegen",
     stepListExisting: "Bestehende Liste verwenden",

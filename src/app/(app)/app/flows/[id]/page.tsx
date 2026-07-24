@@ -27,13 +27,13 @@ export default async function FlowDetailPage({ params }: { params: Promise<{ id:
   const { data: flow } = await supabase
     .from("flows")
     .select(
-      "id, name, list_id, letter_id, delay_minutes, is_color, is_duplex, registered, sender_address_id, lead_lists(name)",
+      "id, name, source, moco_trigger, moco_invoice_status, list_id, letter_id, delay_minutes, is_color, is_duplex, registered, sender_address_id, lead_lists(name)",
     )
     .eq("id", id)
     .maybeSingle();
   if (!flow) notFound();
 
-  const [{ letters, lists, senders, availableRegistered }, { data: enrollmentData }] =
+  const [{ letters, lists, senders, availableRegistered, mocoConnected }, { data: enrollmentData }] =
     await Promise.all([
       loadFlowBuilderOptions(),
       supabase
@@ -48,6 +48,9 @@ export default async function FlowDetailPage({ params }: { params: Promise<{ id:
   const initial: FlowInitial = {
     id: flow.id,
     name: flow.name,
+    source: flow.source === "moco" ? "moco" : "list",
+    mocoTrigger: (flow.moco_trigger as FlowInitial["mocoTrigger"]) ?? null,
+    mocoInvoiceStatus: flow.moco_invoice_status === "sent" ? "sent" : "created",
     listId: flow.list_id,
     listName: (flow.lead_lists as unknown as { name: string } | null)?.name ?? "–",
     letterId: flow.letter_id,
@@ -96,6 +99,7 @@ export default async function FlowDetailPage({ params }: { params: Promise<{ id:
         lists={lists}
         senders={senders}
         availableRegistered={availableRegistered}
+        mocoConnected={mocoConnected}
       />
 
       <FlowEnrollments rows={rows} />

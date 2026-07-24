@@ -155,7 +155,13 @@ export async function processSendEmail(payload: SendEmailPayload): Promise<void>
     cta: template.cta,
   });
 
-  await sendMail({ to: profile.email, subject: template.subject, html, text });
+  // A failed provider send must FAIL the job (queue retries with backoff and
+  // the failure becomes visible) — swallowing it marked jobs "done" while the
+  // user received nothing.
+  const result = await sendMail({ to: profile.email, subject: template.subject, html, text });
+  if (!result.ok) {
+    throw new Error(`mail_send_failed: ${result.error ?? "unknown"}`);
+  }
 }
 
 /** Top-up confirmation (manual + auto), amounts formatted from integer cents. */

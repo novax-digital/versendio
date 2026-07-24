@@ -15,7 +15,7 @@ export default async function FlowsPage() {
 
   const { data } = await supabase
     .from("flows")
-    .select("id, name, is_active, delay_minutes, lead_lists(name), letters(title), flow_enrollments(count)")
+    .select("id, name, is_active, delay_minutes, source, moco_trigger, lead_lists(name), letters(title), flow_enrollments(count)")
     .order("created_at", { ascending: false });
 
   const flows: FlowRow[] = (data ?? []).map((f) => ({
@@ -23,7 +23,10 @@ export default async function FlowsPage() {
     name: f.name,
     isActive: f.is_active,
     delayMinutes: f.delay_minutes,
-    listName: (f.lead_lists as unknown as { name: string } | null)?.name ?? "–",
+    listName:
+      f.source === "moco"
+        ? `${de.flows.mocoSourceBadge}: ${de.flows.mocoTriggerShort[f.moco_trigger ?? ""] ?? "–"}`
+        : ((f.lead_lists as unknown as { name: string } | null)?.name ?? "–"),
     letterTitle: (f.letters as unknown as { title: string } | null)?.title ?? "–",
     enrollments: (f.flow_enrollments as unknown as { count: number }[])[0]?.count ?? 0,
   }));

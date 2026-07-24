@@ -461,3 +461,33 @@ Abschlussbericht abarbeiten.
 - [x] Details → `docs/ASSUMPTIONS.md` A-020 (aktualisiert)
   - ⚠️ **Operator-Schritt:** Migration 20260724150000 (Hardening) VOR dem Deploy anwenden
 - [x] DoD: Build ✅ Lint ✅ Typecheck ✅ **203 Unit-Tests** ✅
+
+## Nach Übergabe — MOCO-Flow-Quelle, Canva, Tool-Kacheln, E-Mail-Incident (2026-07-24)
+- [x] **MOCO als Flow-Quelle**: Trigger Neue Rechnung (Status wählbar) / Neue Mahnung / Neuer Kunde;
+  Empfänger → Kontakt (Identität `contacts.moco_company_id`) → Flow-Liste → bestehende Enrollment-
+  Mechanik. Adversarialer Review (17 Funde) eingearbeitet: `moco_flow_processed`-Marker (Dedup VOR
+  Cap, drainendes Fenster, ≤20 API-Fetches/Tick), Creation-Instant-Watermark statt Tagesdatum,
+  Trigger-Wechsel auf aktivem Flow startet Watermark neu, Edit erzeugt keine Waisenlisten mehr,
+  Flow-Listen nicht mehr als Fremdziel wählbar, Direkt-Enrollment als Trigger-Fallback
+- [x] **Canva-Integration**: OAuth (PKCE, State-Cookies pfadgebunden), Tokens verschlüsselt
+  (`canva_accounts`, service-role-only), Design-Browser (paginiert, Thumbnails), Import → A4-PDF-
+  Export (mehrteilige Exporte werden gemerged) → normale Prüf-/Briefstrecke; Review (15 Funde)
+  eingearbeitet: CAS-geschützte Token-Rotation (Single-Use-Refresh), Grant-Revoke bei Trennung/DSGVO,
+  Fehler-Taxonomie (Reconnect nur bei totem Grant), Größen-Cap, Transient-UI-Zustände.
+  Setup-Anleitung: `docs/reference/canva-setup.md`
+- [x] **Integrations-Kacheln**: Zapier/Make/n8n mit Detailseiten (REST-API-Anleitung, Beispiel-Request,
+  Beispiel-Flows), HubSpot ausgegraut „Bald verfügbar"
+- [x] **Formular-Reset-Bug**: Registrierung/Login verlieren bei Fehlern keine Eingaben mehr
+  (kontrollierte Felder — React setzt unkontrollierte Formulare nach Server-Actions zurück)
+- [x] **E-Mail-Incident diagnostiziert**: Auth-Mails liefen über Supabase-Standard-SMTP
+  (Limit ~2/h → 429 `over_email_send_rate_limit`); eigene Resend-Pipeline nachweislich aktiv
+  (job_status_update/job_completed versendet). Fixes: `processSendEmail` wirft jetzt bei
+  Provider-Fehlern (Retry + Sichtbarkeit statt „done"); **Auth-E-Mail-Hook**
+  `/api/hooks/auth-email` (Standard-Webhooks-Signatur) versendet Bestätigungs-/Passwort-/Magic-
+  Link-Mails gebrandet über Resend — ersetzt Supabase-SMTP samt Rate-Limit
+  - ⚠️ **Operator:** (1) Migrationen 20260724180000 + 20260724210000 anwenden; (2) Supabase
+    Dashboard → Auth → Hooks → „Send Email" auf `https://app.versendio.de/api/hooks/auth-email`
+    setzen, Secret als `SUPABASE_AUTH_HOOK_SECRET` in Vercel; (3) `CANVA_CLIENT_ID/SECRET` in
+    Vercel; (4) Resend-Dashboard: Zustellstatus prüfen (novax/versendio-Adressen hinter
+    mailspamprotection → ggf. Allowlist)
+- [x] DoD: Build ✅ Lint ✅ Typecheck ✅ **203 Unit-Tests** ✅

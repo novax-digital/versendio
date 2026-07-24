@@ -15,13 +15,12 @@ export const metadata: Metadata = { title: de.integrations.title };
 export default async function IntegrationsOverviewPage() {
   const profile = await requireProfile();
 
-  // MOCO connection status (service-role table — safe display fields only).
+  // Connection status probes (service-role tables — safe display fields only).
   const admin = createAdminClient();
-  const { data: moco } = await admin
-    .from("moco_accounts")
-    .select("status")
-    .eq("user_id", profile.id)
-    .maybeSingle();
+  const [{ data: moco }, { data: canva }] = await Promise.all([
+    admin.from("moco_accounts").select("status").eq("user_id", profile.id).maybeSingle(),
+    admin.from("canva_accounts").select("status").eq("user_id", profile.id).maybeSingle(),
+  ]);
 
   const supabase = await createClient();
   const { count: keyCount } = await supabase
@@ -35,6 +34,11 @@ export default async function IntegrationsOverviewPage() {
     ? moco.status === "active"
       ? { label: t.mocoConnected, variant: "secondary" as const }
       : { label: t.mocoConnectionErrorBadge, variant: "destructive" as const }
+    : { label: t.statusNotConnected, variant: "outline" as const };
+  const canvaBadge = canva
+    ? canva.status === "active"
+      ? { label: t.canvaConnected, variant: "secondary" as const }
+      : { label: t.canvaConnectionErrorBadge, variant: "destructive" as const }
     : { label: t.statusNotConnected, variant: "outline" as const };
 
   return (
@@ -57,6 +61,37 @@ export default async function IntegrationsOverviewPage() {
           badge={mocoBadge}
         />
         <IntegrationTile
+          href="/app/einstellungen/integrationen/canva"
+          logo={
+            <Image
+              src="/integrationen/logo_canva.svg"
+              alt={t.canvaTitle}
+              width={96}
+              height={30}
+              className="h-7 w-auto"
+            />
+          }
+          hint={t.canvaTileHint}
+          badge={canvaBadge}
+        />
+        {(["zapier", "make", "n8n"] as const).map((tool) => (
+          <IntegrationTile
+            key={tool}
+            href={`/app/einstellungen/integrationen/${tool}`}
+            logo={
+              <Image
+                src={`/integrationen/logo_${tool}.${tool === "make" ? "png" : "svg"}`}
+                alt={t.webhookTools[tool].title}
+                width={96}
+                height={28}
+                className="h-6 w-auto"
+              />
+            }
+            hint={t.webhookTools[tool].tileHint}
+            badge={{ label: t.viaRestBadge, variant: "outline" as const }}
+          />
+        ))}
+        <IntegrationTile
           href="/app/einstellungen/integrationen/api"
           logo={
             <span className="flex items-center gap-2 font-semibold">
@@ -71,6 +106,20 @@ export default async function IntegrationsOverviewPage() {
               : null
           }
         />
+        <IntegrationTile
+          href={null}
+          logo={
+            <Image
+              src="/integrationen/logo_hubspot.svg"
+              alt={t.hubspotTitle}
+              width={96}
+              height={28}
+              className="h-6 w-auto"
+            />
+          }
+          hint={t.hubspotTileHint}
+          badge={{ label: t.comingSoonBadge, variant: "outline" as const }}
+        />
       </div>
     </div>
   );
@@ -82,30 +131,41 @@ function IntegrationTile({
   hint,
   badge,
 }: {
-  href: string;
+  /** null → not yet available: rendered dimmed and non-interactive. */
+  href: string | null;
   logo: React.ReactNode;
   hint: string;
   badge: { label: string; variant: "secondary" | "destructive" | "outline" } | null;
 }) {
-  return (
-    <Link href={href} className="group block">
-      <Card className="hover:border-primary h-full transition-colors">
-        <CardContent className="flex h-full flex-col gap-3 p-5">
-          <div className="flex items-center justify-between gap-3">
-            {logo}
+  const body = (
+    <Card
+      className={
+        href ? "hover:border-primary h-full transition-colors" : "h-full opacity-60"
+      }
+    >
+      <CardContent className="flex h-full flex-col gap-3 p-5">
+        <div className="flex items-center justify-between gap-3">
+          {logo}
+          {href ? (
             <ChevronRight
               className="text-muted-foreground group-hover:text-foreground size-4 shrink-0 transition-colors"
               aria-hidden
             />
-          </div>
-          <p className="text-muted-foreground text-sm">{hint}</p>
-          {badge ? (
-            <div className="mt-auto">
-              <Badge variant={badge.variant}>{badge.label}</Badge>
-            </div>
           ) : null}
-        </CardContent>
-      </Card>
+        </div>
+        <p className="text-muted-foreground text-sm">{hint}</p>
+        {badge ? (
+          <div className="mt-auto">
+            <Badge variant={badge.variant}>{badge.label}</Badge>
+          </div>
+        ) : null}
+      </CardContent>
+    </Card>
+  );
+  if (!href) return <div aria-disabled="true">{body}</div>;
+  return (
+    <Link href={href} className="group block">
+      {body}
     </Link>
   );
 }

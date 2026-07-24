@@ -10,7 +10,8 @@ export const metadata: Metadata = { title: de.flows.newFlow };
 
 export default async function NewFlowPage() {
   await requireProfile();
-  const { letters, lists, senders, availableRegistered } = await loadFlowBuilderOptions();
+  const { letters, lists, senders, availableRegistered, mocoConnected } =
+    await loadFlowBuilderOptions();
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -30,6 +31,7 @@ export default async function NewFlowPage() {
         lists={lists}
         senders={senders}
         availableRegistered={availableRegistered}
+        mocoConnected={mocoConnected}
       />
     </div>
   );

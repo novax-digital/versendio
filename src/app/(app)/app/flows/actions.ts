@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { requireProfile, blockedActionError } from "@/lib/server/auth-context";
 import { type ActionResult, fieldErrorsFromZod } from "@/lib/server/action-result";
 import { flowSchema } from "@/lib/shared/schemas/flow";
@@ -45,10 +46,74 @@ export async function upsertFlowAction(_prev: unknown, input: unknown): Promise<
     if (!sender) return { ok: false, error: de.flows.senderNotFound };
   }
 
-  // Resolve the target list. Existing → verify ownership. New → auto-create.
+  // MOCO source: requires a connected MOCO account; the backing list is
+  // always auto-created (the MOCO scanner feeds it, nobody else should).
+  if (data.source === "moco") {
+    const admin = createAdminClient();
+    const { data: account } = await admin
+      .from("moco_accounts")
+      .select("user_id, status")
+      .eq("user_id", profile.id)
+      .maybeSingle();
+    // An 'error' connection (revoked key) must not silently accept new
+    // automation that can never run.
+    if (!account || account.status !== "active") {
+      return { ok: false, error: de.flows.mocoNotConnected };
+    }
+  }
+
+  const delayMinutes = parseDelay(data.delayValue, data.delayUnit);
+  const id = typeof data.id === "string" && data.id ? data.id : null;
+
+  if (id) {
+    // EDIT: never re-points the list (that would strand existing
+    // enrollments), never flips the source, and never creates a list —
+    // a stray create here orphaned one "MOCO-Flow: <name>" list per save.
+    // MOCO fields are only writable on an actual MOCO flow, and changing
+    // the trigger or invoice status on an ACTIVE flow restarts the
+    // watermark: the new matching set must not be applied retroactively
+    // over the whole since-activation window.
+    const { data: currentFlow } = await supabase
+      .from("flows")
+      .select("source, is_active, moco_trigger, moco_invoice_status")
+      .eq("id", id)
+      .maybeSingle();
+    if (!currentFlow) return { ok: false, error: de.common.genericError };
+
+    const editable: Record<string, unknown> = {
+      name: data.name,
+      letter_id: data.letterId,
+      delay_minutes: delayMinutes,
+      is_color: data.options.isColor,
+      is_duplex: data.options.isDuplex,
+      registered: data.options.registered,
+      sender_address_id: data.senderAddressId ?? null,
+    };
+    if (currentFlow.source === "moco" && data.mocoTrigger) {
+      editable.moco_trigger = data.mocoTrigger;
+      editable.moco_invoice_status = data.mocoInvoiceStatus;
+      const configChanged =
+        currentFlow.moco_trigger !== data.mocoTrigger ||
+        currentFlow.moco_invoice_status !== data.mocoInvoiceStatus;
+      if (configChanged && currentFlow.is_active) {
+        editable.activated_at = new Date().toISOString();
+      }
+    }
+    const { error } = await supabase.from("flows").update(editable).eq("id", id);
+    if (error) {
+      console.error("flow_update_failed", { error: error.message });
+      return { ok: false, error: de.common.genericError };
+    }
+    revalidatePath("/app/flows");
+    revalidatePath(`/app/flows/${id}`);
+    return { ok: true, data: { flowId: id } };
+  }
+
+  // CREATE: resolve the target list. Existing → verify ownership. New/MOCO →
+  // auto-create.
   let listId: string;
   let createdListId: string | null = null;
-  if (data.listMode === "existing") {
+  if (data.source === "list" && data.listMode === "existing") {
     const { data: list } = await supabase
       .from("lead_lists")
       .select("id")
@@ -57,9 +122,10 @@ export async function upsertFlowAction(_prev: unknown, input: unknown): Promise<
     if (!list) return { ok: false, error: de.flows.listNotFound };
     listId = list.id;
   } else {
+    const prefix = data.source === "moco" ? "MOCO-Flow" : "Flow";
     const { data: list, error } = await supabase
       .from("lead_lists")
-      .insert({ user_id: profile.id, name: `Flow: ${data.name}`, source: "flow" })
+      .insert({ user_id: profile.id, name: `${prefix}: ${data.name}`, source: "flow" })
       .select("id")
       .single();
     if (error || !list) {
@@ -70,10 +136,12 @@ export async function upsertFlowAction(_prev: unknown, input: unknown): Promise<
     createdListId = list.id;
   }
 
-  const delayMinutes = parseDelay(data.delayValue, data.delayUnit);
   const values = {
     user_id: profile.id,
     name: data.name,
+    source: data.source === "moco" ? ("moco" as const) : ("manual" as const),
+    moco_trigger: data.source === "moco" ? data.mocoTrigger : null,
+    moco_invoice_status: data.mocoInvoiceStatus,
     list_id: listId,
     letter_id: data.letterId,
     delay_minutes: delayMinutes,
@@ -82,21 +150,6 @@ export async function upsertFlowAction(_prev: unknown, input: unknown): Promise<
     registered: data.options.registered,
     sender_address_id: data.senderAddressId ?? null,
   };
-
-  const id = typeof data.id === "string" && data.id ? data.id : null;
-  if (id) {
-    // Editing never re-points the list (that would strand existing enrollments).
-    const { list_id: _omitListId, ...editable } = values;
-    void _omitListId;
-    const { error } = await supabase.from("flows").update(editable).eq("id", id);
-    if (error) {
-      console.error("flow_update_failed", { error: error.message });
-      return { ok: false, error: de.common.genericError };
-    }
-    revalidatePath("/app/flows");
-    revalidatePath(`/app/flows/${id}`);
-    return { ok: true, data: { flowId: id } };
-  }
 
   const { data: flow, error } = await supabase.from("flows").insert(values).select("id").single();
   if (error || !flow) {

@@ -27,9 +27,14 @@ export type ListOption = { id: string; name: string };
 export type SenderOption = { id: string; label: string; is_default: boolean };
 export type RegisteredOption = "einwurf" | "einschreiben" | "rueckschein";
 
+export type MocoFlowTrigger = "invoice" | "reminder" | "customer";
+
 export type FlowInitial = {
   id: string;
   name: string;
+  source: "list" | "moco";
+  mocoTrigger: MocoFlowTrigger | null;
+  mocoInvoiceStatus: "created" | "sent";
   listId: string;
   listName: string;
   letterId: string;
@@ -54,12 +59,14 @@ export function FlowBuilder({
   lists,
   senders,
   availableRegistered,
+  mocoConnected,
 }: {
   initial: FlowInitial | null;
   letters: LetterOption[];
   lists: ListOption[];
   senders: SenderOption[];
   availableRegistered: RegisteredOption[];
+  mocoConnected: boolean;
 }) {
   const router = useRouter();
   const isEdit = initial !== null;
@@ -67,6 +74,13 @@ export function FlowBuilder({
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const [name, setName] = useState(initial?.name ?? "");
+  const [source, setSource] = useState<"list" | "moco">(initial?.source ?? "list");
+  const [mocoTrigger, setMocoTrigger] = useState<MocoFlowTrigger>(
+    initial?.mocoTrigger ?? "invoice",
+  );
+  const [mocoInvoiceStatus, setMocoInvoiceStatus] = useState<"created" | "sent">(
+    initial?.mocoInvoiceStatus ?? "created",
+  );
   const [listMode, setListMode] = useState<"new" | "existing">(isEdit ? "existing" : "new");
   const [listId, setListId] = useState<string>(initial?.listId ?? lists[0]?.id ?? "");
   const [letterId, setLetterId] = useState<string>(initial?.letterId ?? "");
@@ -88,8 +102,15 @@ export function FlowBuilder({
       const result = await upsertFlowAction(null, {
         id: initial?.id,
         name,
-        listMode: isEdit ? "existing" : listMode,
-        listId: (isEdit ? initial?.listId : listMode === "existing" ? listId : undefined) || undefined,
+        source,
+        mocoTrigger: source === "moco" ? mocoTrigger : undefined,
+        mocoInvoiceStatus,
+        listMode: source === "moco" ? "new" : isEdit ? "existing" : listMode,
+        listId:
+          source === "moco"
+            ? undefined
+            : (isEdit ? initial?.listId : listMode === "existing" ? listId : undefined) ||
+              undefined,
         letterId,
         delayValue: Number(delayValue.replace(",", ".")),
         delayUnit,
@@ -139,69 +160,167 @@ export function FlowBuilder({
         <CardHeader>
           <CardTitle className="text-base">{de.flows.stepSourceTitle}</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="text-muted-foreground flex items-start gap-2 text-sm">
-            <Info className="mt-0.5 size-4 shrink-0" aria-hidden />
-            <p>{de.flows.stepSourceHint}</p>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* 2. List */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">{de.flows.stepListTitle}</CardTitle>
-        </CardHeader>
         <CardContent className="space-y-3">
           {isEdit ? (
             <p className="text-sm">
-              {de.flows.colList}: <span className="font-medium">{initial?.listName}</span>
+              <span className="font-medium">
+                {source === "moco" ? de.flows.sourceMocoLabel : de.flows.sourceListLabel}
+              </span>
+              <span className="text-muted-foreground block text-xs">{de.flows.sourceEditNote}</span>
             </p>
           ) : (
-            <>
-              <RadioGroup
-                value={listMode}
-                onValueChange={(v) => setListMode(v as "new" | "existing")}
-                className="space-y-2"
-              >
-                <Label className="flex cursor-pointer items-start gap-3 rounded-md border p-3 font-normal">
-                  <RadioGroupItem value="new" className="mt-0.5" />
-                  <span>
-                    {de.flows.stepListNew}
-                    <span className="text-muted-foreground block text-xs">
-                      {de.flows.stepListNewHint}
-                    </span>
+            <RadioGroup
+              value={source}
+              onValueChange={(v) => setSource(v as "list" | "moco")}
+              className="space-y-2"
+            >
+              <Label className="flex cursor-pointer items-start gap-3 rounded-md border p-3 font-normal">
+                <RadioGroupItem value="list" className="mt-0.5" />
+                <span>
+                  {de.flows.sourceListLabel}
+                  <span className="text-muted-foreground block text-xs">
+                    {de.flows.sourceListDesc}
                   </span>
-                </Label>
-                <Label className="flex cursor-pointer items-start gap-3 rounded-md border p-3 font-normal">
-                  <RadioGroupItem value="existing" className="mt-0.5" disabled={lists.length === 0} />
-                  <span>{de.flows.stepListExisting}</span>
-                </Label>
-              </RadioGroup>
-              {listMode === "existing" && lists.length > 0 ? (
-                <div className="space-y-1.5">
-                  <Label>{de.flows.stepListSelect}</Label>
-                  <Select value={listId} onValueChange={(v) => setListId(v ?? "")}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue>{lists.find((l) => l.id === listId)?.name ?? ""}</SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {lists.map((l) => (
-                        <SelectItem key={l.id} value={l.id}>
-                          {l.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {fieldErrors.listId ? (
-                    <p className="text-destructive text-xs">{fieldErrors.listId}</p>
-                  ) : null}
-                </div>
-              ) : null}
-            </>
+                </span>
+              </Label>
+              <Label className="flex cursor-pointer items-start gap-3 rounded-md border p-3 font-normal">
+                <RadioGroupItem value="moco" className="mt-0.5" disabled={!mocoConnected} />
+                <span>
+                  {de.flows.sourceMocoLabel}
+                  <span className="text-muted-foreground block text-xs">
+                    {mocoConnected ? de.flows.sourceMocoDesc : de.flows.sourceMocoNotConnected}
+                  </span>
+                </span>
+              </Label>
+            </RadioGroup>
           )}
         </CardContent>
       </Card>
+
+      {/* 2a. MOCO trigger (source = moco) */}
+      {source === "moco" ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">{de.flows.mocoTriggerTitle}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <RadioGroup
+              value={mocoTrigger}
+              onValueChange={(v) => setMocoTrigger(v as MocoFlowTrigger)}
+              className="space-y-2"
+            >
+              {(
+                [
+                  ["invoice", de.flows.mocoTriggerInvoice, de.flows.mocoTriggerInvoiceDesc],
+                  ["reminder", de.flows.mocoTriggerReminder, de.flows.mocoTriggerReminderDesc],
+                  ["customer", de.flows.mocoTriggerCustomer, de.flows.mocoTriggerCustomerDesc],
+                ] as const
+              ).map(([value, label, desc]) => (
+                <Label
+                  key={value}
+                  className="flex cursor-pointer items-start gap-3 rounded-md border p-3 font-normal"
+                >
+                  <RadioGroupItem value={value} className="mt-0.5" />
+                  <span>
+                    {label}
+                    <span className="text-muted-foreground block text-xs">{desc}</span>
+                  </span>
+                </Label>
+              ))}
+            </RadioGroup>
+            {mocoTrigger === "invoice" ? (
+              <div className="space-y-1.5">
+                <Label>{de.flows.mocoInvoiceStatusLabel}</Label>
+                <Select
+                  value={mocoInvoiceStatus}
+                  onValueChange={(v) => setMocoInvoiceStatus(v as "created" | "sent")}
+                >
+                  <SelectTrigger className="w-72">
+                    <SelectValue>
+                      {mocoInvoiceStatus === "created"
+                        ? de.flows.mocoInvoiceStatusCreated
+                        : de.flows.mocoInvoiceStatusSent}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="created">{de.flows.mocoInvoiceStatusCreated}</SelectItem>
+                    <SelectItem value="sent">{de.flows.mocoInvoiceStatusSent}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : null}
+            <div className="text-muted-foreground flex items-start gap-2 text-sm">
+              <Info className="mt-0.5 size-4 shrink-0" aria-hidden />
+              <p>{de.flows.mocoEnrollNote}</p>
+            </div>
+            {fieldErrors.mocoTrigger ? (
+              <p className="text-destructive text-xs">{fieldErrors.mocoTrigger}</p>
+            ) : null}
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {/* 2b. List (source = list) */}
+      {source === "list" ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">{de.flows.stepListTitle}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {isEdit ? (
+              <p className="text-sm">
+                {de.flows.colList}: <span className="font-medium">{initial?.listName}</span>
+              </p>
+            ) : (
+              <>
+                <RadioGroup
+                  value={listMode}
+                  onValueChange={(v) => setListMode(v as "new" | "existing")}
+                  className="space-y-2"
+                >
+                  <Label className="flex cursor-pointer items-start gap-3 rounded-md border p-3 font-normal">
+                    <RadioGroupItem value="new" className="mt-0.5" />
+                    <span>
+                      {de.flows.stepListNew}
+                      <span className="text-muted-foreground block text-xs">
+                        {de.flows.stepListNewHint}
+                      </span>
+                    </span>
+                  </Label>
+                  <Label className="flex cursor-pointer items-start gap-3 rounded-md border p-3 font-normal">
+                    <RadioGroupItem
+                      value="existing"
+                      className="mt-0.5"
+                      disabled={lists.length === 0}
+                    />
+                    <span>{de.flows.stepListExisting}</span>
+                  </Label>
+                </RadioGroup>
+                {listMode === "existing" && lists.length > 0 ? (
+                  <div className="space-y-1.5">
+                    <Label>{de.flows.stepListSelect}</Label>
+                    <Select value={listId} onValueChange={(v) => setListId(v ?? "")}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue>{lists.find((l) => l.id === listId)?.name ?? ""}</SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {lists.map((l) => (
+                          <SelectItem key={l.id} value={l.id}>
+                            {l.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {fieldErrors.listId ? (
+                      <p className="text-destructive text-xs">{fieldErrors.listId}</p>
+                    ) : null}
+                  </div>
+                ) : null}
+              </>
+            )}
+          </CardContent>
+        </Card>
+      ) : null}
 
       {/* 3. Timing */}
       <Card>
@@ -288,7 +407,10 @@ export function FlowBuilder({
           {availableRegistered.length > 0 ? (
             <div className="space-y-1.5">
               <Label>{de.send.registeredLabel}</Label>
-              <Select value={registered} onValueChange={(v) => setRegistered(v as "none" | RegisteredOption)}>
+              <Select
+                value={registered}
+                onValueChange={(v) => setRegistered(v as "none" | RegisteredOption)}
+              >
                 <SelectTrigger className="w-full">
                   <SelectValue>{REGISTERED_LABELS[registered]}</SelectValue>
                 </SelectTrigger>
@@ -312,7 +434,9 @@ export function FlowBuilder({
             >
               <SelectTrigger className="w-full">
                 <SelectValue>
-                  {senderId ? senders.find((s) => s.id === senderId)?.label : de.flows.senderDefault}
+                  {senderId
+                    ? senders.find((s) => s.id === senderId)?.label
+                    : de.flows.senderDefault}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>

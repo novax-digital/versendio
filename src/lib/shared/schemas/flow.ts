@@ -12,7 +12,12 @@ export const flowSchema = z
   .object({
     id: z.string().uuid().optional(),
     name: z.string().trim().min(1).max(80),
-    listMode: z.enum(["existing", "new"]),
+    // 'list' = contacts entering a lead list (classic); 'moco' = recipients
+    // from MOCO events feed the flow's auto-created list.
+    source: z.enum(["list", "moco"]).default("list"),
+    mocoTrigger: z.enum(["invoice", "reminder", "customer"]).optional(),
+    mocoInvoiceStatus: z.enum(["created", "sent"]).default("created"),
+    listMode: z.enum(["existing", "new"]).default("new"),
     listId: z.string().uuid().optional(),
     letterId: z.string().uuid(),
     delayValue: z.coerce.number().min(0),
@@ -21,7 +26,14 @@ export const flowSchema = z
     senderAddressId: z.string().uuid().nullable().optional(),
   })
   .superRefine((v, ctx) => {
-    if (v.listMode === "existing" && !v.listId) {
+    if (v.source === "moco" && !v.mocoTrigger) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["mocoTrigger"],
+        message: "Bitte wählen Sie ein MOCO-Ereignis.",
+      });
+    }
+    if (v.source === "list" && v.listMode === "existing" && !v.listId) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["listId"],

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { loginAction } from "../actions";
 import { SocialLogin } from "../social-login";
 import { FormField } from "@/components/forms/form-field";
@@ -11,6 +11,10 @@ import { de } from "@/lib/i18n/de";
 export function LoginForm() {
   const [state, formAction, pending] = useActionState(loginAction, null);
   const fieldErrors = state && !state.ok ? state.fieldErrors : undefined;
+  // CONTROLLED fields: React resets uncontrolled inputs after a form action —
+  // a wrong password must not wipe the typed e-mail address.
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
 
   return (
     <div className="space-y-4">
@@ -22,6 +26,8 @@ export function LoginForm() {
           type="email"
           autoComplete="email"
           required
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
           error={fieldErrors?.email}
         />
         <div className="space-y-1.5">
@@ -31,6 +37,8 @@ export function LoginForm() {
             type="password"
             autoComplete="current-password"
             required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
             error={fieldErrors?.password}
           />
           <Link

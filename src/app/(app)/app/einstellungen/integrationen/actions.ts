@@ -11,6 +11,18 @@ import { getJsonSetting } from "@/lib/server/settings";
 import { encryptSecret } from "@/lib/server/crypto";
 import { isValidMocoSubdomain, verifyMocoCredentials, MocoError } from "@/lib/server/moco/client";
 import { syncMocoAccountForUser } from "@/lib/server/moco/sync";
+import {
+  CanvaError,
+  exportCanvaDesignPdf,
+  getValidCanvaAccessToken,
+  isCanvaAuthError,
+  revokeCanvaGrant,
+} from "@/lib/server/canva/client";
+import { LIMITS } from "@/lib/shared/schablone";
+import { normalizePdfToA4 } from "@/lib/server/pdf/normalize";
+import { validateLetterPdf } from "@/lib/server/pdf/validate";
+import { isSubmittable } from "@/lib/shared/validation-result";
+import { BUCKETS } from "@/lib/server/storage";
 import type { ActionResult } from "@/lib/server/action-result";
 import { de } from "@/lib/i18n/de";
 
@@ -276,6 +288,123 @@ export async function syncMocoNowAction(): Promise<
     });
     return { ok: false, error: de.common.genericError };
   }
+}
+
+// --- Canva integration ------------------------------------------------------
+
+const canvaImportSchema = z.object({
+  designId: z.string().trim().min(1).max(120).regex(/^[A-Za-z0-9_-]+$/),
+  title: z.string().trim().min(1).max(180),
+});
+
+/**
+ * Imports a Canva design as a ready-to-send letter: export as A4 PDF via the
+ * Connect API, then the exact same normalize → validate → store path every
+ * uploaded PDF takes. The letter is a regular letters row afterwards — usable
+ * in manual sends and as a flow letter alike.
+ */
+export async function importCanvaDesignAction(
+  _prev: unknown,
+  formData: FormData,
+): Promise<ActionResult<{ letterId: string }>> {
+  const profile = await requireProfile();
+  const blocked = blockedActionError(profile);
+  if (blocked) return { ok: false, error: blocked };
+
+  const ip = await clientIp();
+  if (!(await checkRateLimit("upload", `canva:${profile.id}:${ip}`))) {
+    return { ok: false, error: de.common.rateLimited };
+  }
+
+  const parsed = canvaImportSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { ok: false, error: de.common.genericError };
+
+  let pdf: Uint8Array;
+  try {
+    const accessToken = await getValidCanvaAccessToken(profile.id);
+    if (!accessToken) return { ok: false, error: de.integrations.canvaNotConnected };
+    pdf = await exportCanvaDesignPdf(accessToken, parsed.data.designId);
+  } catch (err) {
+    // Only a dead GRANT means "reconnect" — a failed export of one design
+    // must not send the user to re-authorize for nothing.
+    if (isCanvaAuthError(err)) {
+      return { ok: false, error: de.integrations.canvaReconnect };
+    }
+    if (err instanceof CanvaError && !err.transient) {
+      return { ok: false, error: de.integrations.canvaExportRejected };
+    }
+    console.error("canva_export_failed", { error: err instanceof Error ? err.message : "?" });
+    return { ok: false, error: de.integrations.canvaExportFailed };
+  }
+  if (pdf.byteLength > LIMITS.maxFileSizeBytes) {
+    return { ok: false, error: de.letters.tooLarge };
+  }
+
+  const { bytes, adjusted } = await normalizePdfToA4(pdf);
+  const validation = await validateLetterPdf(bytes, { a4Normalized: adjusted });
+  if (!isSubmittable(validation)) {
+    const firstError = validation.rules.find((r) => r.severity === "error");
+    // The A4 hint only helps for FORMAT failures; other rules (page count,
+    // encryption, ...) carry their own actionable message.
+    const error =
+      firstError?.id === "a4"
+        ? `${de.integrations.canvaNotA4} ${firstError.message}`.trim()
+        : (firstError?.message ?? de.integrations.canvaExportRejected);
+    return { ok: false, error };
+  }
+
+  const admin = createAdminClient();
+  const letterId = crypto.randomUUID();
+  const storagePath = `${profile.id}/letters/${letterId}.pdf`;
+  const { error: uploadError } = await admin.storage
+    .from(BUCKETS.letters)
+    .upload(storagePath, bytes as unknown as Blob, { contentType: "application/pdf" });
+  if (uploadError) {
+    console.error("canva_letter_store_failed", { error: uploadError.message });
+    return { ok: false, error: de.common.genericError };
+  }
+
+  const coverSheets = validation.needsCoverLetter ? 1 : 0;
+  const { error: insertError } = await admin.from("letters").insert({
+    id: letterId,
+    user_id: profile.id,
+    title: `Canva: ${parsed.data.title}`.slice(0, 200),
+    source: "upload",
+    storage_path: storagePath,
+    page_count: validation.pageCount,
+    sheet_count: (validation.sheetCountSimplex ?? 0) + coverSheets,
+    file_size_bytes: validation.fileSizeBytes,
+    validation: validation as unknown as Record<string, unknown>,
+    address_zone_result: validation.addressZoneResult,
+    needs_cover_letter: validation.needsCoverLetter,
+    use_cover_letter: validation.needsCoverLetter,
+    has_placeholders: false,
+    status: "ready",
+  });
+  if (insertError) {
+    await admin.storage.from(BUCKETS.letters).remove([storagePath]);
+    console.error("canva_letter_insert_failed", { error: insertError.message });
+    return { ok: false, error: de.common.genericError };
+  }
+
+  revalidatePath("/app/briefe");
+  return { ok: true, data: { letterId } };
+}
+
+export async function disconnectCanvaAction(): Promise<ActionResult> {
+  const profile = await requireProfile();
+  // Best-effort: remove the grant at Canva so the integration disappears
+  // from the user's "connected apps" instead of leaving live tokens behind.
+  await revokeCanvaGrant(profile.id);
+  const admin = createAdminClient();
+  const { error } = await admin.from("canva_accounts").delete().eq("user_id", profile.id);
+  if (error) {
+    console.error("canva_disconnect_failed", { error: error.message });
+    return { ok: false, error: de.common.genericError };
+  }
+  revalidatePath("/app/einstellungen/integrationen");
+  revalidatePath("/app/einstellungen/integrationen/canva");
+  return { ok: true };
 }
 
 export async function revokeApiKeyAction(_prev: unknown, formData: FormData): Promise<ActionResult> {

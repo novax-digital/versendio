@@ -25,6 +25,16 @@ const serverEnvSchema = z.object({
   EPOST_SECRET: z.string().optional(),
   EPOST_CREDENTIALS_KEY: z.string().optional(),
 
+  // Canva Connect integration (OAuth app credentials from the Canva
+  // Developer Portal). Absent → the Canva tile shows a not-configured hint.
+  CANVA_CLIENT_ID: z.string().optional(),
+  CANVA_CLIENT_SECRET: z.string().optional(),
+
+  // Supabase Auth "Send Email" hook secret (Standard-Webhooks format). When
+  // set, /api/hooks/auth-email delivers branded auth mails via Resend instead
+  // of Supabase's rate-limited default SMTP.
+  SUPABASE_AUTH_HOOK_SECRET: z.string().optional(),
+
   STRIPE_SECRET_KEY: z.string().optional(),
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
 

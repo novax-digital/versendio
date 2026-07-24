@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useRef } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { registerAction } from "../actions";
 import { SocialLogin } from "../social-login";
@@ -14,15 +14,27 @@ export function RegisterForm() {
   const router = useRouter();
   const [state, formAction, pending] = useActionState(registerAction, null);
   const fieldErrors = state && !state.ok ? state.fieldErrors : undefined;
-  // Captured for Enhanced Conversions — the server action's payload is unchanged.
-  const emailRef = useRef("");
+  // CONTROLLED fields: React resets uncontrolled inputs after a form action,
+  // so a failed validation (e.g. password mismatch) would wipe everything the
+  // user typed. Client state survives the round-trip.
+  const [values, setValues] = useState({
+    displayName: "",
+    company: "",
+    email: "",
+    password: "",
+    passwordConfirm: "",
+  });
+  const setValue = (name: keyof typeof values) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    setValues((v) => ({ ...v, [name]: e.target.value }));
 
   useEffect(() => {
     if (state?.ok) {
-      armRegistrationConversion(emailRef.current);
+      armRegistrationConversion(values.email);
       armMetaLead();
       router.replace("/willkommen");
     }
+    // values.email is read at success time only — no need to re-run on typing.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state, router]);
 
   if (state?.ok) {
@@ -43,6 +55,8 @@ export function RegisterForm() {
           name="displayName"
           autoComplete="name"
           required
+          value={values.displayName}
+          onChange={setValue("displayName")}
           error={fieldErrors?.displayName}
         />
         <FormField
@@ -50,6 +64,8 @@ export function RegisterForm() {
           name="company"
           autoComplete="organization"
           optionalLabel={de.common.optional}
+          value={values.company}
+          onChange={setValue("company")}
           error={fieldErrors?.company}
         />
         <FormField
@@ -58,10 +74,9 @@ export function RegisterForm() {
           type="email"
           autoComplete="email"
           required
+          value={values.email}
+          onChange={setValue("email")}
           error={fieldErrors?.email}
-          onChange={(e) => {
-            emailRef.current = e.target.value;
-          }}
         />
         <FormField
           label={de.auth.password}
@@ -69,6 +84,8 @@ export function RegisterForm() {
           type="password"
           autoComplete="new-password"
           required
+          value={values.password}
+          onChange={setValue("password")}
           hint={de.auth.passwordHint}
           error={fieldErrors?.password}
         />
@@ -78,6 +95,8 @@ export function RegisterForm() {
           type="password"
           autoComplete="new-password"
           required
+          value={values.passwordConfirm}
+          onChange={setValue("passwordConfirm")}
           error={fieldErrors?.passwordConfirm}
         />
         {state && !state.ok && state.error ? (

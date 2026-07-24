@@ -71,6 +71,15 @@ export async function deleteAccount(
     console.error("delete_moco_data_failed", { error: mocoError.message });
     return { ok: false, error: "moco_cleanup_failed" };
   }
+  // Canva OAuth tokens (encrypted third-party credential): revoke the grant
+  // at Canva best-effort, then drop the row.
+  const { revokeCanvaGrant } = await import("@/lib/server/canva/client");
+  await revokeCanvaGrant(userId);
+  const { error: canvaError } = await admin.rpc("delete_user_canva_data", { p_user_id: userId });
+  if (canvaError && canvaError.code !== "PGRST202") {
+    console.error("delete_canva_data_failed", { error: canvaError.message });
+    return { ok: false, error: "canva_cleanup_failed" };
+  }
 
   // 4) External identities last.
   if (billing?.stripe_customer_id && stripeEnabled()) {

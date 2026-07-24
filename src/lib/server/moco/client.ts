@@ -82,6 +82,8 @@ export type MocoInvoice = {
   status: string;
   recipient_address: string;
   customer_id: number | null;
+  /** Creation instant (epoch ms) — null when MOCO omits/garbles it. */
+  createdAtTs: number | null;
   currency?: string;
   gross_total?: number;
 };
@@ -92,10 +94,27 @@ export type MocoReminder = {
   date: string;
   status: string; // "created" | "sent"
   file_url: string | null;
+  createdAtTs: number | null;
   invoice: { id: number; identifier: string | null; title: string | null } | null;
 };
 
 type RawInvoice = Record<string, unknown>;
+
+/**
+ * MOCO timestamps arrive as ISO strings (or, defensively, epoch seconds).
+ * Returns epoch millis, or null when absent/unparseable — callers must treat
+ * null as "unknown" and SKIP, never as "new".
+ */
+export function parseMocoTimestamp(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value > 10_000_000_000 ? value : value * 1000;
+  }
+  if (typeof value === "string" && value) {
+    const ts = Date.parse(value);
+    return Number.isNaN(ts) ? null : ts;
+  }
+  return null;
+}
 
 function toInvoice(raw: RawInvoice): MocoInvoice {
   return {
@@ -111,6 +130,7 @@ function toInvoice(raw: RawInvoice): MocoInvoice {
         : typeof raw.customer_id === "number"
           ? raw.customer_id
           : null,
+    createdAtTs: parseMocoTimestamp(raw.created_at),
     currency: typeof raw.currency === "string" ? raw.currency : undefined,
     gross_total: typeof raw.gross_total === "number" ? raw.gross_total : undefined,
   };
@@ -122,9 +142,14 @@ function toInvoice(raw: RawInvoice): MocoInvoice {
 const PAGE_SIZE = 100;
 const MAX_PAGES = 5;
 
-async function mocoFetchAllPages(auth: MocoAuth, path: string, params: URLSearchParams) {
+async function mocoFetchAllPages(
+  auth: MocoAuth,
+  path: string,
+  params: URLSearchParams,
+  maxPages: number = MAX_PAGES,
+) {
   const all: unknown[] = [];
-  for (let page = 1; page <= MAX_PAGES; page++) {
+  for (let page = 1; page <= maxPages; page++) {
     params.set("page", String(page));
     const res = await mocoFetch(auth, `${path}?${params}`);
     const body = (await res.json()) as unknown;
@@ -175,6 +200,7 @@ export async function listMocoReminders(
       date: typeof r.date === "string" ? r.date : "",
       status: typeof r.status === "string" ? r.status : "",
       file_url: typeof r.file_url === "string" ? r.file_url : null,
+      createdAtTs: parseMocoTimestamp(r.created_at),
       invoice: invoice
         ? {
             id: Number(invoice.id),
@@ -184,6 +210,42 @@ export async function listMocoReminders(
         : null,
     };
   });
+}
+
+export type MocoCompany = {
+  id: number;
+  name: string;
+  /** Free-text postal address block (may or may not repeat the name). */
+  address: string;
+  country_code: string | null;
+  createdAtTs: number | null;
+};
+
+function toCompany(raw: Record<string, unknown>): MocoCompany {
+  return {
+    id: Number(raw.id),
+    name: typeof raw.name === "string" ? raw.name : "",
+    address: typeof raw.address === "string" ? raw.address : "",
+    country_code: typeof raw.country_code === "string" ? raw.country_code : null,
+    createdAtTs: parseMocoTimestamp(raw.created_at),
+  };
+}
+
+export async function getMocoCompany(auth: MocoAuth, id: number): Promise<MocoCompany> {
+  const res = await mocoFetch(auth, `/companies/${id}`);
+  return toCompany((await res.json()) as Record<string, unknown>);
+}
+
+/**
+ * Lists customer companies (type=customer keeps suppliers/leads out). No
+ * server-side date filter exists, so callers filter client-side — 10 pages
+ * (1000 companies) bound the worst case; accounts beyond that are documented
+ * as a known limit of the "new customer" flow trigger.
+ */
+export async function listMocoCompanies(auth: MocoAuth): Promise<MocoCompany[]> {
+  const params = new URLSearchParams({ type: "customer" });
+  const body = await mocoFetchAllPages(auth, "/companies", params, 10);
+  return body.map((r) => toCompany(r as Record<string, unknown>));
 }
 
 /**

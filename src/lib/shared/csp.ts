@@ -27,7 +27,8 @@ export function buildCsp(nonce: string, supabaseOrigin: string, isDev = false): 
     // Stripe embedded checkout renders payment-method icons from stripe.com.
     // Meta Pixel delivers events as image GETs to facebook.com/tr (fbevents.js
     // itself loads via script-src strict-dynamic; consent-gated).
-    "img-src 'self' data: blob: https://*.stripe.com https://www.facebook.com",
+    // Canva design thumbnails are short-lived signed URLs on *.canva.com.
+    "img-src 'self' data: blob: https://*.stripe.com https://www.facebook.com https://*.canva.com",
     "font-src 'self' data:",
     `connect-src 'self' ${supabaseOrigin} https://api.stripe.com https://checkout.stripe.com https://js.stripe.com https://connect.facebook.net https://www.facebook.com`
       .replace(/\s+/g, " ")
