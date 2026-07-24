@@ -968,10 +968,6 @@ export function LetterEditor({
                 ))}
               </div>
               <p className="text-muted-foreground mt-2 text-xs">{de.letters.editorRecipientHint}</p>
-              <label className="mt-3 flex items-center gap-2 text-xs">
-                <Switch checked={showSampleData} onCheckedChange={setShowSampleData} />
-                {de.letters.sampleDataToggle}
-              </label>
             </section>
           )}
 
@@ -1007,6 +1003,10 @@ export function LetterEditor({
               <label className="flex items-center gap-2 text-xs">
                 <Switch checked={showZones} onCheckedChange={setShowZones} />
                 {de.letters.showZones}
+              </label>
+              <label className="flex items-center gap-2 text-xs">
+                <Switch checked={showSampleData} onCheckedChange={setShowSampleData} />
+                {de.letters.sampleDataToggle}
               </label>
               <Tooltip>
                 <TooltipTrigger render={<Badge variant="outline" className="cursor-default" />}>
@@ -1045,8 +1045,42 @@ export function LetterEditor({
               {de.letters.mobileReadOnlyHint}
             </p>
 
-            {/* Placeholder strip for md screens without the left panel */}
+            {/* Placeholder strip + view controls for md screens (left panel hidden) */}
             <div className="mb-3 hidden md:block lg:hidden">{placeholderChips}</div>
+            <div className="mb-3 hidden items-center justify-between gap-2 md:flex lg:hidden">
+              <Badge variant="outline" className="cursor-default">
+                <FileText className="size-3.5" aria-hidden />
+                ca. {estimatedPages} {estimatedPages === 1 ? "Seite" : de.letters.pageCount} ·{" "}
+                {estimatedSheets} {de.letters.sheetCount}
+              </Badge>
+              <div className="flex items-center gap-3">
+                <label className="flex items-center gap-1.5 text-xs">
+                  <Switch checked={showZones} onCheckedChange={setShowZones} />
+                  {de.letters.showZones}
+                </label>
+                <label className="flex items-center gap-1.5 text-xs">
+                  <Switch checked={showSampleData} onCheckedChange={setShowSampleData} />
+                  {de.letters.sampleDataToggle}
+                </label>
+                <div className="bg-muted flex items-center gap-0.5 rounded-lg p-0.5">
+                  {(["fit", "full"] as const).map((z) => (
+                    <Button
+                      key={z}
+                      variant="ghost"
+                      size="sm"
+                      aria-pressed={zoom === z}
+                      className={cn(
+                        "h-6.5 px-2 text-xs",
+                        zoom === z && "bg-background text-foreground hover:bg-background shadow-sm",
+                      )}
+                      onClick={() => setZoom(z)}
+                    >
+                      {z === "fit" ? de.letters.zoomFit : de.letters.zoom100}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            </div>
 
             <div className="hidden md:block">
               <LetterCanvas
@@ -1143,7 +1177,7 @@ export function LetterEditor({
               </TabsList>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto p-3">
-              <TabsContent value="baustein">
+              <TabsContent value="baustein" keepMounted>
                 <BlockInspector
                   show="block"
                   doc={doc}
@@ -1163,7 +1197,7 @@ export function LetterEditor({
                   forceOpenHeaderFooter={forceOpenHeaderFooter}
                 />
               </TabsContent>
-              <TabsContent value="dokument">
+              <TabsContent value="dokument" keepMounted>
                 <BlockInspector
                   show="document"
                   doc={doc}
