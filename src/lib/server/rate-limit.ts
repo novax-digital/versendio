@@ -14,8 +14,12 @@ export type RateLimitScope =
 
 const LIMITS: Record<RateLimitScope, { limit: number; windowSeconds: number }> = {
   login: { limit: 10, windowSeconds: 300 },
-  register: { limit: 5, windowSeconds: 3600 },
-  forgot_password: { limit: 5, windowSeconds: 3600 },
+  // Per-IP with many users behind one address (offices, mobile CGNAT) — and
+  // failed attempts count too. Short windows over small hourly caps: quick
+  // legitimate retries pass, sustained abuse still stalls; e-mail
+  // confirmation is the real signup gate.
+  register: { limit: 10, windowSeconds: 900 },
+  forgot_password: { limit: 10, windowSeconds: 900 },
   upload: { limit: 30, windowSeconds: 3600 },
   send: { limit: 20, windowSeconds: 3600 },
   ai: { limit: 5, windowSeconds: 60 },
