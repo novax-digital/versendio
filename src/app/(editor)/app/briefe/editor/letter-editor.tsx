@@ -14,6 +14,7 @@ import {
   PenLine,
   Plus,
   Sparkles,
+  X,
 } from "lucide-react";
 import {
   saveEditorLetterAction,
@@ -162,6 +163,17 @@ export function LetterEditor({
   const [estimatedPages, setEstimatedPages] = useState(1);
   const [forceOpenHeaderFooter, setForceOpenHeaderFooter] = useState(0);
   const [rightTab, setRightTab] = useState<"baustein" | "dokument">("dokument");
+  // One-shot starter: shown as a modal BEFORE anything else when a brand-new,
+  // empty document opens (desktop only — mobile is read-only). Closing it in
+  // any way never brings it back for this session.
+  const [starterOpen, setStarterOpen] = useState(
+    () =>
+      letterId === null &&
+      templateId === null &&
+      initialDocument.blocks.every((b) => !("text" in b) || b.text.trim() === "") &&
+      !initialDocument.blocks.some((b) => b.type === "image") &&
+      (typeof window === "undefined" || window.matchMedia("(min-width: 768px)").matches),
+  );
   const [leaveHref, setLeaveHref] = useState<string | null>(null);
   const bypassGuardRef = useRef(false);
   const activeTextRef = useRef<
@@ -241,13 +253,6 @@ export function LetterEditor({
     const target = selectedId ? "baustein" : "dokument";
     if (rightTab !== target) setRightTab(target);
   }
-
-  // Pristine document → Schnellstart card (gated on !dirty per jury verdict).
-  const pristine =
-    !dirty &&
-    !persistedId &&
-    doc.blocks.every((b) => !("text" in b) || b.text.trim() === "") &&
-    !doc.blocks.some((b) => b.type === "image");
 
   const loadTemplate = (template: Template) => {
     const parsed = safeParseLetterDocument(template.editor_document);
@@ -889,6 +894,24 @@ export function LetterEditor({
                 {de.common.next}
               </Button>
             )}
+            <span className="bg-border mx-1 h-6 w-px" aria-hidden />
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={de.letters.closeEditor}
+              title={de.letters.closeEditor}
+              onClick={() => {
+                const target = templateMode ? "/app/briefe/vorlagen" : "/app/briefe";
+                if (dirty) {
+                  setLeaveHref(target);
+                } else {
+                  bypassGuardRef.current = true;
+                  router.push(target);
+                }
+              }}
+            >
+              <X className="size-4" />
+            </Button>
           </div>
         </div>
       </div>
@@ -1024,72 +1047,6 @@ export function LetterEditor({
 
             {/* Placeholder strip for md screens without the left panel */}
             <div className="mb-3 hidden md:block lg:hidden">{placeholderChips}</div>
-
-            {pristine ? (
-              <div className="bg-background mx-auto mb-6 hidden max-w-md rounded-xl border p-5 shadow-sm md:block">
-                <p className="font-heading mb-4 text-center text-base font-semibold">
-                  {de.letters.starterTitle}
-                </p>
-                <div className="space-y-2">
-                  {aiEnabled ? (
-                    <button
-                      type="button"
-                      onClick={() => setAiOpen(true)}
-                      className="hover:border-primary hover:bg-muted/50 flex w-full items-start gap-3 rounded-lg border p-3 text-left transition-colors"
-                    >
-                      <Sparkles className="text-primary mt-0.5 size-4 shrink-0" aria-hidden />
-                      <span>
-                        <span className="block text-sm font-medium">{de.letters.startAi}</span>
-                        <span className="text-muted-foreground block text-xs">
-                          {de.letters.starterAiHint}
-                        </span>
-                      </span>
-                    </button>
-                  ) : null}
-                  {templates.length > 0 ? (
-                    <button
-                      type="button"
-                      onClick={() => requestTemplate(templates[0])}
-                      className="hover:border-primary hover:bg-muted/50 flex w-full items-start gap-3 rounded-lg border p-3 text-left transition-colors"
-                    >
-                      <LayoutTemplate
-                        className="text-muted-foreground mt-0.5 size-4 shrink-0"
-                        aria-hidden
-                      />
-                      <span>
-                        <span className="block text-sm font-medium">{de.letters.useTemplate}</span>
-                        <span className="text-muted-foreground block text-xs">
-                          {de.letters.starterTemplateHint(templates.length)}
-                        </span>
-                      </span>
-                    </button>
-                  ) : null}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const first = doc.blocks.find((b) => b.type === "subject") ?? doc.blocks[0];
-                      if (first) {
-                        setSelectedId(first.id);
-                        (
-                          document.querySelector(
-                            `[data-block-id="${first.id}"] textarea`,
-                          ) as HTMLTextAreaElement | null
-                        )?.focus();
-                      }
-                    }}
-                    className="hover:border-primary hover:bg-muted/50 flex w-full items-start gap-3 rounded-lg border p-3 text-left transition-colors"
-                  >
-                    <PenLine className="text-muted-foreground mt-0.5 size-4 shrink-0" aria-hidden />
-                    <span>
-                      <span className="block text-sm font-medium">{de.letters.startBlank}</span>
-                      <span className="text-muted-foreground block text-xs">
-                        {de.letters.starterBlankHint}
-                      </span>
-                    </span>
-                  </button>
-                </div>
-              </div>
-            ) : null}
 
             <div className="hidden md:block">
               <LetterCanvas
@@ -1230,6 +1187,82 @@ export function LetterEditor({
           </Tabs>
         </aside>
       </div>
+
+      {/* One-shot starter dialog: how do you want to begin? */}
+      <Dialog open={starterOpen} onOpenChange={setStarterOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{de.letters.starterTitle}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            {aiEnabled ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setStarterOpen(false);
+                  setAiOpen(true);
+                }}
+                className="hover:border-primary hover:bg-muted/50 flex w-full items-start gap-3 rounded-lg border p-3 text-left transition-colors"
+              >
+                <Sparkles className="text-primary mt-0.5 size-4 shrink-0" aria-hidden />
+                <span>
+                  <span className="block text-sm font-medium">{de.letters.startAi}</span>
+                  <span className="text-muted-foreground block text-xs">
+                    {de.letters.starterAiHint}
+                  </span>
+                </span>
+              </button>
+            ) : null}
+            {templates.length > 0 ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setStarterOpen(false);
+                  requestTemplate(templates[0]);
+                }}
+                className="hover:border-primary hover:bg-muted/50 flex w-full items-start gap-3 rounded-lg border p-3 text-left transition-colors"
+              >
+                <LayoutTemplate
+                  className="text-muted-foreground mt-0.5 size-4 shrink-0"
+                  aria-hidden
+                />
+                <span>
+                  <span className="block text-sm font-medium">{de.letters.useTemplate}</span>
+                  <span className="text-muted-foreground block text-xs">
+                    {de.letters.starterTemplateHint(templates.length)}
+                  </span>
+                </span>
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => {
+                setStarterOpen(false);
+                const first = doc.blocks.find((b) => b.type === "subject") ?? doc.blocks[0];
+                if (first) {
+                  setSelectedId(first.id);
+                  requestAnimationFrame(() =>
+                    (
+                      document.querySelector(
+                        `[data-block-id="${first.id}"] textarea`,
+                      ) as HTMLTextAreaElement | null
+                    )?.focus(),
+                  );
+                }
+              }}
+              className="hover:border-primary hover:bg-muted/50 flex w-full items-start gap-3 rounded-lg border p-3 text-left transition-colors"
+            >
+              <PenLine className="text-muted-foreground mt-0.5 size-4 shrink-0" aria-hidden />
+              <span>
+                <span className="block text-sm font-medium">{de.letters.startBlank}</span>
+                <span className="text-muted-foreground block text-xs">
+                  {de.letters.starterBlankHint}
+                </span>
+              </span>
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* AI draft dialog (controlled — opened from top bar or starter card) */}
       {aiEnabled ? (

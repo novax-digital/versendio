@@ -492,6 +492,7 @@ export const de = {
     editorRecipientHint:
       "Musterdaten – die echten Empfänger wählen Sie beim Versand (Kontakt oder Liste).",
     editorView: "Ansicht",
+    closeEditor: "Designer schließen",
     editorTabBlock: "Baustein",
     editorTabDocument: "Dokument",
     startAi: "Mit KI entwerfen",
