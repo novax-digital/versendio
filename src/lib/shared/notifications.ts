@@ -36,6 +36,7 @@ const TEMPLATE_PREF: Record<string, NotificationPrefColumn> = {
   job_status_update: "notify_epost_updates",
   topup_confirmed: "notify_topup",
   flow_summary: "notify_flow_activity",
+  moco_summary: "notify_send_status",
 };
 
 /** Whether the given template may be sent under the user's prefs. */

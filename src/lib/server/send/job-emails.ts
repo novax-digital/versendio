@@ -18,7 +18,8 @@ type EmailTemplate =
   | "welcome"
   | "topup_confirmed"
   | "job_status_update"
-  | "flow_summary";
+  | "flow_summary"
+  | "moco_summary";
 
 /**
  * Payload contract for send_email queue jobs. Kept in lockstep with the cast
@@ -88,7 +89,7 @@ export async function processSendEmail(payload: SendEmailPayload): Promise<void>
   // action-critical: they bypass the flow-activity opt-out so the settings
   // page's "wichtige Hinweise erhalten Sie immer" promise stays true.
   const actionCritical =
-    payload.template === "flow_summary" &&
+    (payload.template === "flow_summary" || payload.template === "moco_summary") &&
     ((payload.heldFundsCount ?? 0) > 0 || (payload.failedCount ?? 0) > 0);
   if (!actionCritical && !templateAllowed(payload.template, profile)) return;
 
@@ -139,6 +140,7 @@ export async function processSendEmail(payload: SendEmailPayload): Promise<void>
       cta: toSend,
     },
     flow_summary: buildFlowSummary(payload, appName, appUrl),
+    moco_summary: buildMocoSummary(payload, appName, appUrl),
   };
 
   const template = templates[payload.template as EmailTemplate];
@@ -183,6 +185,43 @@ function buildTopupConfirmed(
     subject: `Guthaben aufgeladen: ${amount} – ${appName}`,
     paragraphs,
     cta: toCredits,
+  };
+}
+
+/** Per-tick MOCO digest: dispatched / failed / blocked by missing funds. */
+function buildMocoSummary(
+  payload: SendEmailPayload,
+  appName: string,
+  appUrl: string,
+): { subject: string; paragraphs: string[]; cta?: { label: string; url: string } } {
+  const sent = payload.sentCount ?? 0;
+  const held = payload.heldFundsCount ?? 0;
+  const failed = payload.failedCount ?? 0;
+  const paragraphs: string[] = [];
+  if (sent > 0) {
+    paragraphs.push(
+      sent === 1
+        ? "Ihre MOCO-Integration hat soeben 1 Dokument automatisch als Brief versendet."
+        : `Ihre MOCO-Integration hat soeben ${sent} Dokumente automatisch als Briefe versendet.`,
+    );
+  }
+  if (held > 0) {
+    paragraphs.push(
+      `<strong>${held === 1 ? "1 Dokument konnte" : `${held} Dokumente konnten`} nicht versendet werden, weil Ihr Guthaben nicht ausreicht.</strong> Bitte laden Sie Guthaben auf und stoßen Sie die Synchronisierung in den Einstellungen erneut an.`,
+    );
+  }
+  if (failed > 0) {
+    paragraphs.push(
+      `${failed === 1 ? "1 Dokument konnte" : `${failed} Dokumente konnten`} nicht verarbeitet werden (z. B. Adresse nicht erkannt oder PDF ungeeignet) und ${failed === 1 ? "wurde" : "wurden"} nicht berechnet. Details finden Sie in den Integrations-Einstellungen.`,
+    );
+  }
+  const cta = appUrl
+    ? { label: "Zu den Integrationen", url: `${appUrl}/app/einstellungen/integrationen` }
+    : undefined;
+  return {
+    subject: `Ihre MOCO-Integration war aktiv – ${appName}`,
+    paragraphs,
+    cta,
   };
 }
 

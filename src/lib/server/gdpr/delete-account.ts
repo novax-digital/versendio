@@ -63,6 +63,14 @@ export async function deleteAccount(
     console.error("delete_wl_customers_failed", { error: wlError.message });
     return { ok: false, error: "wl_cleanup_failed" };
   }
+  // MOCO connection (encrypted third-party credential) + document ledger
+  // (third-party business identifiers) — same must-not-silently-persist rule.
+  const { error: mocoError } = await admin.rpc("delete_user_moco_data", { p_user_id: userId });
+  if (mocoError && mocoError.code !== "PGRST202") {
+    // PGRST202: RPC missing (deploy racing the migration) — nothing to delete.
+    console.error("delete_moco_data_failed", { error: mocoError.message });
+    return { ok: false, error: "moco_cleanup_failed" };
+  }
 
   // 4) External identities last.
   if (billing?.stripe_customer_id && stripeEnabled()) {

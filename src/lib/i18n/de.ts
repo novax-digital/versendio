@@ -541,6 +541,69 @@ export const de = {
     docsWlUsage: "Verbrauchswerte je Endkunde",
     docsWlUsageNote:
       "Zählt nur zugestellte Briefe (Status „Versendet“, ohne Probeversand); Beträge netto in Cent. from einschließlich, to ausschließlich.",
+    // MOCO
+    mocoTitle: "MOCO",
+    mocoHint:
+      "Verbinden Sie Ihre MOCO-Agentursoftware und versenden Sie Rechnungen und Mahnungen automatisch als Brief – inklusive Guthaben-Abrechnung und Sendungsverfolgung wie bei jedem anderen Brief.",
+    mocoSubdomain: "MOCO-Konto",
+    mocoSubdomainPlaceholder: "ihr-konto",
+    mocoSubdomainSuffix: ".mocoapp.com",
+    mocoApiKey: "API-Schlüssel",
+    mocoApiKeyHint:
+      "In MOCO unter Einstellungen → Erweiterungen → API & Webhooks erzeugen. Ein Schlüssel mit Lesezugriff genügt – Versendio schreibt nichts in Ihr MOCO.",
+    mocoConnect: "Verbinden",
+    mocoConnected: "Verbunden",
+    mocoConnectionErrorBadge: "Verbindungsfehler",
+    mocoConnectedAs: "Verbunden mit",
+    mocoInvalidSubdomain: "Bitte geben Sie nur den Kontonamen an, z. B. „ihr-konto“.",
+    mocoInvalidCredentials:
+      "MOCO hat die Zugangsdaten abgelehnt. Bitte prüfen Sie Kontoname und API-Schlüssel.",
+    mocoConnectFailed:
+      "MOCO ist gerade nicht erreichbar. Bitte versuchen Sie es in ein paar Minuten erneut.",
+    mocoNotConnected: "Es ist kein MOCO-Konto verbunden.",
+    mocoRulesTitle: "Automatischer Versand",
+    mocoRulesHint:
+      "Es werden nur Dokumente versendet, die nach dem Aktivieren erstellt wurden – Ihr Archiv bleibt unangetastet. Jedes Dokument wird genau einmal versendet.",
+    mocoAutoInvoices: "Rechnungen automatisch versenden",
+    mocoAutoInvoicesHint: "Neue Rechnungen mit dem gewählten Status werden als Brief versendet.",
+    mocoTriggerLabel: "Rechnungs-Status",
+    mocoTriggerCreated: "Erstellt (noch nicht versendet)",
+    mocoTriggerSent: "Als versendet markiert",
+    mocoAutoReminders: "Mahnungen automatisch versenden",
+    mocoAutoRemindersHint:
+      "Neu erstellte Zahlungserinnerungen und Mahnungen (Status „erstellt“) werden als Brief versendet.",
+    mocoOptionDuplex: "Beidseitig drucken",
+    mocoOptionColor: "Farbdruck",
+    mocoSaved: "MOCO-Einstellungen gespeichert.",
+    mocoSyncNow: "Jetzt synchronisieren",
+    mocoSyncResult: (sent: number, failed: number) =>
+      `Synchronisierung abgeschlossen: ${sent} versendet, ${failed} fehlgeschlagen.`,
+    mocoSyncFunds:
+      "Ihr Guthaben reicht für weitere Dokumente nicht aus. Bitte laden Sie Guthaben auf.",
+    mocoDisconnect: "Verbindung trennen",
+    mocoDisconnectConfirm:
+      "MOCO-Verbindung wirklich trennen? Der automatische Versand stoppt sofort; bereits versendete Briefe bleiben erhalten.",
+    mocoDisconnected: "Die MOCO-Verbindung wurde getrennt.",
+    mocoLastSync: "Letzte Synchronisierung",
+    mocoNeverSynced: "noch nie",
+    mocoActivityTitle: "Zuletzt verarbeitete Dokumente",
+    mocoActivityEmpty: "Noch keine Dokumente verarbeitet.",
+    mocoDocInvoice: "Rechnung",
+    mocoDocReminder: "Mahnung",
+    mocoDocStatus: {
+      pending: "In Bearbeitung",
+      sent: "Versendet",
+      failed: "Fehlgeschlagen",
+      skipped: "Übersprungen",
+    } as Record<string, string>,
+    mocoDocDetail: {
+      insufficient_funds: "Guthaben reicht nicht aus",
+      no_sender_address: "Keine Standard-Absenderadresse hinterlegt",
+      address_unavailable: "Keine Empfängeradresse im Dokument",
+      reminder_pdf_unavailable: "Mahnungs-PDF nicht verfügbar",
+    } as Record<string, string>,
+    mocoPartnerNote:
+      "Hinweis: Der Versand wird wie gewohnt von Ihrem Guthaben abgebucht. Sie finden jede Sendung unter „Sendungen“.",
   },
   notifications: {
     title: "Benachrichtigungen",

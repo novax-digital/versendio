@@ -420,3 +420,24 @@ Abschlussbericht abarbeiten.
   Guard in normalize, PDF/A-Suppression, Copy-Konsistenz (musterNotes, „+1 Seite"), CropBox-Reveal
   - ⚠️ **Operator-Schritt:** Migration anwenden (`npx supabase db push` oder SQL-Editor)
 - [x] DoD: Build ✅ Lint ✅ Typecheck ✅ **189 Unit-Tests** ✅
+
+## Nach Übergabe — MOCO-Integration (2026-07-24)
+- [x] **Verbindung** (Einstellungen → Integrationen): MOCO-Karte mit Kontoname + API-Key; Verifizierung
+  gegen `GET /session`; Key AES-verschlüsselt in `moco_accounts` (service-role-only, epost_accounts-Muster);
+  Read-only-Key genügt. Subdomain als DNS-Label validiert, Mahnungs-`file_url` hostgepinnt (SSRF)
+- [x] **Automatischer Versand**: Rechnungen (Trigger-Status wählbar: erstellt/versendet) und Mahnungen
+  (Status „erstellt"); Duplex/Farbe je Konto; Watermark `activated_at` (nur Dokumente ab Aktivierung,
+  Re-Aktivierung setzt neu — nie das Archiv). Cron `/api/cron/moco` alle 10 min, Flows-Muster
+  (Zeitbudget, Konten-Isolation, ≤10 Dokumente/Konto/Tick, MOCO-Rate-Limit-schonend)
+- [x] **Exactly-once**: Claim per Insert in `moco_documents` (Unique je Dokument), Zeilen-ID als
+  `p_client_token` von `confirm_send_job`; Crash-Resume über pending-Pfad; Trennen behält das Ledger
+  als Dedup-Anker
+- [x] **Pipeline-Wiederverwendung**: Original-PDF → normalizePdfToA4 → validateLetterPdf → letters-Zeile
+  (Auto-Deckblatt je Zonenanalyse) → reguläre Guthaben-/Versand-Pipeline mit Sendungsverfolgung
+- [x] **Adress-Parser**: MOCO-Freitext `recipient_address` → strukturiertes Empfängerschema
+  (DE/AT/CH/NL, Länder-Präfixe/-Zeilen, bottom-up-PLZ); nicht parsebar = lauter Fehler statt Raten
+- [x] **Feedback**: Aktivitätsliste (letzte 10 Dokumente), „Jetzt synchronisieren" (rate-limitiert),
+  Digest-Mail `moco_summary` (actionCritical bei Guthaben-Mangel); DSGVO `delete_user_moco_data`
+- [x] Details → `docs/ASSUMPTIONS.md` A-020; Ideen I-032–I-034 (Write-back, Funds-Retry, Partner-Listing)
+  - ⚠️ **Operator-Schritt:** Migration 20260724090000 auf der DB anwenden
+- [x] DoD: Build ✅ Lint ✅ Typecheck ✅ **202 Unit-Tests** ✅ (adversarialer Review läuft, Fixes folgen als Folge-Commit)
