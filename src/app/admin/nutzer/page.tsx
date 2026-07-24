@@ -48,6 +48,15 @@ export default async function AdminUsersPage({
   const { data: users, count } = await query;
   const totalPages = Math.max(1, Math.ceil((count ?? 0) / PAGE_SIZE));
 
+  // profiles.status means "not blocked/deleted" — it says NOTHING about the
+  // e-mail confirmation the login actually gates on. Surface unconfirmed
+  // accounts explicitly (auth admin API; fine at current scale, revisit
+  // beyond ~1000 users).
+  const { data: authList } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+  const unconfirmed = new Set(
+    (authList?.users ?? []).filter((u) => !u.email_confirmed_at).map((u) => u.id),
+  );
+
   const statusBadge = (status: string) =>
     status === "active"
       ? { label: de.admin.statusActive, variant: "outline" as const }
@@ -101,6 +110,11 @@ export default async function AdminUsersPage({
                     </TableCell>
                     <TableCell>
                       <Badge variant={badge.variant}>{badge.label}</Badge>
+                      {unconfirmed.has(user.id) && user.status !== "deleted" ? (
+                        <Badge variant="destructive" className="mt-1 block w-fit">
+                          {de.admin.emailUnconfirmed}
+                        </Badge>
+                      ) : null}
                     </TableCell>
                   </TableRow>
                 );

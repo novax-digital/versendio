@@ -52,6 +52,10 @@ export default async function AdminUserDetailPage({
 
   if (!user) notFound();
 
+  // E-mail confirmation gates the login; profiles.status does not reflect it.
+  const { data: authUser } = await admin.auth.admin.getUserById(id);
+  const emailUnconfirmed = authUser?.user ? !authUser.user.email_confirmed_at : false;
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -74,6 +78,9 @@ export default async function AdminUserDetailPage({
                   ? de.admin.statusBlocked
                   : de.admin.statusDeleted}
             </Badge>
+            {emailUnconfirmed ? (
+              <Badge variant="destructive">{de.admin.emailUnconfirmed}</Badge>
+            ) : null}
           </h2>
           <p className="text-muted-foreground text-sm">
             {user.email} · {user.company ?? "–"} · costCenter {user.cost_center}

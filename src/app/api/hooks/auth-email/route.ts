@@ -33,8 +33,9 @@ type HookPayload = {
 };
 
 function decodeSecret(raw: string): Buffer {
-  // Dashboard shows e.g. "v1,whsec_<base64>" — tolerate all prefix variants.
-  const stripped = raw.replace(/^v1,/, "").replace(/^whsec_/, "");
+  // Dashboard copies vary: "v1,whsec_<base64>", "v1_whsec_<base64>" or the
+  // bare base64 — tolerate every prefix variant so a pasted secret just works.
+  const stripped = raw.trim().replace(/^v1[,_]/, "").replace(/^whsec_/, "");
   return Buffer.from(stripped, "base64");
 }
 

@@ -1259,6 +1259,7 @@ export const de = {
     balance: "Guthaben",
     plan: "Preisstufe",
     statusActive: "Aktiv",
+    emailUnconfirmed: "E-Mail unbestätigt",
     statusBlocked: "Gesperrt",
     statusDeleted: "Gelöscht",
     role: "Rolle",
