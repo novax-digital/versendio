@@ -116,15 +116,32 @@ function toInvoice(raw: RawInvoice): MocoInvoice {
   };
 }
 
+// MOCO paginates list endpoints at 100 entries/page. Follow up to MAX_PAGES so
+// a busy account cannot silently hide documents beyond page 1; the per-tick
+// processing cap keeps the actual work bounded regardless.
+const PAGE_SIZE = 100;
+const MAX_PAGES = 5;
+
+async function mocoFetchAllPages(auth: MocoAuth, path: string, params: URLSearchParams) {
+  const all: unknown[] = [];
+  for (let page = 1; page <= MAX_PAGES; page++) {
+    params.set("page", String(page));
+    const res = await mocoFetch(auth, `${path}?${params}`);
+    const body = (await res.json()) as unknown;
+    if (!Array.isArray(body)) throw new MocoError("unexpected_response", true);
+    all.push(...body);
+    if (body.length < PAGE_SIZE) break;
+  }
+  return all;
+}
+
 /** Lists invoices with a given status, dated on/after dateFrom (YYYY-MM-DD). */
 export async function listMocoInvoices(
   auth: MocoAuth,
   opts: { status: string; dateFrom: string },
 ): Promise<MocoInvoice[]> {
   const params = new URLSearchParams({ status: opts.status, date_from: opts.dateFrom });
-  const res = await mocoFetch(auth, `/invoices?${params}`);
-  const body = (await res.json()) as unknown;
-  if (!Array.isArray(body)) throw new MocoError("unexpected_response", true);
+  const body = await mocoFetchAllPages(auth, "/invoices", params);
   return body.map((r) => toInvoice(r as RawInvoice));
 }
 
@@ -145,9 +162,7 @@ export async function listMocoReminders(
   opts: { dateFrom: string },
 ): Promise<MocoReminder[]> {
   const params = new URLSearchParams({ date_from: opts.dateFrom });
-  const res = await mocoFetch(auth, `/invoice_reminders?${params}`);
-  const body = (await res.json()) as unknown;
-  if (!Array.isArray(body)) throw new MocoError("unexpected_response", true);
+  const body = await mocoFetchAllPages(auth, "/invoice_reminders", params);
   return body.map((raw) => {
     const r = raw as Record<string, unknown>;
     const invoice =

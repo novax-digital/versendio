@@ -1,8 +1,9 @@
 "use client";
 
 import { useActionState, useEffect, useState, useTransition } from "react";
+import Image from "next/image";
 import { toast } from "sonner";
-import { Plug, RefreshCw } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -53,6 +54,16 @@ export type MocoDocumentView = {
 
 const t = de.integrations;
 
+const dateFormat = new Intl.DateTimeFormat("de-DE", { dateStyle: "short", timeStyle: "short" });
+
+/** Sync detail codes carry a technical suffix ("pdf_invalid: …") — map the
+ *  prefix to German; unknown codes fall back to a generic label. */
+function detailLabel(detail: string | null): string | null {
+  if (!detail || detail === "processing") return null;
+  const key = detail.split(":")[0].trim();
+  return t.mocoDocDetail[key] ?? t.mocoDocDetail.unknown_error;
+}
+
 export function MocoCard({
   account,
   documents,
@@ -63,9 +74,14 @@ export function MocoCard({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-base">
-          <Plug className="size-4" aria-hidden />
-          {t.mocoTitle}
+        <CardTitle className="flex items-center gap-3 text-base">
+          <Image
+            src="/integrationen/logo_moco.svg"
+            alt={t.mocoTitle}
+            width={88}
+            height={22}
+            className="h-5 w-auto dark:invert"
+          />
           {account ? (
             account.status === "active" ? (
               <Badge variant="secondary">{t.mocoConnected}</Badge>
@@ -77,17 +93,13 @@ export function MocoCard({
       </CardHeader>
       <CardContent className="space-y-6">
         <p className="text-muted-foreground text-sm">{t.mocoHint}</p>
-        {account ? (
-          <ConnectedView account={account} documents={documents} />
-        ) : (
-          <ConnectForm />
-        )}
+        {account ? <ConnectedView account={account} documents={documents} /> : <ConnectForm />}
       </CardContent>
     </Card>
   );
 }
 
-function ConnectForm() {
+function ConnectForm({ defaultSubdomain }: { defaultSubdomain?: string }) {
   const [state, formAction, pending] = useActionState(connectMocoAction, null);
 
   useEffect(() => {
@@ -103,6 +115,7 @@ function ConnectForm() {
             id="moco-subdomain"
             name="subdomain"
             placeholder={t.mocoSubdomainPlaceholder}
+            defaultValue={defaultSubdomain}
             required
             autoComplete="off"
             className="max-w-48"
@@ -129,15 +142,25 @@ function ConnectedView({
   account: MocoAccountView;
   documents: MocoDocumentView[];
 }) {
-  const [rules, setRules] = useState({
+  const initial = {
     autoInvoices: account.autoInvoices,
     invoiceTrigger: account.invoiceTrigger,
     autoReminders: account.autoReminders,
     duplex: account.duplex,
     color: account.color,
-  });
+  };
+  const [rules, setRules] = useState(initial);
   const [pending, startTransition] = useTransition();
   const [syncing, startSync] = useTransition();
+
+  // Unsaved switches must not silently diverge from what a sync would use —
+  // the sync runs against the SAVED server rules.
+  const dirty =
+    rules.autoInvoices !== initial.autoInvoices ||
+    rules.invoiceTrigger !== initial.invoiceTrigger ||
+    rules.autoReminders !== initial.autoReminders ||
+    rules.duplex !== initial.duplex ||
+    rules.color !== initial.color;
 
   const save = () => {
     const fd = new FormData();
@@ -154,6 +177,10 @@ function ConnectedView({
   };
 
   const syncNow = () => {
+    if (!account.autoInvoices && !account.autoReminders) {
+      toast.info(t.mocoSyncNoRules);
+      return;
+    }
     startSync(async () => {
       const result = await syncMocoNowAction();
       if (!result.ok || !result.data) {
@@ -162,7 +189,8 @@ function ConnectedView({
       }
       const { sent, failed, insufficientFunds } = result.data;
       if (insufficientFunds > 0) toast.warning(t.mocoSyncFunds);
-      toast.success(t.mocoSyncResult(sent, failed + insufficientFunds));
+      if (sent + failed + insufficientFunds === 0) toast.info(t.mocoSyncNothingNew);
+      else toast.success(t.mocoSyncResult(sent, failed));
     });
   };
 
@@ -186,14 +214,17 @@ function ConnectedView({
         </p>
         <p className="text-muted-foreground">
           {t.mocoLastSync}:{" "}
-          {account.lastSyncAt
-            ? new Date(account.lastSyncAt).toLocaleString("de-DE")
-            : t.mocoNeverSynced}
+          {account.lastSyncAt ? dateFormat.format(new Date(account.lastSyncAt)) : t.mocoNeverSynced}
         </p>
-        {account.status !== "active" && account.lastError ? (
-          <p className="text-destructive mt-1">{t.mocoInvalidCredentials}</p>
-        ) : null}
       </div>
+
+      {account.status !== "active" ? (
+        // Broken credentials: offer re-entry in place — rules survive.
+        <div className="space-y-4 rounded-md border border-dashed p-4">
+          <p className="text-destructive text-sm">{t.mocoReconnectHint}</p>
+          <ConnectForm defaultSubdomain={account.subdomain} />
+        </div>
+      ) : null}
 
       <div className="space-y-4">
         <div>
@@ -265,14 +296,12 @@ function ConnectedView({
           <Button onClick={save} disabled={pending}>
             {pending ? de.common.saving : de.common.save}
           </Button>
-          <Button variant="outline" onClick={syncNow} disabled={syncing}>
+          <Button variant="outline" onClick={syncNow} disabled={syncing || dirty}>
             <RefreshCw className={`size-4 ${syncing ? "animate-spin" : ""}`} aria-hidden />
             {t.mocoSyncNow}
           </Button>
           <AlertDialog>
-            <AlertDialogTrigger
-              render={<Button variant="outline" className="text-destructive" />}
-            >
+            <AlertDialogTrigger render={<Button variant="outline" className="text-destructive" />}>
               {t.mocoDisconnect}
             </AlertDialogTrigger>
             <AlertDialogContent>
@@ -287,6 +316,7 @@ function ConnectedView({
             </AlertDialogContent>
           </AlertDialog>
         </div>
+        {dirty ? <p className="text-muted-foreground text-xs">{t.mocoSyncSaveFirst}</p> : null}
       </div>
 
       <div className="space-y-2">
@@ -295,33 +325,34 @@ function ConnectedView({
           <p className="text-muted-foreground text-sm">{t.mocoActivityEmpty}</p>
         ) : (
           <ul className="divide-y text-sm">
-            {documents.map((doc) => (
-              <li key={doc.id} className="flex items-center justify-between gap-3 py-2">
-                <div className="min-w-0">
-                  <p className="truncate font-medium">
-                    {doc.docType === "invoice" ? t.mocoDocInvoice : t.mocoDocReminder}{" "}
-                    {doc.identifier ?? ""}
-                  </p>
-                  <p className="text-muted-foreground truncate text-xs">
-                    {new Date(doc.createdAt).toLocaleString("de-DE")}
-                    {doc.status === "failed" && doc.detail
-                      ? ` · ${t.mocoDocDetail[doc.detail] ?? doc.detail}`
-                      : ""}
-                  </p>
-                </div>
-                <Badge
-                  variant={
-                    doc.status === "sent"
-                      ? "secondary"
-                      : doc.status === "failed"
-                        ? "destructive"
-                        : "outline"
-                  }
-                >
-                  {t.mocoDocStatus[doc.status] ?? doc.status}
-                </Badge>
-              </li>
-            ))}
+            {documents.map((doc) => {
+              const label = detailLabel(doc.detail);
+              return (
+                <li key={doc.id} className="flex items-center justify-between gap-3 py-2">
+                  <div className="min-w-0">
+                    <p className="truncate font-medium">
+                      {doc.docType === "invoice" ? t.mocoDocInvoice : t.mocoDocReminder}{" "}
+                      {doc.identifier ?? ""}
+                    </p>
+                    <p className="text-muted-foreground truncate text-xs">
+                      {dateFormat.format(new Date(doc.createdAt))}
+                      {doc.status !== "sent" && label ? ` · ${label}` : ""}
+                    </p>
+                  </div>
+                  <Badge
+                    variant={
+                      doc.status === "sent"
+                        ? "secondary"
+                        : doc.status === "failed"
+                          ? "destructive"
+                          : "outline"
+                    }
+                  >
+                    {t.mocoDocStatus[doc.status] ?? doc.status}
+                  </Badge>
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>

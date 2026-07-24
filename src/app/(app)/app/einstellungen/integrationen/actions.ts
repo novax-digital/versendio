@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { generateApiKey } from "@/lib/server/api-keys";
 import { checkRateLimit, checkCustomLimit, clientIp } from "@/lib/server/rate-limit";
+import { getJsonSetting } from "@/lib/server/settings";
 import { encryptSecret } from "@/lib/server/crypto";
 import { isValidMocoSubdomain, verifyMocoCredentials, MocoError } from "@/lib/server/moco/client";
 import { syncMocoAccountForUser } from "@/lib/server/moco/sync";
@@ -58,6 +59,7 @@ export async function createApiKeyAction(
   }
 
   revalidatePath("/app/einstellungen/integrationen");
+  revalidatePath("/app/einstellungen/integrationen/api");
   // Plaintext returned exactly once — never stored.
   return { ok: true, data: { key } };
 }
@@ -107,6 +109,16 @@ export async function connectMocoAction(
   }
 
   const admin = createAdminClient();
+  // Switching to a DIFFERENT MOCO tenant is a fresh integration: auto-send
+  // must never silently continue with inherited rules/watermarks against a
+  // new account's document space.
+  const { data: existing } = await admin
+    .from("moco_accounts")
+    .select("subdomain")
+    .eq("user_id", profile.id)
+    .maybeSingle();
+  const tenantSwitch = existing != null && existing.subdomain !== parsed.data.subdomain;
+
   const { error } = await admin.from("moco_accounts").upsert(
     {
       user_id: profile.id,
@@ -114,6 +126,14 @@ export async function connectMocoAction(
       api_key_enc: encryptSecret(parsed.data.apiKey),
       status: "active",
       last_error: null,
+      ...(tenantSwitch
+        ? {
+            auto_send_invoices: false,
+            auto_send_reminders: false,
+            invoices_activated_at: null,
+            reminders_activated_at: null,
+          }
+        : {}),
     },
     { onConflict: "user_id" },
   );
@@ -123,6 +143,7 @@ export async function connectMocoAction(
   }
 
   revalidatePath("/app/einstellungen/integrationen");
+  revalidatePath("/app/einstellungen/integrationen/moco");
   return { ok: true };
 }
 
@@ -148,16 +169,29 @@ export async function updateMocoRulesAction(
   const admin = createAdminClient();
   const { data: account } = await admin
     .from("moco_accounts")
-    .select("auto_send_invoices, auto_send_reminders, activated_at")
+    .select(
+      "auto_send_invoices, auto_send_reminders, invoice_trigger_status, invoices_activated_at, reminders_activated_at",
+    )
     .eq("user_id", profile.id)
     .maybeSingle();
   if (!account) return { ok: false, error: de.integrations.mocoNotConnected };
 
-  // Watermark semantics: (re-)enabling auto-send starts a FRESH watermark so a
-  // pause never causes the backlog since the old watermark to be blasted out.
-  const wasOn = account.auto_send_invoices || account.auto_send_reminders;
-  const isOn = parsed.data.autoInvoices || parsed.data.autoReminders;
-  const activatedAt = isOn && !wasOn ? new Date().toISOString() : account.activated_at;
+  // PER-RULE watermarks: each rule that transitions off→on starts fresh at
+  // "now" — enabling a second rule months later (or after a pause) must never
+  // inherit an old watermark and mail the backlog. Changing the invoice
+  // trigger status widens the matching set the same way, so it also resets.
+  const now = new Date().toISOString();
+  const invoicesActivatedAt =
+    parsed.data.autoInvoices &&
+    (!account.auto_send_invoices ||
+      account.invoice_trigger_status !== parsed.data.invoiceTrigger ||
+      !account.invoices_activated_at)
+      ? now
+      : account.invoices_activated_at;
+  const remindersActivatedAt =
+    parsed.data.autoReminders && (!account.auto_send_reminders || !account.reminders_activated_at)
+      ? now
+      : account.reminders_activated_at;
 
   const { error } = await admin
     .from("moco_accounts")
@@ -167,7 +201,8 @@ export async function updateMocoRulesAction(
       auto_send_reminders: parsed.data.autoReminders,
       is_duplex: parsed.data.duplex,
       is_color: parsed.data.color,
-      activated_at: activatedAt,
+      invoices_activated_at: invoicesActivatedAt,
+      reminders_activated_at: remindersActivatedAt,
     })
     .eq("user_id", profile.id);
   if (error) {
@@ -176,6 +211,7 @@ export async function updateMocoRulesAction(
   }
 
   revalidatePath("/app/einstellungen/integrationen");
+  revalidatePath("/app/einstellungen/integrationen/moco");
   return { ok: true };
 }
 
@@ -191,6 +227,7 @@ export async function disconnectMocoAction(): Promise<ActionResult> {
     return { ok: false, error: de.common.genericError };
   }
   revalidatePath("/app/einstellungen/integrationen");
+  revalidatePath("/app/einstellungen/integrationen/moco");
   return { ok: true };
 }
 
@@ -201,6 +238,12 @@ export async function syncMocoNowAction(): Promise<
   const blocked = blockedActionError(profile);
   if (blocked) return { ok: false, error: blocked };
 
+  // The operator kill switch must cover the manual path too — during an
+  // incident every connected user could otherwise still trigger dispatches.
+  if (!(await getJsonSetting<boolean>("moco_enabled", true))) {
+    return { ok: false, error: de.integrations.mocoSyncDisabled };
+  }
+
   // Manual syncs hit the MOCO API — keep them well under MOCO's rate budget.
   if (!(await checkCustomLimit(`moco_sync:${profile.id}`, 6, 3600))) {
     return { ok: false, error: de.common.rateLimited };
@@ -209,8 +252,21 @@ export async function syncMocoNowAction(): Promise<
   try {
     const result = await syncMocoAccountForUser(profile.id);
     if (!result) return { ok: false, error: de.integrations.mocoNotConnected };
-    revalidatePath("/app/einstellungen/integrationen");
-    return { ok: true, data: result };
+    revalidatePath("/app/einstellungen/integrationen/moco");
+    if (result.accountError === "auth") {
+      return { ok: false, error: de.integrations.mocoInvalidCredentials };
+    }
+    if (result.accountError === "transient") {
+      return { ok: false, error: de.integrations.mocoConnectFailed };
+    }
+    return {
+      ok: true,
+      data: {
+        sent: result.sent,
+        failed: result.failed,
+        insufficientFunds: result.insufficientFunds,
+      },
+    };
   } catch (err) {
     if (err instanceof MocoError && !err.transient) {
       return { ok: false, error: de.integrations.mocoInvalidCredentials };
@@ -242,5 +298,6 @@ export async function revokeApiKeyAction(_prev: unknown, formData: FormData): Pr
     return { ok: false, error: de.common.genericError };
   }
   revalidatePath("/app/einstellungen/integrationen");
+  revalidatePath("/app/einstellungen/integrationen/api");
   return { ok: true };
 }

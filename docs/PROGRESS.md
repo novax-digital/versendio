@@ -441,3 +441,23 @@ Abschlussbericht abarbeiten.
 - [x] Details → `docs/ASSUMPTIONS.md` A-020; Ideen I-032–I-034 (Write-back, Funds-Retry, Partner-Listing)
   - ⚠️ **Operator-Schritt:** Migration 20260724090000 auf der DB anwenden
 - [x] DoD: Build ✅ Lint ✅ Typecheck ✅ **202 Unit-Tests** ✅ (adversarialer Review läuft, Fixes folgen als Folge-Commit)
+
+## Nach Übergabe — MOCO-Hardening (30 Review-Funde) & Integrationen-Kacheln (2026-07-24)
+- [x] **Adversarialer Review ausgewertet** (34 Agenten, 30 bestätigte Funde, davon 3 kritisch):
+  - **Watermark pro Regel** (`invoices_activated_at`/`reminders_activated_at`): Nachaktivieren einer
+    zweiten Regel oder Trigger-Wechsel startet frisch — nie wieder Archiv-Versand (kritisch)
+  - **Crash-Repair**: Resume prüft zuerst `send_jobs.client_token`; Mahnungs-Resumes lösen die Adresse
+    über persistierte `address_invoice_id`; „bezahlt, aber als fehlgeschlagen gemeldet" unmöglich (kritisch)
+  - **Guthaben-Retry**: `insufficient_funds` bleibt pending und läuft nach Aufladung automatisch weiter;
+    Digest nur beim ersten Auftreten (kritische UX-Falschzusage behoben)
+  - Optimistisches Lock (attempts-CAS) gegen Cron/Manuell-Rennen; 5-Versuche-Cap; transiente Fehler
+    still pending; Pagination (5×100) für MOCO-Listen; Dedup je Mandant (subdomain im Unique-Index);
+    gezielte Existenz-Checks statt Full-Table-Scan; Kill-Switch deckt manuellen Sync; Tenant-Wechsel
+    resettet Regeln; Berlin-Datum fürs Watermark; Fehlercodes deutsch gemappt; Dirty-Guard vor Sync;
+    Reconnect-Formular bei Verbindungsfehler; Digest-/Hint-Texte ehrlich formuliert
+- [x] **Integrationen-Übersicht als Kacheln**: `/einstellungen/integrationen` zeigt Karten (MOCO-Logo
+  aus `public/integrationen/`, REST-API) mit Status-Badges; Detailseiten `/integrationen/moco` und
+  `/integrationen/api`; Zurück-Links; Mail-CTA zeigt auf die MOCO-Seite
+- [x] Details → `docs/ASSUMPTIONS.md` A-020 (aktualisiert)
+  - ⚠️ **Operator-Schritt:** Migration 20260724150000 (Hardening) VOR dem Deploy anwenden
+- [x] DoD: Build ✅ Lint ✅ Typecheck ✅ **203 Unit-Tests** ✅

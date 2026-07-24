@@ -207,7 +207,7 @@ function buildMocoSummary(
   }
   if (held > 0) {
     paragraphs.push(
-      `<strong>${held === 1 ? "1 Dokument konnte" : `${held} Dokumente konnten`} nicht versendet werden, weil Ihr Guthaben nicht ausreicht.</strong> Bitte laden Sie Guthaben auf und stoßen Sie die Synchronisierung in den Einstellungen erneut an.`,
+      `<strong>${held === 1 ? "1 Dokument konnte" : `${held} Dokumente konnten`} nicht versendet werden, weil Ihr Guthaben nicht ausreicht.</strong> Bitte laden Sie Guthaben auf – der Versand wird danach automatisch fortgesetzt.`,
     );
   }
   if (failed > 0) {
@@ -216,7 +216,7 @@ function buildMocoSummary(
     );
   }
   const cta = appUrl
-    ? { label: "Zu den Integrationen", url: `${appUrl}/app/einstellungen/integrationen` }
+    ? { label: "Zu den Integrationen", url: `${appUrl}/app/einstellungen/integrationen/moco` }
     : undefined;
   return {
     subject: `Ihre MOCO-Integration war aktiv – ${appName}`,

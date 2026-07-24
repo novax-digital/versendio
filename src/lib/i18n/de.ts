@@ -495,6 +495,15 @@ export const de = {
   },
   integrations: {
     title: "Integrationen",
+    overviewSubtitle:
+      "Verbinden Sie Versendio mit Ihren Systemen – über fertige Integrationen oder die offene REST-API.",
+    backToOverview: "Alle Integrationen",
+    statusNotConnected: "Nicht verbunden",
+    restApiTitle: "REST-API",
+    restApiTileHint:
+      "Eigene Anbindung über API-Schlüssel – für HubSpot, Zapier, Make oder Ihre eigene Software.",
+    mocoTileHint: "Rechnungen und Mahnungen aus MOCO automatisch als Brief versenden.",
+    activeKeysBadge: (n: number) => (n === 1 ? "1 aktiver Schlüssel" : `${n} aktive Schlüssel`),
     subtitle:
       "Verbinden Sie Versendio über die REST-API mit Ihren Systemen (z. B. HubSpot, Zapier, Make oder eigene Software).",
     keysTitle: "API-Schlüssel",
@@ -558,12 +567,14 @@ export const de = {
     mocoInvalidSubdomain: "Bitte geben Sie nur den Kontonamen an, z. B. „ihr-konto“.",
     mocoInvalidCredentials:
       "MOCO hat die Zugangsdaten abgelehnt. Bitte prüfen Sie Kontoname und API-Schlüssel.",
+    mocoReconnectHint:
+      "Die Verbindung ist unterbrochen (z. B. API-Schlüssel widerrufen). Geben Sie die Zugangsdaten unten neu ein – Ihre Versandregeln bleiben erhalten.",
     mocoConnectFailed:
       "MOCO ist gerade nicht erreichbar. Bitte versuchen Sie es in ein paar Minuten erneut.",
     mocoNotConnected: "Es ist kein MOCO-Konto verbunden.",
     mocoRulesTitle: "Automatischer Versand",
     mocoRulesHint:
-      "Es werden nur Dokumente versendet, die nach dem Aktivieren erstellt wurden – Ihr Archiv bleibt unangetastet. Jedes Dokument wird genau einmal versendet.",
+      "Versendet werden nur Dokumente mit Datum ab dem Tag der jeweiligen Aktivierung – Ihr Archiv bleibt unangetastet. Kein Dokument wird doppelt versendet.",
     mocoAutoInvoices: "Rechnungen automatisch versenden",
     mocoAutoInvoicesHint: "Neue Rechnungen mit dem gewählten Status werden als Brief versendet.",
     mocoTriggerLabel: "Rechnungs-Status",
@@ -576,10 +587,16 @@ export const de = {
     mocoOptionColor: "Farbdruck",
     mocoSaved: "MOCO-Einstellungen gespeichert.",
     mocoSyncNow: "Jetzt synchronisieren",
+    mocoSyncSaveFirst: "Bitte speichern Sie Ihre Änderungen, bevor Sie synchronisieren.",
     mocoSyncResult: (sent: number, failed: number) =>
       `Synchronisierung abgeschlossen: ${sent} versendet, ${failed} fehlgeschlagen.`,
+    mocoSyncNoRules:
+      "Es ist kein automatischer Versand aktiviert – es wurde nichts synchronisiert.",
+    mocoSyncNothingNew: "Synchronisierung abgeschlossen – keine neuen Dokumente gefunden.",
     mocoSyncFunds:
-      "Ihr Guthaben reicht für weitere Dokumente nicht aus. Bitte laden Sie Guthaben auf.",
+      "Ihr Guthaben reicht für weitere Dokumente nicht aus. Nach dem Aufladen wird der Versand automatisch fortgesetzt.",
+    mocoSyncDisabled:
+      "Die MOCO-Synchronisierung ist vorübergehend deaktiviert. Bitte versuchen Sie es später erneut.",
     mocoDisconnect: "Verbindung trennen",
     mocoDisconnectConfirm:
       "MOCO-Verbindung wirklich trennen? Der automatische Versand stoppt sofort; bereits versendete Briefe bleiben erhalten.",
@@ -597,10 +614,18 @@ export const de = {
       skipped: "Übersprungen",
     } as Record<string, string>,
     mocoDocDetail: {
-      insufficient_funds: "Guthaben reicht nicht aus",
-      no_sender_address: "Keine Standard-Absenderadresse hinterlegt",
+      insufficient_funds: "Guthaben reicht nicht aus – wird nach Aufladung fortgesetzt",
+      no_sender_address: "Keine Standard-Absenderadresse hinterlegt – wird erneut versucht",
       address_unavailable: "Keine Empfängeradresse im Dokument",
+      address_parse_failed: "Empfängeradresse konnte nicht erkannt werden",
+      address_invalid: "Empfängeradresse ist unvollständig oder ungültig",
       reminder_pdf_unavailable: "Mahnungs-PDF nicht verfügbar",
+      pdf_invalid: "PDF erfüllt die Versandanforderungen nicht",
+      send_error: "Vorübergehender Fehler – wird erneut versucht",
+      storage_failed: "Vorübergehender Fehler – wird erneut versucht",
+      letter_insert_failed: "Vorübergehender Fehler – wird erneut versucht",
+      too_many_attempts: "Mehrfach fehlgeschlagen – bitte manuell versenden",
+      unknown_error: "Unbekannter Fehler",
     } as Record<string, string>,
     mocoPartnerNote:
       "Hinweis: Der Versand wird wie gewohnt von Ihrem Guthaben abgebucht. Sie finden jede Sendung unter „Sendungen“.",
@@ -611,7 +636,7 @@ export const de = {
     saved: "Benachrichtigungseinstellungen gespeichert.",
     sendStatusLabel: "Sendungsabschluss",
     sendStatusHint:
-      "Eine E-Mail, sobald eine Sendung abgeschlossen ist – auch wenn einzelne Briefe fehlgeschlagen und erstattet wurden.",
+      "Eine E-Mail, sobald eine Sendung abgeschlossen ist – auch wenn einzelne Briefe fehlgeschlagen und erstattet wurden. Umfasst auch Zusammenfassungen automatischer MOCO-Sendungen.",
     epostUpdatesLabel: "Zustellstatus-Updates",
     epostUpdatesHint:
       "Zwischenstände Ihrer Briefe bei der Deutschen Post (angenommen, geprüft, im Druckzentrum) – gebündelt pro Sendung. Den Abschluss meldet „Sendungsabschluss“.",

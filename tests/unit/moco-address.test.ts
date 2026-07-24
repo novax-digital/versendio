@@ -90,6 +90,26 @@ describe("parseMocoRecipientAddress", () => {
     }
   });
 
+  it("caps addressExtra to the contact-schema limit (Zod rejects, never truncates)", () => {
+    const longDept = "Abteilung " + "sehr ".repeat(40) + "lang";
+    const result = parseMocoRecipientAddress(
+      `Muster AG\n${longDept}\nHauptstraße 1\n50667 Köln`,
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.recipient.addressExtra!.length).toBeLessThanOrEqual(120);
+      const check = contactSchema.safeParse({
+        company: result.recipient.company,
+        addressExtra: result.recipient.addressExtra ?? undefined,
+        street: result.recipient.street,
+        zip: result.recipient.zip,
+        city: result.recipient.city,
+        country: result.recipient.country,
+      });
+      expect(check.success).toBe(true);
+    }
+  });
+
   it("produces output that satisfies the pipeline contact schema", () => {
     const result = parseMocoRecipientAddress("Beispiel GmbH\nMusterstraße 12\n10115 Berlin");
     expect(result.ok).toBe(true);

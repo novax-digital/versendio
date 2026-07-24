@@ -123,7 +123,9 @@ export function parseMocoRecipientAddress(
     ok: true,
     recipient: {
       company: company.slice(0, 160),
-      addressExtra: extraLines.length > 0 ? extraLines.join(", ").slice(0, 200) : null,
+      // Caps mirror contactSchema (addressExtra max 120) — Zod rejects rather
+      // than truncates, so an over-long department line must be cut here.
+      addressExtra: extraLines.length > 0 ? extraLines.join(", ").slice(0, 120) : null,
       street: street.slice(0, 200),
       zip: zipCity.zip.slice(0, 10),
       city: zipCity.city.slice(0, 120),

@@ -20,20 +20,32 @@ import {
   listMocoInvoices,
   listMocoReminders,
   type MocoAuth,
-  type MocoInvoice,
 } from "./client";
 
 /**
  * MOCO → letter sync engine (flows-scheduler pattern): cron-driven, small
- * batches, per-account isolation, idempotent money booking. Each processed
- * document is claimed by inserting into moco_documents FIRST (unique index =
- * cross-tick/cross-instance claim); the row id is confirm_send_job's client
- * token, so a crash anywhere in between resumes without double-charging.
+ * batches, per-account isolation, idempotent money booking.
+ *
+ * Exactly-once contract:
+ * - A document is CLAIMED by inserting into moco_documents (unique index over
+ *   user/subdomain/type/id); the row id is confirm_send_job's client token.
+ * - Every processing attempt takes an optimistic lock (attempts counter as
+ *   compare-and-swap), so a concurrent cron tick and manual sync can never
+ *   work the same claim simultaneously.
+ * - Resumes first look for an existing send_job with the claim's client token
+ *   (repair after a crash between RPC commit and status flip) before doing
+ *   any work — a charged document is never re-charged, re-built or reported
+ *   as failed.
+ * - insufficient_funds keeps the claim pending: topping up makes the next
+ *   tick (or a manual sync) send it automatically. Only real per-document
+ *   defects (bad PDF, unparseable address, attempt cap) are terminal.
  */
 
-const TIME_BUDGET_MS = 45_000;
+const TIME_BUDGET_MS = 40_000;
 const MAX_ACCOUNTS_PER_TICK = 20;
 const MAX_DOCS_PER_ACCOUNT_TICK = 10;
+/** Terminal cap for repeated non-funds failures (poisoned documents). */
+const MAX_ATTEMPTS = 5;
 
 type MocoAccountRow = {
   user_id: string;
@@ -45,8 +57,12 @@ type MocoAccountRow = {
   auto_send_reminders: boolean;
   is_duplex: boolean;
   is_color: boolean;
-  activated_at: string | null;
+  invoices_activated_at: string | null;
+  reminders_activated_at: string | null;
 };
+
+const ACCOUNT_COLUMNS =
+  "user_id, subdomain, api_key_enc, status, auto_send_invoices, invoice_trigger_status, auto_send_reminders, is_duplex, is_color, invoices_activated_at, reminders_activated_at";
 
 type DocCandidate = {
   docType: "invoice" | "reminder";
@@ -56,8 +72,41 @@ type DocCandidate = {
   date: string;
   /** Invoice carrying the recipient address (the reminder's linked invoice). */
   addressInvoiceId: number;
-  recipientAddress: string | null; // present for invoices from the list payload
+  recipientAddress: string | null;
   reminderFileUrl: string | null;
+};
+
+type ClaimRow = {
+  id: string;
+  doc_type: "invoice" | "reminder";
+  moco_id: number;
+  identifier: string | null;
+  letter_id: string | null;
+  address_invoice_id: number | null;
+  attempts: number;
+  detail: string | null;
+};
+
+/**
+ * sent/failed/funds_first feed the digest; retry/repaired/funds_repeat and
+ * lock_lost are silent (nothing final happened this tick, or it already
+ * counted in an earlier one).
+ */
+type DocOutcome =
+  | "sent"
+  | "failed"
+  | "funds_first"
+  | "funds_repeat"
+  | "retry"
+  | "repaired"
+  | "lock_lost";
+
+export type MocoSyncResult = {
+  sent: number;
+  failed: number;
+  insufficientFunds: number;
+  /** Account-level problem this run (auth/network) — nothing was processed. */
+  accountError: "auth" | "transient" | null;
 };
 
 export type MocoSyncStats = {
@@ -67,17 +116,20 @@ export type MocoSyncStats = {
   insufficientFunds: number;
 };
 
+/** MOCO document dates are local business dates — compare in Europe/Berlin. */
+function berlinDate(iso: string): string {
+  return new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Berlin" }).format(new Date(iso));
+}
+
 /** Cron entry: sync all active accounts with at least one auto-send rule. */
 export async function runMocoSync(): Promise<MocoSyncStats> {
   const admin = createAdminClient();
-  const startedAt = Date.now();
+  const deadline = Date.now() + TIME_BUDGET_MS;
   const stats: MocoSyncStats = { accounts: 0, sent: 0, failed: 0, insufficientFunds: 0 };
 
   const { data: accounts, error } = await admin
     .from("moco_accounts")
-    .select(
-      "user_id, subdomain, api_key_enc, status, auto_send_invoices, invoice_trigger_status, auto_send_reminders, is_duplex, is_color, activated_at",
-    )
+    .select(ACCOUNT_COLUMNS)
     .eq("status", "active")
     .or("auto_send_invoices.eq.true,auto_send_reminders.eq.true")
     .order("last_sync_at", { ascending: true, nullsFirst: true })
@@ -88,10 +140,10 @@ export async function runMocoSync(): Promise<MocoSyncStats> {
   }
 
   for (const account of accounts ?? []) {
-    if (Date.now() - startedAt > TIME_BUDGET_MS) break;
+    if (Date.now() > deadline) break;
     stats.accounts += 1;
     try {
-      const result = await syncMocoAccount(account as MocoAccountRow);
+      const result = await syncMocoAccount(account as MocoAccountRow, deadline, false);
       stats.sent += result.sent;
       stats.failed += result.failed;
       stats.insufficientFunds += result.insufficientFunds;
@@ -105,23 +157,27 @@ export async function runMocoSync(): Promise<MocoSyncStats> {
   return stats;
 }
 
-/** Loads and syncs a single user's account (manual "Jetzt synchronisieren"). */
-export async function syncMocoAccountForUser(
-  userId: string,
-): Promise<{ sent: number; failed: number; insufficientFunds: number } | null> {
+/**
+ * Manual "Jetzt synchronisieren": syncs one user's account and PROPAGATES
+ * account-level problems so the UI can show a real error instead of a
+ * hollow "0 sent" success.
+ */
+export async function syncMocoAccountForUser(userId: string): Promise<MocoSyncResult | null> {
   const admin = createAdminClient();
   const { data: account } = await admin
     .from("moco_accounts")
-    .select(
-      "user_id, subdomain, api_key_enc, status, auto_send_invoices, invoice_trigger_status, auto_send_reminders, is_duplex, is_color, activated_at",
-    )
+    .select(ACCOUNT_COLUMNS)
     .eq("user_id", userId)
     .maybeSingle();
   if (!account) return null;
-  return syncMocoAccount(account as MocoAccountRow);
+  return syncMocoAccount(account as MocoAccountRow, Date.now() + TIME_BUDGET_MS, true);
 }
 
-async function syncMocoAccount(account: MocoAccountRow) {
+async function syncMocoAccount(
+  account: MocoAccountRow,
+  deadline: number,
+  manual: boolean,
+): Promise<MocoSyncResult> {
   const admin = createAdminClient();
   const counters = { sent: 0, failed: 0, insufficientFunds: 0 };
   const auth: MocoAuth = {
@@ -129,48 +185,46 @@ async function syncMocoAccount(account: MocoAccountRow) {
     apiKey: decryptSecret(account.api_key_enc),
   };
 
-  // Watermark: never auto-send documents predating the integration.
-  const watermark = (account.activated_at ?? new Date().toISOString()).slice(0, 10);
-
   let candidates: DocCandidate[];
   try {
-    candidates = await collectCandidates(auth, account, watermark);
+    candidates = await collectCandidates(auth, account);
   } catch (err) {
-    await recordAccountError(account.user_id, err);
-    return counters;
+    const kind = await recordAccountError(account.user_id, err);
+    return { ...counters, accountError: kind };
   }
 
-  // Resume claims from a crashed earlier tick before taking on new work.
+  // Filter already-claimed documents via targeted lookups (never a full-table
+  // scan — PostgREST row caps would silently drop rows on busy accounts).
+  const fresh = (await filterUnclaimed(admin, account, candidates)).slice(
+    0,
+    MAX_DOCS_PER_ACCOUNT_TICK,
+  );
+
+  // Claims from earlier ticks (crash, funds, transient errors) come first.
   const { data: pendingRows } = await admin
     .from("moco_documents")
-    .select("id, doc_type, moco_id, identifier, title, letter_id")
+    .select("id, doc_type, moco_id, identifier, letter_id, address_invoice_id, attempts, detail")
     .eq("user_id", account.user_id)
+    .eq("subdomain", account.subdomain)
     .eq("status", "pending")
+    .order("created_at", { ascending: true })
     .limit(MAX_DOCS_PER_ACCOUNT_TICK);
 
-  const { data: existing } = await admin
-    .from("moco_documents")
-    .select("doc_type, moco_id")
-    .eq("user_id", account.user_id);
-  const seen = new Set((existing ?? []).map((r) => `${r.doc_type}:${r.moco_id}`));
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("plan_id, status")
+    .eq("id", account.user_id)
+    .maybeSingle();
+  if (!profile || profile.status !== "active") {
+    return { ...counters, accountError: null };
+  }
 
-  const fresh = candidates
-    .filter((c) => !seen.has(`${c.docType}:${c.mocoId}`))
-    .slice(0, MAX_DOCS_PER_ACCOUNT_TICK);
-
-  // Shared per-tick context (sender, pricing) — loaded once, not per document.
   const { data: sender } = await admin
     .from("sender_addresses")
     .select("id, label, company, first_name, last_name, street, zip, city, country, sender_line")
     .eq("user_id", account.user_id)
     .eq("is_default", true)
     .maybeSingle();
-  const { data: profile } = await admin
-    .from("profiles")
-    .select("plan_id, status")
-    .eq("id", account.user_id)
-    .maybeSingle();
-  if (!profile || profile.status !== "active") return counters;
   const [rows, discountPercent] = await Promise.all([
     loadPricingRows(),
     loadDiscountPercent(profile.plan_id ?? null),
@@ -184,61 +238,73 @@ async function syncMocoAccount(account: MocoAccountRow) {
     pricing: { rows, discountPercent },
   };
 
-  // 1) Resume pending claims (idempotent client token = row id).
-  for (const row of pendingRows ?? []) {
-    const outcome = await processClaimedDoc(ctx, {
-      claimId: row.id,
-      docType: row.doc_type as "invoice" | "reminder",
-      mocoId: row.moco_id,
-      identifier: row.identifier ?? "",
-      title: row.title ?? "",
-      letterId: row.letter_id,
-    });
-    bump(counters, outcome);
-    if (outcome === "insufficient_funds") break;
-  }
+  let fundsBlocked = false;
+  let stopAccount = false;
 
-  // 2) New documents: claim (insert) then process.
-  if (counters.insufficientFunds === 0) {
-    for (const doc of fresh) {
-      const { data: claim, error: claimError } = await admin
-        .from("moco_documents")
-        .insert({
-          user_id: account.user_id,
-          doc_type: doc.docType,
-          moco_id: doc.mocoId,
-          identifier: doc.identifier,
-          title: doc.title,
-          doc_date: doc.date || null,
-          status: "pending",
-        })
-        .select("id")
-        .maybeSingle();
-      if (claimError || !claim) {
-        // Unique violation → another tick claimed it concurrently. Skip.
-        continue;
+  const runDoc = async (claim: ClaimRow, candidate?: DocCandidate) => {
+    const outcome = await processClaimedDoc(ctx, claim, candidate);
+    if (outcome === "sent") counters.sent += 1;
+    else if (outcome === "failed") counters.failed += 1;
+    else if (outcome === "funds_first") {
+      counters.insufficientFunds += 1;
+      fundsBlocked = true;
+    } else if (outcome === "funds_repeat") fundsBlocked = true;
+  };
+
+  // 1) Resume earlier claims.
+  for (const row of pendingRows ?? []) {
+    if (Date.now() > deadline || fundsBlocked || stopAccount) break;
+    try {
+      await runDoc(row as ClaimRow);
+    } catch (err) {
+      if (err instanceof MocoError && !err.transient) {
+        await recordAccountError(account.user_id, err);
+        stopAccount = true;
       }
-      const outcome = await processClaimedDoc(ctx, {
-        claimId: claim.id,
-        docType: doc.docType,
-        mocoId: doc.mocoId,
-        identifier: doc.identifier,
-        title: doc.title,
-        letterId: null,
-        candidate: doc,
-      });
-      bump(counters, outcome);
-      if (outcome === "insufficient_funds") break;
+      // Transient/unknown: claim stays pending, next tick retries.
     }
   }
 
-  await admin
-    .from("moco_accounts")
-    .update({ last_sync_at: new Date().toISOString(), last_error: null })
-    .eq("user_id", account.user_id);
+  // 2) New documents: claim (insert = cross-instance dedup) then process.
+  for (const doc of fresh) {
+    if (Date.now() > deadline || fundsBlocked || stopAccount) break;
+    const { data: claim } = await admin
+      .from("moco_documents")
+      .insert({
+        user_id: account.user_id,
+        subdomain: account.subdomain,
+        doc_type: doc.docType,
+        moco_id: doc.mocoId,
+        identifier: doc.identifier,
+        title: doc.title,
+        doc_date: doc.date || null,
+        address_invoice_id: doc.addressInvoiceId,
+        status: "pending",
+      })
+      .select("id, doc_type, moco_id, identifier, letter_id, address_invoice_id, attempts, detail")
+      .maybeSingle();
+    if (!claim) continue; // unique violation → another instance claimed it
+    try {
+      await runDoc(claim as ClaimRow, doc);
+    } catch (err) {
+      if (err instanceof MocoError && !err.transient) {
+        await recordAccountError(account.user_id, err);
+        stopAccount = true;
+      }
+    }
+  }
 
-  // Digest: one mail per tick with activity (flow_summary pattern).
-  if (counters.sent + counters.failed + counters.insufficientFunds > 0) {
+  if (!stopAccount) {
+    await admin
+      .from("moco_accounts")
+      .update({ last_sync_at: new Date().toISOString(), last_error: null })
+      .eq("user_id", account.user_id);
+  }
+
+  // Digest only for outcomes that are FINAL this tick (sent/terminal-failed)
+  // or newly funds-blocked — retries and repairs stay silent, so a flaky
+  // MOCO afternoon can't spam action-critical mail every 10 minutes.
+  if (!manual && counters.sent + counters.failed + counters.insufficientFunds > 0) {
     await enqueueJob("send_email", {
       template: "moco_summary",
       userId: account.user_id,
@@ -247,7 +313,7 @@ async function syncMocoAccount(account: MocoAccountRow) {
       heldFundsCount: counters.insufficientFunds,
     });
   }
-  return counters;
+  return { ...counters, accountError: null };
 }
 
 type DocContext = {
@@ -258,34 +324,15 @@ type DocContext = {
   pricing: { rows: Awaited<ReturnType<typeof loadPricingRows>>; discountPercent: number };
 };
 
-type ClaimedDoc = {
-  claimId: string;
-  docType: "invoice" | "reminder";
-  mocoId: number;
-  identifier: string;
-  title: string;
-  letterId: string | null;
-  candidate?: DocCandidate;
-};
-
-type DocOutcome = "sent" | "failed" | "insufficient_funds";
-
-function bump(counters: { sent: number; failed: number; insufficientFunds: number }, o: DocOutcome) {
-  if (o === "sent") counters.sent += 1;
-  else if (o === "failed") counters.failed += 1;
-  else counters.insufficientFunds += 1;
-}
-
 async function collectCandidates(
   auth: MocoAuth,
   account: MocoAccountRow,
-  dateFrom: string,
 ): Promise<DocCandidate[]> {
   const out: DocCandidate[] = [];
-  if (account.auto_send_invoices) {
+  if (account.auto_send_invoices && account.invoices_activated_at) {
     const invoices = await listMocoInvoices(auth, {
       status: account.invoice_trigger_status,
-      dateFrom,
+      dateFrom: berlinDate(account.invoices_activated_at),
     });
     for (const inv of invoices) {
       out.push({
@@ -300,8 +347,10 @@ async function collectCandidates(
       });
     }
   }
-  if (account.auto_send_reminders) {
-    const reminders = await listMocoReminders(auth, { dateFrom });
+  if (account.auto_send_reminders && account.reminders_activated_at) {
+    const reminders = await listMocoReminders(auth, {
+      dateFrom: berlinDate(account.reminders_activated_at),
+    });
     for (const rem of reminders) {
       // "created" = drafted in MOCO but not e-mailed — the postal case.
       if (rem.status !== "created" || !rem.invoice) continue;
@@ -320,28 +369,102 @@ async function collectCandidates(
   return out;
 }
 
+/** Existence check per candidate id (chunked .in), scoped to the tenant. */
+async function filterUnclaimed(
+  admin: ReturnType<typeof createAdminClient>,
+  account: MocoAccountRow,
+  candidates: DocCandidate[],
+): Promise<DocCandidate[]> {
+  const seen = new Set<string>();
+  for (const docType of ["invoice", "reminder"] as const) {
+    const ids = candidates.filter((c) => c.docType === docType).map((c) => c.mocoId);
+    for (let i = 0; i < ids.length; i += 200) {
+      const chunk = ids.slice(i, i + 200);
+      const { data, error } = await admin
+        .from("moco_documents")
+        .select("moco_id")
+        .eq("user_id", account.user_id)
+        .eq("subdomain", account.subdomain)
+        .eq("doc_type", docType)
+        .in("moco_id", chunk);
+      if (error) throw new MocoError("dedup_check_failed", true);
+      for (const row of data ?? []) seen.add(`${docType}:${row.moco_id}`);
+    }
+  }
+  return candidates.filter((c) => !seen.has(`${c.docType}:${c.mocoId}`));
+}
+
 /**
- * Runs one claimed document to a terminal state. Never throws for per-doc
- * problems — the claim row records the outcome; only account-level failures
- * (auth) propagate via recordAccountError by the caller's collect step.
+ * Runs one claimed document. Account-level MocoErrors (auth) are THROWN so the
+ * caller stops the account; everything document-specific resolves to an
+ * outcome and is recorded on the claim row.
  */
-async function processClaimedDoc(ctx: DocContext, doc: ClaimedDoc): Promise<DocOutcome> {
+async function processClaimedDoc(
+  ctx: DocContext,
+  claim: ClaimRow,
+  candidate?: DocCandidate,
+): Promise<DocOutcome> {
   const { admin, account } = ctx;
 
-  const fail = async (detail: string): Promise<DocOutcome> => {
-    await admin
+  // Optimistic lock: attempts is the compare-and-swap token. If another
+  // instance (cron vs manual sync) already bumped it, we lost the race.
+  const { data: locked } = await admin
+    .from("moco_documents")
+    .update({ attempts: claim.attempts + 1 })
+    .eq("id", claim.id)
+    .eq("status", "pending")
+    .eq("attempts", claim.attempts)
+    .select("id")
+    .maybeSingle();
+  if (!locked) return "lock_lost";
+
+  const setClaim = async (patch: Record<string, unknown>) => {
+    const { error } = await admin
       .from("moco_documents")
-      .update({ status: "failed", detail })
-      .eq("id", doc.claimId)
+      .update(patch)
+      .eq("id", claim.id)
       .eq("status", "pending");
+    if (error) {
+      console.error("moco_claim_update_failed", { error: error.message });
+      return false;
+    }
+    return true;
+  };
+
+  const fail = async (detail: string): Promise<DocOutcome> => {
+    await setClaim({ status: "failed", detail: detail.slice(0, 300) });
     return "failed";
+  };
+  /** Leaves the claim pending for the next tick, remembering why. */
+  const retry = async (detail: string): Promise<DocOutcome> => {
+    await setClaim({ detail: detail.slice(0, 300) });
+    return "retry";
   };
 
   try {
-    if (!ctx.sender) return await fail("no_sender_address");
+    // 0) Repair path: if a send_job already exists for this claim's client
+    //    token, the money moved in an earlier crashed tick — just reconcile.
+    const { data: existingJob } = await admin
+      .from("send_jobs")
+      .select("id")
+      .eq("user_id", account.user_id)
+      .eq("client_token", claim.id)
+      .maybeSingle();
+    if (existingJob) {
+      await setClaim({ status: "sent", send_job_id: existingJob.id, detail: null });
+      return "repaired";
+    }
 
-    // 1) Letter: reuse a letter created before a crash, else build it now.
-    let letterId = doc.letterId;
+    // Poisoned-document cap — never for funds blocks (those retry until
+    // topped up) and never counted for lost races.
+    if (claim.attempts + 1 > MAX_ATTEMPTS && claim.detail !== "insufficient_funds") {
+      return await fail("too_many_attempts");
+    }
+
+    if (!ctx.sender) return await retry("no_sender_address");
+
+    // 1) Letter: reuse the one from a crashed attempt, else build it now.
+    let letterId = claim.letter_id;
     let sheetCount: number | null = null;
     if (letterId) {
       const { data: letter } = await admin
@@ -352,22 +475,21 @@ async function processClaimedDoc(ctx: DocContext, doc: ClaimedDoc): Promise<DocO
       if (letter) sheetCount = letter.sheet_count;
       else letterId = null;
     }
-
     if (!letterId) {
-      const built = await buildLetterForDoc(ctx, doc);
-      if ("error" in built) return await fail(built.error);
+      const built = await buildLetterForDoc(ctx, claim, candidate);
+      if ("error" in built) {
+        return built.terminal ? await fail(built.error) : await retry(built.error);
+      }
       letterId = built.letterId;
       sheetCount = built.sheetCount;
-      await admin
-        .from("moco_documents")
-        .update({ letter_id: letterId })
-        .eq("id", doc.claimId)
-        .eq("status", "pending");
+      await setClaim({ letter_id: letterId });
     }
 
-    // 2) Recipient: parse from the (possibly re-fetched) invoice address.
-    const recipient = await resolveRecipient(ctx, doc);
-    if ("error" in recipient) return await fail(recipient.error);
+    // 2) Recipient from the (persisted) linked invoice's address block.
+    const recipient = await resolveRecipient(ctx, claim, candidate);
+    if ("error" in recipient) {
+      return recipient.terminal ? await fail(recipient.error) : await retry(recipient.error);
+    }
 
     // 3) Price + charge + queue (idempotent on the claim id).
     const sheets = Math.max(1, sheetCount ?? 1);
@@ -381,7 +503,7 @@ async function processClaimedDoc(ctx: DocContext, doc: ClaimedDoc): Promise<DocO
 
     const { data: jobId, error: rpcError } = await admin.rpc("confirm_send_job", {
       p_user_id: account.user_id,
-      p_client_token: doc.claimId,
+      p_client_token: claim.id,
       p_letter_id: letterId,
       p_sender_snapshot: ctx.sender,
       p_is_color: account.is_color,
@@ -410,47 +532,44 @@ async function processClaimedDoc(ctx: DocContext, doc: ClaimedDoc): Promise<DocO
 
     if (rpcError) {
       if (rpcError.message.includes("insufficient_funds")) {
-        await admin
-          .from("moco_documents")
-          .update({ status: "failed", detail: "insufficient_funds" })
-          .eq("id", doc.claimId)
-          .eq("status", "pending");
-        return "insufficient_funds";
+        const first = claim.detail !== "insufficient_funds";
+        await setClaim({ detail: "insufficient_funds" });
+        return first ? "funds_first" : "funds_repeat";
       }
-      return await fail(`send_failed: ${rpcError.message.slice(0, 200)}`);
+      // DB/network blips are retryable — the claim token keeps a hidden
+      // commit from ever double-charging (repair path catches it next tick).
+      return await retry("send_error");
     }
 
-    await admin
-      .from("moco_documents")
-      .update({ status: "sent", send_job_id: jobId as string, detail: null })
-      .eq("id", doc.claimId)
-      .eq("status", "pending");
+    await setClaim({ status: "sent", send_job_id: jobId as string, detail: null });
     return "sent";
   } catch (err) {
-    if (err instanceof MocoError && err.transient) {
-      // Leave the claim pending — the next tick resumes it.
-      return "failed";
+    if (err instanceof MocoError) {
+      if (!err.transient) throw err; // account-level (auth) — caller stops the account
+      return await retry(err.message);
     }
-    return await fail(err instanceof Error ? err.message.slice(0, 200) : "unknown_error");
+    return await retry(err instanceof Error ? err.message.slice(0, 200) : "unknown_error");
   }
 }
 
 async function buildLetterForDoc(
   ctx: DocContext,
-  doc: ClaimedDoc,
-): Promise<{ letterId: string; sheetCount: number } | { error: string }> {
+  claim: ClaimRow,
+  candidate?: DocCandidate,
+): Promise<{ letterId: string; sheetCount: number } | { error: string; terminal: boolean }> {
   const { admin, auth, account } = ctx;
 
   let pdf: Uint8Array;
-  if (doc.docType === "invoice") {
-    pdf = await getMocoInvoicePdf(auth, doc.mocoId);
+  if (claim.doc_type === "invoice") {
+    pdf = await getMocoInvoicePdf(auth, claim.moco_id);
   } else {
-    const fileUrl =
-      doc.candidate?.reminderFileUrl ??
-      (await listMocoReminders(auth, { dateFrom: "1970-01-01" })
-        .then((rs) => rs.find((r) => r.id === doc.mocoId)?.file_url ?? null)
-        .catch(() => null));
-    if (!fileUrl) return { error: "reminder_pdf_unavailable" };
+    let fileUrl = candidate?.reminderFileUrl ?? null;
+    if (!fileUrl) {
+      // Resumed claim: re-list around the reminder to recover its file_url.
+      const reminders = await listMocoReminders(auth, { dateFrom: "1970-01-01" });
+      fileUrl = reminders.find((r) => r.id === claim.moco_id)?.file_url ?? null;
+    }
+    if (!fileUrl) return { error: "reminder_pdf_unavailable", terminal: true };
     pdf = await getMocoReminderPdf(auth, fileUrl);
   }
 
@@ -458,7 +577,7 @@ async function buildLetterForDoc(
   const validation = await validateLetterPdf(bytes, { a4Normalized: adjusted });
   if (!isSubmittable(validation)) {
     const firstError = validation.rules.find((r) => r.severity === "error");
-    return { error: `pdf_invalid: ${firstError?.message ?? "?"}`.slice(0, 300) };
+    return { error: `pdf_invalid: ${firstError?.message ?? "?"}`, terminal: true };
   }
 
   const letterId = randomUUID();
@@ -469,15 +588,15 @@ async function buildLetterForDoc(
       contentType: "application/pdf",
       upsert: true,
     });
-  if (uploadError) return { error: `storage_failed: ${uploadError.message.slice(0, 200)}` };
+  if (uploadError) return { error: "storage_failed", terminal: false };
 
   const coverSheets = validation.needsCoverLetter ? 1 : 0;
   const sheetCount = (validation.sheetCountSimplex ?? 0) + coverSheets;
-  const label = doc.docType === "invoice" ? "Rechnung" : "Mahnung";
+  const label = claim.doc_type === "invoice" ? "Rechnung" : "Mahnung";
   const { error: insertError } = await admin.from("letters").insert({
     id: letterId,
     user_id: account.user_id,
-    title: `MOCO ${label} ${doc.identifier || doc.mocoId}`.slice(0, 200),
+    title: `MOCO ${label} ${claim.identifier || claim.moco_id}`.slice(0, 200),
     source: "upload",
     storage_path: storagePath,
     page_count: validation.pageCount,
@@ -492,31 +611,32 @@ async function buildLetterForDoc(
   });
   if (insertError) {
     await admin.storage.from(BUCKETS.letters).remove([storagePath]);
-    return { error: `letter_insert_failed: ${insertError.message.slice(0, 200)}` };
+    return { error: "letter_insert_failed", terminal: false };
   }
   return { letterId, sheetCount };
 }
 
 async function resolveRecipient(
   ctx: DocContext,
-  doc: ClaimedDoc,
-): Promise<{ snapshot: Record<string, unknown> } | { error: string }> {
+  claim: ClaimRow,
+  candidate?: DocCandidate,
+): Promise<{ snapshot: Record<string, unknown> } | { error: string; terminal: boolean }> {
   const { auth } = ctx;
 
-  // Invoices from the list payload carry the address; reminders and resumed
-  // claims re-fetch the (linked) invoice.
-  let invoice: MocoInvoice | null = null;
-  let rawAddress = doc.candidate?.recipientAddress ?? null;
-  const invoiceId = doc.candidate?.addressInvoiceId ?? (doc.docType === "invoice" ? doc.mocoId : null);
+  let rawAddress = candidate?.recipientAddress ?? null;
   if (!rawAddress) {
-    if (!invoiceId) return { error: "address_unavailable" };
-    invoice = await getMocoInvoice(auth, invoiceId);
+    // address_invoice_id is persisted at claim time, so resumed claims (both
+    // types) can always re-resolve the address.
+    const invoiceId =
+      claim.address_invoice_id ?? (claim.doc_type === "invoice" ? claim.moco_id : null);
+    if (!invoiceId) return { error: "address_unavailable", terminal: true };
+    const invoice = await getMocoInvoice(auth, invoiceId);
     rawAddress = invoice.recipient_address || null;
   }
-  if (!rawAddress) return { error: "address_unavailable" };
+  if (!rawAddress) return { error: "address_unavailable", terminal: true };
 
   const parsed = parseMocoRecipientAddress(rawAddress);
-  if (!parsed.ok) return { error: `address_parse_failed: ${parsed.reason}` };
+  if (!parsed.ok) return { error: `address_parse_failed: ${parsed.reason}`, terminal: true };
 
   const check = contactSchema.safeParse({
     company: parsed.recipient.company,
@@ -527,7 +647,10 @@ async function resolveRecipient(
     country: parsed.recipient.country,
   });
   if (!check.success) {
-    return { error: `address_invalid: ${check.error.issues[0]?.message ?? "?"}`.slice(0, 200) };
+    return {
+      error: `address_invalid: ${check.error.issues[0]?.message ?? "?"}`,
+      terminal: true,
+    };
   }
 
   return {
@@ -545,15 +668,17 @@ async function resolveRecipient(
   };
 }
 
-async function recordAccountError(userId: string, err: unknown): Promise<void> {
+/** Records the failure; only auth problems flip the account out of rotation. */
+async function recordAccountError(userId: string, err: unknown): Promise<"auth" | "transient"> {
   const admin = createAdminClient();
   const isAuth = err instanceof MocoError && !err.transient;
-  await admin
-    .from("moco_accounts")
-    .update({
-      status: isAuth ? "error" : "active",
-      last_error: err instanceof Error ? err.message.slice(0, 200) : "unknown",
-      last_sync_at: new Date().toISOString(),
-    })
-    .eq("user_id", userId);
+  const patch: Record<string, unknown> = {
+    last_error: err instanceof Error ? err.message.slice(0, 200) : "unknown",
+    last_sync_at: new Date().toISOString(),
+  };
+  // Transient errors must NOT resurrect a status='error' account into the
+  // cron rotation — status changes only on auth failures (or reconnect).
+  if (isAuth) patch.status = "error";
+  await admin.from("moco_accounts").update(patch).eq("user_id", userId);
+  return isAuth ? "auth" : "transient";
 }
