@@ -73,7 +73,11 @@ export async function proxy(request: NextRequest) {
     return withCsp(NextResponse.redirect(new URL("/login", request.url)));
   }
 
-  if (user && AUTH_PAGES.includes(path)) {
+  // GET only: a Server-Action POST from a bfcache-restored /login tab (user
+  // already logged in elsewhere — common on mobile) must still execute; a 307
+  // to /app would swallow e.g. the SSO start action instead of redirecting to
+  // the provider.
+  if (user && AUTH_PAGES.includes(path) && request.method === "GET") {
     return withCsp(NextResponse.redirect(new URL("/app", request.url)));
   }
 

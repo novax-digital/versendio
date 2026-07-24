@@ -52,12 +52,16 @@ export function ConsentBanner() {
   };
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-[100] flex justify-center p-4">
+    // pointer-events-none on the wrapper is load-bearing: its transparent
+    // padding ring sits at z-[100] over the page — on small mobile viewports
+    // the SSO buttons on /login end up exactly under that invisible band and
+    // taps silently died there. Only the visible card may catch input.
+    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-[100] flex justify-center p-4">
       <div
         role="dialog"
         aria-modal="false"
         aria-label={TEXTS.title}
-        className="bg-card relative w-full max-w-xl rounded-2xl border p-5 shadow-2xl sm:p-6"
+        className="bg-card pointer-events-auto relative max-h-[calc(100dvh-2rem)] w-full max-w-xl overflow-y-auto rounded-2xl border p-5 shadow-2xl sm:p-6"
       >
         <button
           type="button"

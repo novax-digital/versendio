@@ -90,9 +90,12 @@ export async function signInWithProviderAction(
   const parsed = ssoProviderSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { ok: false, error: de.common.genericError };
 
-  // Per-IP only — no account is known before the provider round-trip.
+  // Per-IP only — no account is known before the provider round-trip. Own
+  // bucket (not the shared password-login one): mobile carriers CGNAT many
+  // users onto one IP, and a neighbour's failed password attempts must not
+  // block SSO starts.
   const ip = await clientIp();
-  if (!(await checkRateLimit("login", `ip:${ip}`))) {
+  if (!(await checkRateLimit("login", `sso:${ip}`))) {
     return { ok: false, error: de.common.rateLimited };
   }
 
