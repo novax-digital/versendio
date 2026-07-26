@@ -8,12 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -93,9 +88,10 @@ export function ApiKeysManager({ keys }: { keys: ApiKey[] }) {
                   <TableCell className="font-mono text-xs">{k.key_prefix}</TableCell>
                   <TableCell className="text-muted-foreground text-xs">
                     {k.last_used_at
-                      ? new Intl.DateTimeFormat("de-DE", { dateStyle: "short", timeStyle: "short" }).format(
-                          new Date(k.last_used_at),
-                        )
+                      ? new Intl.DateTimeFormat("de-DE", {
+                          dateStyle: "short",
+                          timeStyle: "short",
+                        }).format(new Date(k.last_used_at))
                       : de.integrations.neverUsed}
                   </TableCell>
                   <TableCell className="text-right">
@@ -103,7 +99,7 @@ export function ApiKeysManager({ keys }: { keys: ApiKey[] }) {
                       <Button
                         variant="ghost"
                         size="icon-sm"
-                        className="text-destructive"
+                        className="text-destructive size-9 sm:size-7"
                         aria-label={de.integrations.revoke}
                         onClick={() => setRevoking(k)}
                       >
@@ -215,7 +211,7 @@ function RevokeKeyDialog({ keyRow, onClose }: { keyRow: ApiKey | null; onClose: 
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>{de.common.cancel}</AlertDialogCancel>
-          <form action={formAction}>
+          <form action={formAction} className="contents">
             <input type="hidden" name="id" value={keyRow?.id ?? ""} />
             <AlertDialogAction type="submit" disabled={pending}>
               {de.integrations.revoke}

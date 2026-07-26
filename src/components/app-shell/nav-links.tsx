@@ -113,7 +113,7 @@ function NavGroup({ item, onNavigate }: { item: NavItem; onNavigate?: () => void
           aria-expanded={expanded}
           aria-label={expanded ? de.nav.collapseSection : de.nav.expandSection}
           onClick={() => setOverride({ path: pathname, open: !expanded })}
-          className="hover:bg-sidebar-accent/60 -my-2 ml-1 shrink-0 rounded p-1.5"
+          className="hover:bg-sidebar-accent/60 -my-2 ml-1 shrink-0 rounded p-2.5 md:p-1.5"
         >
           <ChevronDown
             className={cn("size-4 transition-transform", expanded && "rotate-180")}
@@ -216,7 +216,7 @@ export function MobileNav({ isAdmin, isWhitelabel }: { isAdmin: boolean; isWhite
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger
         render={
-          <Button variant="ghost" size="icon" className="md:hidden" aria-label={de.admin.openMenu} />
+          <Button variant="ghost" size="icon" className="size-10 md:hidden" aria-label={de.admin.openMenu} />
         }
       >
         <Menu className="size-5" />

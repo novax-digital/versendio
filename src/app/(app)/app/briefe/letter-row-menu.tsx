@@ -73,7 +73,7 @@ export function LetterRowMenu({ letterId }: { letterId: string }) {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>{de.common.cancel}</AlertDialogCancel>
-            <form action={formAction}>
+            <form action={formAction} className="contents">
               <input type="hidden" name="id" value={letterId} />
               <AlertDialogAction type="submit" disabled={pending}>
                 {de.common.delete}

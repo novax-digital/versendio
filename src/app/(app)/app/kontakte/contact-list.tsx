@@ -15,12 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -97,19 +92,22 @@ export function ContactList({
             <TableBody>
               {contacts.map((contact) => (
                 <TableRow key={contact.id}>
-                  <TableCell className="font-medium">
+                  <TableCell className="max-w-28 truncate font-medium sm:max-w-none">
                     {[contact.first_name, contact.last_name].filter(Boolean).join(" ") || "–"}
                   </TableCell>
-                  <TableCell>{contact.company ?? "–"}</TableCell>
-                  <TableCell>
+                  <TableCell className="max-w-28 truncate sm:max-w-none">
+                    {contact.company ?? "–"}
+                  </TableCell>
+                  <TableCell className="hidden sm:table-cell">
                     {contact.zip} {contact.city}
                     {contact.country !== "DE" ? ` (${contact.country})` : ""}
                   </TableCell>
                   <TableCell className="text-right">
-                    <div className="flex justify-end gap-1">
+                    <div className="flex justify-end gap-2 sm:gap-1">
                       <Button
                         variant="ghost"
                         size="icon-sm"
+                        className="size-9 sm:size-7"
                         aria-label={de.common.edit}
                         onClick={() => setEditing(contact)}
                       >
@@ -126,10 +124,13 @@ export function ContactList({
       )}
 
       {totalPages > 1 ? (
-        <nav className="flex items-center justify-center gap-2 text-sm" aria-label={de.common.pages}>
+        <nav
+          className="flex items-center justify-center gap-2 text-sm"
+          aria-label={de.common.pages}
+        >
           {page > 1 ? (
             <Link
-              className="underline underline-offset-4"
+              className="inline-flex min-h-10 items-center px-3 underline underline-offset-4"
               href={`/app/kontakte?${new URLSearchParams({ ...(searchTerm ? { q: searchTerm } : {}), seite: String(page - 1) })}`}
             >
               {de.common.back}
@@ -140,7 +141,7 @@ export function ContactList({
           </span>
           {page < totalPages ? (
             <Link
-              className="underline underline-offset-4"
+              className="inline-flex min-h-10 items-center px-3 underline underline-offset-4"
               href={`/app/kontakte?${new URLSearchParams({ ...(searchTerm ? { q: searchTerm } : {}), seite: String(page + 1) })}`}
             >
               {de.common.next}
@@ -167,7 +168,7 @@ function DeleteContactButton({ contactId }: { contactId: string }) {
           <Button
             variant="ghost"
             size="icon-sm"
-            className="text-destructive"
+            className="text-destructive size-9 sm:size-7"
             aria-label={de.common.delete}
           />
         }
@@ -181,7 +182,7 @@ function DeleteContactButton({ contactId }: { contactId: string }) {
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>{de.common.cancel}</AlertDialogCancel>
-          <form action={formAction}>
+          <form action={formAction} className="contents">
             <input type="hidden" name="id" value={contactId} />
             <AlertDialogAction type="submit" disabled={pending}>
               {de.common.delete}
@@ -210,7 +211,9 @@ export function ContactForm({
 
   useEffect(() => {
     if (state?.ok) {
-      toast.success(state.data?.enrolledFlowCount ? de.contacts.flowEnrollSaved : de.contacts.saved);
+      toast.success(
+        state.data?.enrolledFlowCount ? de.contacts.flowEnrollSaved : de.contacts.saved,
+      );
       onSaved();
     } else if (state && !state.ok && state.error) {
       toast.error(state.error);

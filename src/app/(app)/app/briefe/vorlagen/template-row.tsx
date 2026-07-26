@@ -61,7 +61,12 @@ export function TemplateRow({
         </p>
       </div>
 
-      <ButtonLink href={`/app/briefe/editor?vorlage=${id}`} size="sm" className="shrink-0">
+      <ButtonLink
+        href={`/app/briefe/editor?vorlage=${id}`}
+        size="sm"
+        className="shrink-0 max-sm:h-10 max-sm:min-w-10"
+        aria-label={de.letters.templateCreateLetter}
+      >
         <FilePlus2 className="size-3.5" aria-hidden />
         <span className="hidden sm:inline">{de.letters.templateCreateLetter}</span>
       </ButtonLink>
@@ -69,7 +74,8 @@ export function TemplateRow({
         href={`/app/briefe/vorlagen/${id}/bearbeiten`}
         variant="outline"
         size="sm"
-        className="shrink-0"
+        className="shrink-0 max-sm:h-10 max-sm:min-w-10"
+        aria-label={de.letters.templateEdit}
       >
         <Pencil className="size-3.5" aria-hidden />
         <span className="hidden sm:inline">{de.letters.templateEdit}</span>
@@ -104,7 +110,7 @@ export function TemplateRow({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>{de.common.cancel}</AlertDialogCancel>
-            <form action={formAction}>
+            <form action={formAction} className="contents">
               <input type="hidden" name="id" value={id} />
               <AlertDialogAction type="submit" disabled={pending}>
                 {de.common.delete}

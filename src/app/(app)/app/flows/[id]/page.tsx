@@ -80,7 +80,7 @@ export default async function FlowDetailPage({ params }: { params: Promise<{ id:
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
+        <div className="min-w-0 flex-1">
           <Link
             href="/app/flows"
             className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm"

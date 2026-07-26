@@ -67,7 +67,7 @@ export function ConsentBanner() {
           type="button"
           onClick={onlyNecessary}
           aria-label={TEXTS.close}
-          className="text-muted-foreground hover:bg-muted absolute right-3 top-3 rounded-md p-1.5"
+          className="text-muted-foreground hover:bg-muted absolute right-2 top-2 rounded-md p-2.5 md:right-3 md:top-3 md:p-1.5"
         >
           <X className="size-4" aria-hidden />
         </button>

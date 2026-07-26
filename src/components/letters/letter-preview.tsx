@@ -26,6 +26,16 @@ export function LetterPreview({
       <div className="w-full border" style={{ aspectRatio: "210 / 297" }}>
         <iframe title={de.letters.preview} src={src} className="h-full w-full" />
       </div>
+      {/* Phones have no reliable inline PDF viewer (blank on Android Chrome,
+          first page only on iOS) — always offer the direct document. */}
+      <a
+        href={src}
+        target="_blank"
+        rel="noopener"
+        className="text-primary block p-2 text-center text-sm underline underline-offset-4 md:hidden"
+      >
+        {de.letters.preview} (PDF)
+      </a>
     </div>
   );
 }

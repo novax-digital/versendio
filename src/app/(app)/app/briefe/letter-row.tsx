@@ -33,7 +33,9 @@ export function LetterRow({ letter }: { letter: LetterListItem }) {
         </div>
       </Link>
       {letter.has_placeholders ? (
-        <Badge variant="secondary">{de.letters.serialLetterBadge}</Badge>
+        <Badge variant="secondary" className="hidden sm:inline-flex">
+          {de.letters.serialLetterBadge}
+        </Badge>
       ) : null}
       <Badge variant={letter.status === "ready" ? "outline" : "secondary"}>
         {letter.status === "ready" ? de.letters.statusReady : de.letters.statusDraft}
@@ -43,7 +45,7 @@ export function LetterRow({ letter }: { letter: LetterListItem }) {
           href={`/app/versand?brief=${letter.id}`}
           variant="outline"
           size="sm"
-          className="shrink-0"
+          className="hidden shrink-0 sm:inline-flex"
         >
           <Send className="size-3.5" aria-hidden />
           {de.letters.sendAction}

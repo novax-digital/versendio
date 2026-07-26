@@ -5,11 +5,7 @@ import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Pencil, Plus, Trash2 } from "lucide-react";
-import {
-  deleteWlCustomerAction,
-  toggleWlCustomerAction,
-  upsertWlCustomerAction,
-} from "./actions";
+import { deleteWlCustomerAction, toggleWlCustomerAction, upsertWlCustomerAction } from "./actions";
 import type { WlCustomerWithUsage } from "@/lib/server/whitelabel/queries";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -97,10 +93,11 @@ export function CustomersTable({ customers }: { customers: WlCustomerWithUsage[]
                     <CustomerToggle customer={c} />
                   </TableCell>
                   <TableCell className="text-right">
-                    <div className="flex justify-end gap-1">
+                    <div className="flex justify-end gap-2 sm:gap-1">
                       <Button
                         variant="ghost"
                         size="icon-sm"
+                        className="size-9 sm:size-7"
                         aria-label={de.common.edit}
                         onClick={() => setEditing(c)}
                       >
@@ -109,7 +106,7 @@ export function CustomersTable({ customers }: { customers: WlCustomerWithUsage[]
                       <Button
                         variant="ghost"
                         size="icon-sm"
-                        className="text-destructive"
+                        className="text-destructive size-9 sm:size-7"
                         aria-label={de.common.delete}
                         disabled={c.total.lettersSent > 0}
                         title={c.total.lettersSent > 0 ? de.whitelabel.deleteHasSends : undefined}
@@ -268,7 +265,7 @@ function DeleteCustomerDialog({
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>{de.common.cancel}</AlertDialogCancel>
-          <form action={formAction}>
+          <form action={formAction} className="contents">
             <input type="hidden" name="id" value={customer?.id ?? ""} />
             <AlertDialogAction type="submit" disabled={pending}>
               {de.common.delete}

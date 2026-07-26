@@ -621,7 +621,7 @@ function CanvasBlock({
       <div
         className={cn(
           "flex items-center justify-center text-[10px]",
-          selected ? "bg-primary/5 text-primary/60" : "text-transparent",
+          selected && !readOnly ? "bg-primary/5 text-primary/60" : "text-transparent",
         )}
         style={{ height: block.heightMm * MM_PX }}
       >
@@ -663,12 +663,12 @@ function CanvasBlock({
       ref={setNodeRef}
       className={cn(
         "group/block relative -mx-1 rounded-sm px-1 transition-shadow",
-        selected
-          ? "ring-primary/70 ring-2"
-          : "hover:ring-1 hover:ring-slate-300",
+        // Read-only (mobile preview): a tap must not draw selection rings —
+        // there is no inspector to act on the selection anyway.
+        !readOnly && (selected ? "ring-primary/70 ring-2" : "hover:ring-1 hover:ring-slate-300"),
       )}
       style={{ marginTop: offset || undefined, marginBottom: marginBottomPx, ...dragStyle }}
-      onClick={select}
+      onClick={readOnly ? undefined : select}
       data-block-id={block.id}
       data-block-type={block.type}
     >

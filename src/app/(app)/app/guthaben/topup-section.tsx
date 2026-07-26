@@ -47,6 +47,7 @@ export function TopupSection({
             type="button"
             variant={selected === amount && !custom ? "default" : "outline"}
             size="sm"
+            className="h-10 px-4 sm:h-7 sm:px-2.5"
             onClick={() => {
               setSelected(amount);
               setCustom("");
@@ -67,7 +68,9 @@ export function TopupSection({
         />
       </div>
       {bonusCents > 0 ? (
-        <p className="text-success text-xs font-medium">{de.credits.bonusHint(formatCents(bonusCents))}</p>
+        <p className="text-success text-xs font-medium">
+          {de.credits.bonusHint(formatCents(bonusCents))}
+        </p>
       ) : null}
       <p className="text-muted-foreground text-xs">
         {effectiveCents > 0

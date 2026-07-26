@@ -153,8 +153,13 @@ export function LetterEditor({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   // A margin-style upgrade counts as an unsaved change (the stored letter
   // still renders with the old frame until re-saved).
+  // Only auto-dirty where the editable canvas can actually render — on
+  // read-only mobile a mere viewer must not be trapped by the leave guard.
   const [dirty, setDirty] = useState(
-    letterId !== null && modernizeMarginStyle(initialDocument) !== initialDocument,
+    () =>
+      letterId !== null &&
+      modernizeMarginStyle(initialDocument) !== initialDocument &&
+      (typeof window === "undefined" || window.matchMedia("(min-width: 768px)").matches),
   );
   const [titleInvalid, setTitleInvalid] = useState(false);
   const [showZones, setShowZones] = useState(false);
@@ -774,11 +779,11 @@ export function LetterEditor({
         <div className="flex h-14 items-center gap-2 overflow-x-hidden px-4">
           <Link
             href={templateMode ? "/app/briefe/vorlagen" : "/app/briefe"}
-            className="text-muted-foreground hover:text-foreground shrink-0 text-sm transition-colors"
+            className="text-muted-foreground hover:text-foreground hidden shrink-0 text-sm transition-colors sm:inline"
           >
             {templateMode ? de.nav.templates : de.nav.letters}
           </Link>
-          <span className="text-muted-foreground/60 text-sm" aria-hidden>
+          <span className="text-muted-foreground/60 hidden text-sm sm:inline" aria-hidden>
             /
           </span>
           <Label htmlFor="letter-title" className="sr-only">
@@ -798,17 +803,17 @@ export function LetterEditor({
               templateMode ? de.letters.templateNamePlaceholder : de.letters.letterNamePlaceholder
             }
             className={cn(
-              "font-heading hover:bg-muted/60 focus-visible:bg-background h-9 w-full min-w-0 flex-1 border-transparent bg-transparent px-2 text-lg font-medium shadow-none sm:max-w-[22rem]",
+              "font-heading hover:bg-muted/60 focus-visible:bg-background h-9 w-full min-w-24 flex-1 border-transparent bg-transparent px-2 text-lg font-medium shadow-none sm:max-w-[22rem]",
               titleInvalid && "border-destructive ring-destructive/30 ring-2",
             )}
           />
-          <span className="text-muted-foreground hidden shrink-0 items-center gap-1.5 text-xs lg:flex">
+          <span className="text-muted-foreground hidden shrink-0 items-center gap-1.5 text-xs sm:flex">
             {isSaving ? (
               de.common.saving
             ) : dirty ? (
               <>
                 <span className="bg-warning size-1.5 rounded-full" aria-hidden />
-                {de.letters.unsavedChanges}
+                <span className="hidden lg:inline">{de.letters.unsavedChanges}</span>
               </>
             ) : persistedId ? (
               de.letters.savedStatus
@@ -856,7 +861,7 @@ export function LetterEditor({
             )}
             {templateMode ? null : (
               <span
-                className="hidden md:inline-flex"
+                className="inline-flex"
                 title={!savedId ? de.letters.firstSaveRequired : undefined}
               >
                 <Dialog>
@@ -883,6 +888,7 @@ export function LetterEditor({
             </Button>
             {templateMode ? null : (
               <Button
+                className="hidden sm:inline-flex"
                 onClick={() =>
                   save((id) => {
                     bypassGuardRef.current = true;
@@ -894,7 +900,7 @@ export function LetterEditor({
                 {de.common.next}
               </Button>
             )}
-            <span className="bg-border mx-1 h-6 w-px" aria-hidden />
+            <span className="bg-border mx-1 hidden h-6 w-px sm:block" aria-hidden />
             <Button
               variant="ghost"
               size="icon"
@@ -1047,13 +1053,13 @@ export function LetterEditor({
 
             {/* Placeholder strip + view controls for md screens (left panel hidden) */}
             <div className="mb-3 hidden md:block lg:hidden">{placeholderChips}</div>
-            <div className="mb-3 hidden items-center justify-between gap-2 md:flex lg:hidden">
+            <div className="mb-3 hidden flex-wrap items-center justify-between gap-2 md:flex lg:hidden">
               <Badge variant="outline" className="cursor-default">
                 <FileText className="size-3.5" aria-hidden />
                 ca. {estimatedPages} {estimatedPages === 1 ? "Seite" : de.letters.pageCount} ·{" "}
                 {estimatedSheets} {de.letters.sheetCount}
               </Badge>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
                 <label className="flex items-center gap-1.5 text-xs">
                   <Switch checked={showZones} onCheckedChange={setShowZones} />
                   {de.letters.showZones}

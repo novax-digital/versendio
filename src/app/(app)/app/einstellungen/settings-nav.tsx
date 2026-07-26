@@ -17,8 +17,11 @@ const tabs = [
 export function SettingsNav() {
   const pathname = usePathname();
   return (
-    <nav className="border-b" aria-label={de.admin.settingsNav}>
-      <ul className="-mb-px flex gap-4">
+    <nav
+      className="-mx-4 overflow-x-auto border-b px-4 md:-mx-8 md:px-8"
+      aria-label={de.admin.settingsNav}
+    >
+      <ul className="-mb-px flex w-max min-w-full gap-4">
         {tabs.map((tab) => {
           const active = tab.exact ? pathname === tab.href : pathname.startsWith(tab.href);
           return (

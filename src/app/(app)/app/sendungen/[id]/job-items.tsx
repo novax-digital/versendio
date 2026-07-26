@@ -108,7 +108,7 @@ function ItemRow({ item, jobId }: { item: Item; jobId: string }) {
             </Badge>
           ) : null}
           {item.error_message ? (
-            <span className="text-destructive block max-w-64 truncate text-xs" title={item.error_message}>
+            <span className="text-destructive block max-w-36 truncate text-xs sm:max-w-64" title={item.error_message}>
               {item.error_message}
             </span>
           ) : null}
@@ -121,7 +121,7 @@ function ItemRow({ item, jobId }: { item: Item; jobId: string }) {
           <a
             href={`/app/sendungen/${jobId}/pdf?item=${item.id}`}
             onClick={(e) => e.stopPropagation()}
-            className="text-muted-foreground hover:text-foreground hover:bg-muted inline-flex size-7 items-center justify-center rounded-md transition-colors"
+            className="text-muted-foreground hover:text-foreground hover:bg-muted -my-2 inline-flex size-10 items-center justify-center rounded-md transition-colors sm:my-0 sm:size-7"
             aria-label={de.sendJobs.downloadPdf}
             title={de.sendJobs.downloadPdf}
           >
@@ -132,7 +132,7 @@ function ItemRow({ item, jobId }: { item: Item; jobId: string }) {
       {open ? (
         <TableRow>
           <TableCell />
-          <TableCell colSpan={4}>
+          <TableCell colSpan={4} className="whitespace-normal">
             {pending || events === null ? (
               <p className="text-muted-foreground py-2 text-xs">{de.common.loading}</p>
             ) : events.length === 0 ? (
@@ -147,7 +147,7 @@ function ItemRow({ item, jobId }: { item: Item; jobId: string }) {
                         timeStyle: "short",
                       }).format(new Date(event.occurred_at))}
                     </span>
-                    <span>
+                    <span className="min-w-0 break-words">
                       {event.status ? (de.sendJobs.itemStatus[event.status] ?? event.status) : ""}
                       {event.details ? ` — ${event.details}` : ""}
                     </span>

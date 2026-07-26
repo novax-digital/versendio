@@ -52,7 +52,7 @@ export default async function ContactsPage({
           <h1 className="text-2xl font-semibold">{de.contacts.title}</h1>
           <p className="text-muted-foreground text-sm">{de.contacts.subtitle}</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <ButtonLink href="/app/kontakte/import" variant="outline">
             <Upload className="size-4" aria-hidden />
             {de.contacts.importButton}

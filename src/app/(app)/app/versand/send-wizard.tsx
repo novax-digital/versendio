@@ -199,7 +199,7 @@ export function SendWizard({
                   >
                     <RadioGroupItem value={letter.id} />
                     <FileText className="text-muted-foreground size-4" aria-hidden />
-                    <span className="flex-1">
+                    <span className="min-w-0 flex-1 break-words">
                       {letter.title}
                       <span className="text-muted-foreground block text-xs">
                         {letter.source === "editor" ? de.letters.sourceEditor : de.letters.sourceUpload}
@@ -440,6 +440,7 @@ function ContactPicker({
                   <button
                     type="button"
                     aria-label={`${label(c)} entfernen`}
+                    className="hover:bg-foreground/10 -my-2 -me-1.5 flex size-8 shrink-0 items-center justify-center rounded-full"
                     onClick={() => onChange(selected.filter((s) => s.id !== c.id))}
                   >
                     <X className="size-3" />

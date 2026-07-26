@@ -8,11 +8,7 @@ import { ListDetail, type ListEntry } from "./list-detail";
 
 export const metadata: Metadata = { title: de.leadLists.title };
 
-export default async function LeadListDetailPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+export default async function LeadListDetailPage({ params }: { params: Promise<{ id: string }> }) {
   await requireProfile();
   const { id } = await params;
   const supabase = await createClient();
@@ -33,7 +29,7 @@ export default async function LeadListDetailPage({
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-2xl font-semibold">{list.name}</h1>
+        <h1 className="min-w-0 text-2xl font-semibold break-words">{list.name}</h1>
         <Badge variant="secondary">
           {list.source === "import" ? de.leadLists.sourceImport : de.leadLists.sourceManual}
         </Badge>

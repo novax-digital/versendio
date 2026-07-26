@@ -161,19 +161,24 @@ function MappingStep({
                 <TableRow>
                   <TableHead>{de.contacts.mappingColumn}</TableHead>
                   <TableHead>{de.contacts.mappingField}</TableHead>
-                  <TableHead>{de.contacts.mappingPreview}</TableHead>
+                  <TableHead className="hidden sm:table-cell">{de.contacts.mappingPreview}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {analyzed.headers.map((header, index) => (
                   <TableRow key={index}>
-                    <TableCell className="font-medium">{header || de.common.column(index + 1)}</TableCell>
+                    <TableCell className="max-w-32 font-medium sm:max-w-none">
+                      <span className="block truncate">{header || de.common.column(index + 1)}</span>
+                      <span className="text-muted-foreground block max-w-28 truncate text-xs font-normal sm:hidden">
+                        {analyzed.previewRows.map((r) => r[index]).filter(Boolean).slice(0, 2).join(" · ")}
+                      </span>
+                    </TableCell>
                     <TableCell>
                       <Select
                         value={mapping[index] ?? "ignore"}
                         onValueChange={(v) => assign(index, v as ContactField | "ignore")}
                       >
-                        <SelectTrigger className="w-52">
+                        <SelectTrigger className="w-full min-w-36 sm:w-52">
                           <SelectValue>
                             {(() => {
                               const field = mapping[index];
@@ -191,7 +196,7 @@ function MappingStep({
                         </SelectContent>
                       </Select>
                     </TableCell>
-                    <TableCell className="text-muted-foreground max-w-48 truncate text-xs">
+                    <TableCell className="text-muted-foreground hidden max-w-48 truncate text-xs sm:table-cell">
                       {analyzed.previewRows.map((r) => r[index]).filter(Boolean).slice(0, 3).join(" · ")}
                     </TableCell>
                   </TableRow>

@@ -51,8 +51,8 @@ export default async function SendJobDetailPage({
     <div className="mx-auto max-w-4xl space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="flex items-center gap-2 text-2xl font-semibold">
-            {letter?.title ?? de.sendJobs.title}
+          <h1 className="flex flex-wrap items-baseline gap-2 text-2xl font-semibold">
+            <span className="min-w-0 break-words">{letter?.title ?? de.sendJobs.title}</span>
             {job.is_test ? <Badge variant="secondary">{de.sendJobs.testBadge}</Badge> : null}
           </h1>
           <p className="text-muted-foreground text-sm">

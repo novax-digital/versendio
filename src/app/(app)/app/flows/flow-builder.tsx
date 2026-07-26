@@ -235,7 +235,7 @@ export function FlowBuilder({
                   value={mocoInvoiceStatus}
                   onValueChange={(v) => setMocoInvoiceStatus(v as "created" | "sent")}
                 >
-                  <SelectTrigger className="w-72">
+                  <SelectTrigger className="w-full sm:w-72">
                     <SelectValue>
                       {mocoInvoiceStatus === "created"
                         ? de.flows.mocoInvoiceStatusCreated

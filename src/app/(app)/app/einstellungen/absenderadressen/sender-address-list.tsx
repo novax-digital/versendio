@@ -127,8 +127,7 @@ function AddressCard({ address, onEdit }: { address: SenderAddress; onEdit: () =
     if (defaultState && !defaultState.ok && defaultState.error) toast.error(defaultState.error);
   }, [defaultState]);
 
-  const name =
-    address.company || [address.first_name, address.last_name].filter(Boolean).join(" ");
+  const name = address.company || [address.first_name, address.last_name].filter(Boolean).join(" ");
 
   return (
     <Card>
@@ -154,7 +153,7 @@ function AddressCard({ address, onEdit }: { address: SenderAddress; onEdit: () =
         <p className="text-muted-foreground truncate font-mono text-xs" title={address.sender_line}>
           {address.sender_line}
         </p>
-        <div className="flex gap-1 pt-1">
+        <div className="flex flex-wrap gap-1 pt-1">
           <Button variant="ghost" size="sm" onClick={onEdit}>
             <Pencil className="size-3.5" aria-hidden />
             {de.common.edit}

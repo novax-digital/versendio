@@ -89,11 +89,13 @@ export function ListDetail({ listId, entries }: { listId: string; entries: ListE
                 if (!c) return null;
                 return (
                   <TableRow key={entry.id}>
-                    <TableCell className="font-medium">
+                    <TableCell className="max-w-28 truncate font-medium sm:max-w-none">
                       {[c.first_name, c.last_name].filter(Boolean).join(" ") || "–"}
                     </TableCell>
-                    <TableCell>{c.company ?? "–"}</TableCell>
-                    <TableCell>
+                    <TableCell className="max-w-28 truncate sm:max-w-none">
+                      {c.company ?? "–"}
+                    </TableCell>
+                    <TableCell className="hidden sm:table-cell">
                       {c.zip} {c.city}
                       {c.country !== "DE" ? ` (${c.country})` : ""}
                     </TableCell>
@@ -121,7 +123,7 @@ export function ListDetail({ listId, entries }: { listId: string; entries: ListE
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>{de.common.cancel}</AlertDialogCancel>
-              <form action={deleteAction}>
+              <form action={deleteAction} className="contents">
                 <input type="hidden" name="id" value={listId} />
                 <AlertDialogAction type="submit" disabled={deletePending}>
                   {de.common.delete}
@@ -223,7 +225,7 @@ function RemoveEntryButton({ entryId, listId }: { entryId: string; listId: strin
         type="submit"
         variant="ghost"
         size="icon-sm"
-        className="text-destructive"
+        className="text-destructive size-9 sm:size-7"
         disabled={pending}
         aria-label={de.leadLists.removeEntry}
       >

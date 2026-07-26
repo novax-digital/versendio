@@ -44,7 +44,7 @@ export function UserMenu({
       <DropdownMenu>
         <DropdownMenuTrigger
           render={
-            <Button variant="ghost" size="icon" className="rounded-full" aria-label={de.admin.userMenu} />
+            <Button variant="ghost" size="icon" className="size-10 rounded-full md:size-8" aria-label={de.admin.userMenu} />
           }
         >
           <Avatar className="size-8">

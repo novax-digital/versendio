@@ -504,3 +504,21 @@ Abschlussbericht abarbeiten.
 - [x] **Integrations-Logos normalisiert** (gemeinsame `IntegrationLogo`-Box, einheitliche optische Größe)
 - [x] `NEW_DESIGNER/` (Design-Referenz) von Lint/Repo ausgeschlossen
 - [x] DoD: Build ✅ Lint ✅ Typecheck ✅ **203 Unit-Tests** ✅ (Review-Workflow läuft, Fixes folgen ggf.)
+
+## Nach Übergabe — Mobil-Audit (2026-07-26)
+- [x] **Vollständiges Mobil-Audit** (Review-Workflow, 41 bestätigte Funde) über alle App-Bereiche;
+  Fixes in Batches: Primitives, Shell/Banner, Briefe, Editor, Versand/Sendungen, Kontakte/Flows,
+  Guthaben/Einstellungen
+- [x] **Touch-Targets ≥40 px auf Mobil**: `Input`/`Button` global `h-10 md:h-8` (Icon `size-10 md:size-8`);
+  Hamburger, Avatar, Banner-X, Icon-Buttons in Tabellen (`size-9 sm:size-7`), Top-up-Chips
+  (`h-10 sm:h-7`), Paginierung mit `min-h-10`
+- [x] **Tabellen mobil**: Namens-/Firmenspalten `max-w-* truncate sm:max-w-none`, sekundäre Spalten
+  (Ort, Vorschau) `hidden sm:table-cell` mit Inline-Fallback, Scroll-Container beibehalten
+- [x] **Dialog-Footer**: `<form>` um `AlertDialogAction` überall `className="contents"` — Bestätigen-
+  Button stackt jetzt korrekt volle Breite unter `sm` (Briefe, Vorlagen, Kontakte, Leadlisten,
+  API-Keys, Whitelabel)
+- [x] **Layout-Brüche**: lange Titel `min-w-0 break-words` (Brief-/Sendungs-/Leadlisten-Detail),
+  Einstellungs-Tab-Bar als randbündiger Scroller (`-mx-4 overflow-x-auto`), Absenderadress-Aktionen
+  `flex-wrap`, Dashboard-Stats `sm:grid-cols-2 lg:grid-cols-3`, Import-Wizard-Selects `w-full`
+  + mobile Vorschauzeile, PDF-Vorschau mit mobilem Öffnen-Link
+- [x] DoD: Build ✅ Lint ✅ Typecheck ✅ **203 Unit-Tests** ✅

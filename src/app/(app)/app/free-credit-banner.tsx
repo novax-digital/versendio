@@ -52,7 +52,7 @@ export function FreeCreditBanner() {
         type="button"
         onClick={dismiss}
         aria-label={de.dashboard.freeCreditBannerDismiss}
-        className="hover:bg-primary/15 text-muted-foreground -mt-1 -mr-1 shrink-0 rounded p-1.5"
+        className="hover:bg-primary/15 text-muted-foreground -mt-2 -mr-2 shrink-0 rounded p-2.5 md:-mt-1 md:-mr-1 md:p-1.5"
       >
         <X className="size-4" aria-hidden />
       </button>

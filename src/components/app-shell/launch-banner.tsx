@@ -47,7 +47,7 @@ export function LaunchBanner() {
         type="button"
         onClick={dismiss}
         aria-label={de.common.launchBannerDismiss}
-        className="shrink-0 rounded p-1 transition-colors hover:bg-white/20"
+        className="-my-2 shrink-0 rounded p-2.5 transition-colors hover:bg-white/20 md:my-0 md:p-1"
       >
         <X className="size-4" aria-hidden />
       </button>
