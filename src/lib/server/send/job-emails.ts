@@ -149,8 +149,12 @@ export async function processSendEmail(payload: SendEmailPayload): Promise<void>
 
   const template = templates[payload.template as EmailTemplate];
   if (!template) {
-    console.error("unknown_email_template", { template: payload.template });
-    return;
+    // Most likely a deploy race: the job was enqueued by a newer deployment
+    // than the worker processing it. Throw so the queue retries with backoff —
+    // the next attempt runs on the new code. A genuinely unknown template dies
+    // visibly (status "dead" + last_error) after max_attempts instead of being
+    // dropped as "done" (which silently swallowed mail during deploys).
+    throw new Error(`unknown_email_template: ${payload.template}`);
   }
 
   const { html, text } = renderBrandedEmail({
