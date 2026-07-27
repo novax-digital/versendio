@@ -5,6 +5,7 @@ import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/server/auth-context";
 import { writeAuditLog } from "@/lib/server/audit";
+import { enqueueJob } from "@/lib/server/queue/enqueue";
 import type { ActionResult } from "@/lib/server/action-result";
 import { de } from "@/lib/i18n/de";
 
@@ -36,6 +37,24 @@ export async function approveReviewRewardAction(
   if (amount == null) {
     // Already approved/rejected by someone else — nothing was credited.
     return { ok: false, error: de.admin.reviewAlreadyHandled };
+  }
+
+  // Congratulation mail, best-effort: the credit is already booked, so a mail
+  // problem must never fail the approval (enqueueJob logs instead of throwing).
+  const { data: reward, error: rewardError } = await admin
+    .from("review_rewards")
+    .select("user_id, platform")
+    .eq("id", parsed.data.id)
+    .single();
+  if (reward) {
+    await enqueueJob("send_email", {
+      template: "review_reward_approved",
+      userId: reward.user_id,
+      amountCents: amount,
+      platform: reward.platform,
+    });
+  } else {
+    console.error("review_reward_mail_skipped", { error: rewardError?.message });
   }
 
   await writeAuditLog({

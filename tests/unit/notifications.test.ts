@@ -37,6 +37,7 @@ describe("templateAllowed", () => {
     };
     expect(templateAllowed("items_on_hold", allOff)).toBe(true);
     expect(templateAllowed("welcome", allOff)).toBe(true);
+    expect(templateAllowed("review_reward_approved", allOff)).toBe(true);
     // Unknown templates default to send (opt-outable only by explicit listing).
     expect(templateAllowed("future_template", allOff)).toBe(true);
   });

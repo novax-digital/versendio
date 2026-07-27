@@ -19,7 +19,8 @@ type EmailTemplate =
   | "topup_confirmed"
   | "job_status_update"
   | "flow_summary"
-  | "moco_summary";
+  | "moco_summary"
+  | "review_reward_approved";
 
 /**
  * Payload contract for send_email queue jobs. Kept in lockstep with the cast
@@ -43,6 +44,8 @@ export type SendEmailPayload = {
   sentCount?: number;
   heldFundsCount?: number;
   failedCount?: number;
+  /** review_reward_approved */
+  platform?: string;
 };
 
 /**
@@ -141,6 +144,7 @@ export async function processSendEmail(payload: SendEmailPayload): Promise<void>
     },
     flow_summary: buildFlowSummary(payload, appName, appUrl),
     moco_summary: buildMocoSummary(payload, appName, appUrl),
+    review_reward_approved: buildReviewRewardApproved(payload, appName, toCredits),
   };
 
   const template = templates[payload.template as EmailTemplate];
@@ -190,6 +194,34 @@ function buildTopupConfirmed(
   return {
     subject: `Guthaben aufgeladen: ${amount} – ${appName}`,
     paragraphs,
+    cta: toCredits,
+  };
+}
+
+/**
+ * Review reward approved: congratulation + credited amount. Not mapped to a
+ * pref column (always sent) — it answers a request the user explicitly
+ * submitted on the free-credit page.
+ */
+function buildReviewRewardApproved(
+  payload: SendEmailPayload,
+  appName: string,
+  toCredits?: { label: string; url: string },
+): { subject: string; paragraphs: string[]; cta?: { label: string; url: string } } {
+  const amount = formatCents(payload.amountCents ?? 0);
+  // Platform-specific opener with matching German article; generic fallback so
+  // a future platform key never breaks the mail.
+  const opener: Record<string, string> = {
+    trustpilot: "Ihre Trustpilot-Bewertung wurde",
+    linkedin: "Ihr LinkedIn-Erfahrungsbericht wurde",
+  };
+  const opening = opener[payload.platform ?? ""] ?? "Ihre Bewertung wurde";
+  return {
+    subject: `Guthaben gutgeschrieben: ${amount} – ${appName}`,
+    paragraphs: [
+      `herzlichen Glückwunsch! ${opening} geprüft und bestätigt. Als Dankeschön haben wir Ihnen <strong>${amount}</strong> Guthaben gutgeschrieben.`,
+      "Das Guthaben steht Ihnen ab sofort für den Versand Ihrer Briefe zur Verfügung.",
+    ],
     cta: toCredits,
   };
 }
