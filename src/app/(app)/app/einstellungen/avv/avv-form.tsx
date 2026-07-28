@@ -1,9 +1,17 @@
 "use client";
 
 import { useImperativeHandle, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Eraser } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { de } from "@/lib/i18n/de";
@@ -16,7 +24,34 @@ type Defaults = {
   city: string;
 };
 
-export function AvvForm({ defaults }: { defaults: Defaults }) {
+/** Primary CTA that opens the fill-and-sign form in a modal. */
+export function AvvDialog({ defaults }: { defaults: Defaults }) {
+  const [open, setOpen] = useState(false);
+  const router = useRouter();
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger render={<Button className="w-full sm:w-auto" />}>
+        {de.avv.generateButton}
+      </DialogTrigger>
+      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{de.avv.modalTitle}</DialogTitle>
+        </DialogHeader>
+        <AvvForm
+          defaults={defaults}
+          onGenerated={() => {
+            setOpen(false);
+            // The page shows the stored-contract download once avv_signed_at is set.
+            router.refresh();
+          }}
+        />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function AvvForm({ defaults, onGenerated }: { defaults: Defaults; onGenerated: () => void }) {
   const [pending, setPending] = useState(false);
   const sigRef = useRef<SignaturePadHandle>(null);
 
@@ -57,6 +92,7 @@ export function AvvForm({ defaults }: { defaults: Defaults }) {
       a.remove();
       URL.revokeObjectURL(url);
       toast.success(de.avv.generated);
+      onGenerated();
     } catch {
       toast.error(de.avv.generateError);
     } finally {
@@ -118,7 +154,7 @@ export function AvvForm({ defaults }: { defaults: Defaults }) {
         <p className="text-muted-foreground text-xs">{de.avv.signatureHint}</p>
       </div>
 
-      <Button type="submit" disabled={pending} className="w-full sm:w-auto">
+      <Button type="submit" disabled={pending} className="w-full">
         {pending ? de.avv.generating : de.avv.generateButton}
       </Button>
     </form>

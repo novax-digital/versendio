@@ -3,7 +3,10 @@ import path from "node:path";
 import { NextResponse } from "next/server";
 import { PDFDocument, StandardFonts, rgb, type PDFFont } from "pdf-lib";
 import { requireProfile, blockedActionError } from "@/lib/server/auth-context";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { checkCustomLimit } from "@/lib/server/rate-limit";
+import { uploadObject, BUCKETS } from "@/lib/server/storage";
+import { avvStoragePath } from "@/lib/server/avv";
 import { avvRequestSchema } from "@/lib/shared/schemas/avv";
 import { de } from "@/lib/i18n/de";
 
@@ -103,8 +106,37 @@ export async function POST(request: Request) {
       width: signature.width * scale,
       height: signature.height * scale,
     });
+    // Who signed — mirrors the template's "Philipp Polley / CEO" note on the
+    // provider side: small, right-aligned to the field end, just above the line.
+    const signerNote = parsed.data.representative;
+    const noteSize = 7;
+    page8.drawText(signerNote, {
+      x: 252.1 - font.widthOfTextAtSize(signerNote, noteSize),
+      y: 518,
+      size: noteSize,
+      font,
+      color: rgb(0.25, 0.25, 0.25),
+    });
+    // The template carries our countersignature and name but no date — the
+    // contract is executed at generation time, so both sides get today.
+    page8.drawText(dateStr, { x: 302.3, y: 528, size: 11, font, color: black });
 
     const bytes = await doc.save();
+
+    // Persist for permanent re-download from the settings page. Non-fatal:
+    // the direct download below still works if storage is unavailable.
+    const stored = await uploadObject(BUCKETS.assets, avvStoragePath(profile.id), bytes, "application/pdf");
+    if (stored.ok) {
+      const admin = createAdminClient();
+      const { error: stampError } = await admin
+        .from("profiles")
+        .update({ avv_signed_at: new Date().toISOString() })
+        .eq("id", profile.id);
+      if (stampError) {
+        console.error("avv_stamp_failed", { error: stampError.message });
+      }
+    }
+
     return new NextResponse(Buffer.from(bytes), {
       headers: {
         "Content-Type": "application/pdf",

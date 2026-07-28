@@ -1020,6 +1020,9 @@ export const de = {
     generateButton: "Vertrag erstellen und herunterladen",
     generating: "Vertrag wird erstellt …",
     generated: "Ihr AV-Vertrag wurde erstellt und heruntergeladen.",
+    storedInfo: (date: string) => `Unterzeichnet am ${date}. Sie können den Vertrag jederzeit erneut herunterladen.`,
+    storedDownload: "Unterschriebenen Vertrag herunterladen (PDF)",
+    modalTitle: "AV-Vertrag ausfüllen und unterschreiben",
     generateError:
       "Der Vertrag konnte nicht erstellt werden. Bitte versuchen Sie es später erneut.",
     downloadName: "AVV_Versendio_unterzeichnet.pdf",

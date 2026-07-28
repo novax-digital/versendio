@@ -555,3 +555,9 @@ Abschlussbericht abarbeiten.
   der Linie (x 62,4 / y 528 bzw. Bild ab x 130); nichts wird gespeichert, Download direkt;
   Rate-Limit 10/h, `outputFileTracingIncludes` für public/avv; Platzierung visuell verifiziert
 - [x] DoD: Build ✅ Lint ✅ Typecheck ✅ **203 Unit-Tests** ✅
+- [x] **AVV-Bereich v2**: Ausfüllen/Unterschreiben im Modal (Primär-Button „Vertrag erstellen
+  und herunterladen"); fertiges PDF wird zusätzlich im privaten `assets`-Bucket
+  (`{userId}/avv/…`, GDPR-Prefix-Cleanup greift) gespeichert — dauerhafter Re-Download über
+  `avv/download`, Anzeige „Unterzeichnet am …" via `profiles.avv_signed_at`
+  (Migration `20260728220000`, angewendet); S. 8 ergänzt: Datum auch bei der
+  Plattform-Unterschrift + Namenszusatz des Unterzeichners beim Kunden (visuell verifiziert)
