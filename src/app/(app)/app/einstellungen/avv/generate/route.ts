@@ -19,7 +19,9 @@ import { de } from "@/lib/i18n/de";
  * - Page 8 customer signature field: line at y 513.6-524.7, x 62.4-252.1;
  *   date baseline y 528 at x 62.4, signature image sits on the line at x 130.
  */
-const TEMPLATE_PATH = path.join(process.cwd(), "public", "avv", "AVV_Versendio_signed.pdf");
+// Deliberately OUTSIDE public/: the countersigned blank must not be
+// downloadable without going through this route.
+const TEMPLATE_PATH = path.join(process.cwd(), "assets", "avv", "AVV_Versendio_signed.pdf");
 const LINE_X = 83.6;
 const LINE_MAX_WIDTH = 448; // right edge ~532
 const FIRST_BASELINE_Y = 630;
