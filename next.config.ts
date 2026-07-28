@@ -38,6 +38,8 @@ const nextConfig: NextConfig = {
     "/app/briefe/[id]/preview": ["./public/fonts/**"],
     "/app/briefe/[id]": ["./public/fonts/**"],
     "/api/cron/queue": ["./public/fonts/**"],
+    // The AVV generation route fills the countersigned template via fs.
+    "/app/einstellungen/avv/generate": ["./public/avv/**"],
   },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];

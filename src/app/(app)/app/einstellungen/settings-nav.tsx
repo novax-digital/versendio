@@ -11,6 +11,7 @@ const tabs = [
   { href: "/app/einstellungen/benachrichtigungen", label: de.notifications.title, exact: false },
   { href: "/app/einstellungen/sicherheit", label: de.profile.security, exact: false },
   { href: "/app/einstellungen/integrationen", label: de.integrations.title, exact: false },
+  { href: "/app/einstellungen/avv", label: de.avv.title, exact: false },
   { href: "/app/einstellungen/konto", label: de.profile.accountTab, exact: false },
 ];
 
