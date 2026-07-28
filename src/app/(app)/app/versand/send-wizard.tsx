@@ -54,6 +54,7 @@ export function SendWizard({
   preselectedLetterId,
   availableRegistered,
   mockMode,
+  canTestSend,
 }: {
   letters: LetterOption[];
   leadLists: LeadListOption[];
@@ -62,6 +63,8 @@ export function SendWizard({
   // Registered-mail options with an active price; empty = feature not offered.
   availableRegistered: Exclude<Registered, "none">[];
   mockMode: boolean;
+  // Test sends are admin-only; the server action enforces this too.
+  canTestSend: boolean;
 }) {
   const router = useRouter();
   const [step, setStep] = useState(0);
@@ -351,6 +354,7 @@ export function SendWizard({
           hasSender={senderAddresses.length > 0}
           hasPlaceholders={selectedLetter?.has_placeholders ?? false}
           mockMode={mockMode}
+          canTestSend={canTestSend}
           onConfirm={() => confirm(false)}
           onTest={() => confirm(true)}
         />
@@ -463,6 +467,7 @@ function ConfirmStep({
   hasSender,
   hasPlaceholders,
   mockMode,
+  canTestSend,
   onConfirm,
   onTest,
 }: {
@@ -471,6 +476,7 @@ function ConfirmStep({
   hasSender: boolean;
   hasPlaceholders: boolean;
   mockMode: boolean;
+  canTestSend: boolean;
   onConfirm: () => void;
   onTest: () => void;
 }) {
@@ -572,16 +578,18 @@ function ConfirmStep({
         </div>
       ) : null}
 
-      <div className="rounded-md border p-4">
-        <p className="flex items-center gap-2 text-sm font-medium">
-          <FlaskConical className="size-4" aria-hidden />
-          {de.send.testSend}
-        </p>
-        <p className="text-muted-foreground mt-1 text-xs">{de.send.testSendHint}</p>
-        <Button variant="outline" className="mt-3" onClick={onTest} disabled={pending || !hasSender}>
-          {pending ? de.send.confirming : de.send.confirmTestButton}
-        </Button>
-      </div>
+      {canTestSend ? (
+        <div className="rounded-md border p-4">
+          <p className="flex items-center gap-2 text-sm font-medium">
+            <FlaskConical className="size-4" aria-hidden />
+            {de.send.testSend}
+          </p>
+          <p className="text-muted-foreground mt-1 text-xs">{de.send.testSendHint}</p>
+          <Button variant="outline" className="mt-3" onClick={onTest} disabled={pending || !hasSender}>
+            {pending ? de.send.confirming : de.send.confirmTestButton}
+          </Button>
+        </div>
+      ) : null}
 
       <Button
         className="w-full"

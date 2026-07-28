@@ -130,7 +130,12 @@ export async function upsertContactAction(
 
   // Editing never touches flows (enrollment is a create-time decision).
   if (id) {
-    const { error } = await supabase.from("contacts").update(values).eq("id", id);
+    // Explicit user scoping — the RLS policy alone must not be the only guard.
+    const { error } = await supabase
+      .from("contacts")
+      .update(values)
+      .eq("id", id)
+      .eq("user_id", profile.id);
     if (error) {
       console.error("contact_save_failed", { error: error.message });
       return { ok: false, error: de.common.genericError };
@@ -166,12 +171,16 @@ export async function deleteContactAction(
   _prev: unknown,
   formData: FormData,
 ): Promise<ActionResult> {
-  await requireProfile();
+  const profile = await requireProfile();
   const parsed = z.object({ id: z.string().uuid() }).safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { ok: false, error: de.common.genericError };
 
   const supabase = await createClient();
-  const { error } = await supabase.from("contacts").delete().eq("id", parsed.data.id);
+  const { error } = await supabase
+    .from("contacts")
+    .delete()
+    .eq("id", parsed.data.id)
+    .eq("user_id", profile.id);
   if (error) {
     console.error("contact_delete_failed", { error: error.message });
     return { ok: false, error: de.common.genericError };

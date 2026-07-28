@@ -27,28 +27,58 @@ export default async function AdminUserDetailPage({
   const { id } = await params;
   const admin = createAdminClient();
 
-  const [{ data: user }, { data: plans }, { data: transactions }, { count: letterCount }] =
-    await Promise.all([
-      admin
-        .from("profiles")
-        .select(
-          "id, email, display_name, company, billing_street, billing_zip, billing_city, billing_country, role, status, plan_id, credit_balance_cents, cost_center, is_whitelabel, created_at",
-        )
-        .eq("id", id)
-        .single(),
-      admin.from("plans").select("id, name, discount_percent").order("name"),
-      admin
-        .from("credit_transactions")
-        .select("id, type, amount_cents, balance_after_cents, comment, created_by, created_at")
-        .eq("user_id", id)
-        .order("created_at", { ascending: false })
-        .limit(50),
-      admin
-        .from("send_job_items")
-        .select("id", { count: "exact", head: true })
-        .eq("user_id", id)
-        .eq("status", "sent"),
-    ]);
+  // "Handed over" mirrors admin_letters_kpi semantics (20260721180000): every
+  // status from 'submitted' on counts, because the letter irrevocably left the
+  // house then — 'sent' alone (= billed by DP) lags by days and shows 0.
+  const HANDED_OVER = ["submitted", "accepted", "checked", "print_center", "sent"];
+
+  const [
+    { data: user },
+    { data: plans },
+    { data: transactions },
+    { count: handedOverCount },
+    { count: billedCount },
+    { count: failedCount },
+    { count: testCount },
+  ] = await Promise.all([
+    admin
+      .from("profiles")
+      .select(
+        "id, email, display_name, company, billing_street, billing_zip, billing_city, billing_country, role, status, plan_id, credit_balance_cents, cost_center, is_whitelabel, created_at",
+      )
+      .eq("id", id)
+      .single(),
+    admin.from("plans").select("id, name, discount_percent").order("name"),
+    admin
+      .from("credit_transactions")
+      .select("id, type, amount_cents, balance_after_cents, comment, created_by, created_at")
+      .eq("user_id", id)
+      .order("created_at", { ascending: false })
+      .limit(50),
+    admin
+      .from("send_job_items")
+      .select("id, send_jobs!inner(is_test)", { count: "exact", head: true })
+      .eq("user_id", id)
+      .eq("send_jobs.is_test", false)
+      .in("status", HANDED_OVER),
+    admin
+      .from("send_job_items")
+      .select("id, send_jobs!inner(is_test)", { count: "exact", head: true })
+      .eq("user_id", id)
+      .eq("send_jobs.is_test", false)
+      .eq("status", "sent"),
+    admin
+      .from("send_job_items")
+      .select("id, send_jobs!inner(is_test)", { count: "exact", head: true })
+      .eq("user_id", id)
+      .eq("send_jobs.is_test", false)
+      .eq("status", "failed"),
+    admin
+      .from("send_job_items")
+      .select("id, send_jobs!inner(is_test)", { count: "exact", head: true })
+      .eq("user_id", id)
+      .eq("send_jobs.is_test", true),
+  ]);
 
   if (!user) notFound();
 
@@ -102,11 +132,14 @@ export default async function AdminUserDetailPage({
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-muted-foreground text-sm font-medium">
-              {de.dashboard.lettersSent}
+              {de.admin.lettersHandedOver}
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-semibold">{letterCount ?? 0}</p>
+            <p className="text-2xl font-semibold">{handedOverCount ?? 0}</p>
+            <p className="text-muted-foreground mt-1 text-xs">
+              {de.admin.lettersBreakdown(billedCount ?? 0, failedCount ?? 0, testCount ?? 0)}
+            </p>
           </CardContent>
         </Card>
         <Card>

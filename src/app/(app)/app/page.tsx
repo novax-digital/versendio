@@ -15,16 +15,22 @@ export default async function DashboardPage() {
   const profile = await requireProfile();
   const supabase = await createClient();
 
+  // Explicit user scoping — the RLS policy alone must not be the only guard.
   const [{ count: senderAddressCount }, { count: sentCount }, { count: inProgressCount }, { data: recentJobs }] =
     await Promise.all([
-      supabase.from("sender_addresses").select("id", { count: "exact", head: true }),
+      supabase
+        .from("sender_addresses")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", profile.id),
       supabase
         .from("send_job_items")
         .select("id", { count: "exact", head: true })
+        .eq("user_id", profile.id)
         .eq("status", "sent"),
       supabase
         .from("send_job_items")
         .select("id", { count: "exact", head: true })
+        .eq("user_id", profile.id)
         .in("status", [
           "pending",
           "on_hold_funds",
@@ -37,6 +43,7 @@ export default async function DashboardPage() {
       supabase
         .from("send_jobs")
         .select("id, status, created_at, letters(title)")
+        .eq("user_id", profile.id)
         .order("created_at", { ascending: false })
         .limit(5),
     ]);

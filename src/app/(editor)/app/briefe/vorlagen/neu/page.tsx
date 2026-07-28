@@ -10,16 +10,19 @@ import { LetterEditor } from "../../editor/letter-editor";
 export const metadata: Metadata = { title: de.letters.newTemplate };
 
 export default async function NewTemplatePage() {
-  await requireProfile();
+  const profile = await requireProfile();
   const supabase = await createClient();
+  // Explicit user scoping — the RLS policy alone must not be the only guard.
   const [{ data: senderAddresses }, { data: letterheads }] = await Promise.all([
     supabase
       .from("sender_addresses")
       .select("id, label, sender_line, city, is_default")
+      .eq("user_id", profile.id)
       .order("is_default", { ascending: false }),
     supabase
       .from("letter_templates")
       .select("id, name, editor_document, kind")
+      .eq("user_id", profile.id)
       .eq("kind", "letterhead")
       .order("created_at", { ascending: false }),
   ]);

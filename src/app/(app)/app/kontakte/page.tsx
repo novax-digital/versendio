@@ -32,6 +32,8 @@ export default async function ContactsPage({
       "id, salutation, first_name, last_name, company, street, address_extra, zip, city, country, email",
       { count: "exact" },
     )
+    // Explicit user scoping — the RLS policy alone must not be the only guard.
+    .eq("user_id", profile.id)
     .order("created_at", { ascending: false })
     .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
 

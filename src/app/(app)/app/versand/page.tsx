@@ -13,7 +13,7 @@ export default async function SendPage({
 }: {
   searchParams: Promise<{ brief?: string }>;
 }) {
-  await requireProfile();
+  const profile = await requireProfile();
   const { brief } = await searchParams;
   const supabase = await createClient();
 
@@ -22,16 +22,19 @@ export default async function SendPage({
       supabase
         .from("letters")
         .select("id, title, source, page_count, sheet_count, has_placeholders")
+        .eq("user_id", profile.id)
         .eq("status", "ready")
         .order("created_at", { ascending: false })
         .limit(50),
       supabase
         .from("lead_lists")
         .select("id, name, lead_list_entries(count)")
+        .eq("user_id", profile.id)
         .order("created_at", { ascending: false }),
       supabase
         .from("sender_addresses")
         .select("id, label, is_default")
+        .eq("user_id", profile.id)
         .order("is_default", { ascending: false }),
       loadActiveRegisteredOptions(),
     ]);
@@ -48,6 +51,7 @@ export default async function SendPage({
       preselectedLetterId={brief ?? null}
       availableRegistered={availableRegistered}
       mockMode={isMockMode()}
+      canTestSend={profile.role === "admin"}
     />
   );
 }

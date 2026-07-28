@@ -259,10 +259,13 @@ export async function saveEditorLetterAction(
   if (parsed.data.id) {
     // A queued send renders the LIVE document at dispatch time (ADR-0006 §4);
     // changing the letter now could silently re-price already-confirmed items.
+    // Every query here pins the owner explicitly — RLS alone must not be the
+    // only guard (defence in depth, see deleteLetterAction).
     const { data: activeItems } = await supabase
       .from("send_job_items")
       .select("id, send_jobs!inner(letter_id)")
       .eq("send_jobs.letter_id", parsed.data.id)
+      .eq("user_id", profile.id)
       .in("status", ["pending", "on_hold_funds", "submitting"])
       .limit(1);
     if (activeItems && activeItems.length > 0) {
@@ -274,6 +277,7 @@ export async function saveEditorLetterAction(
       .from("letters")
       .update(values)
       .eq("id", parsed.data.id)
+      .eq("user_id", profile.id)
       .eq("source", "editor")
       .select("id")
       .maybeSingle();
@@ -351,7 +355,8 @@ export async function saveTemplateAction(
   const supabase = await createClient();
   const { count } = await supabase
     .from("letter_templates")
-    .select("id", { count: "exact", head: true });
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", profile.id);
   if ((count ?? 0) >= 100) {
     return { ok: false, error: de.letters.tooManyTemplates };
   }
@@ -419,7 +424,8 @@ export async function saveTemplateDocAction(
 
   const { count } = await supabase
     .from("letter_templates")
-    .select("id", { count: "exact", head: true });
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", profile.id);
   if ((count ?? 0) >= 100) {
     return { ok: false, error: de.letters.tooManyTemplates };
   }
@@ -471,6 +477,7 @@ export async function deleteLetterAction(_prev: unknown, formData: FormData): Pr
     .from("send_job_items")
     .select("id, send_jobs!inner(letter_id)")
     .eq("send_jobs.letter_id", parsed.data.id)
+    .eq("user_id", profile.id)
     .in("status", ["pending", "on_hold_funds", "submitting"])
     .limit(1);
   if (activeItems && activeItems.length > 0) {
@@ -483,6 +490,7 @@ export async function deleteLetterAction(_prev: unknown, formData: FormData): Pr
     .from("flows")
     .select("id")
     .eq("letter_id", parsed.data.id)
+    .eq("user_id", profile.id)
     .limit(1);
   if (flowsUsing && flowsUsing.length > 0) {
     return { ok: false, error: de.flows.letterInUse };
@@ -492,6 +500,7 @@ export async function deleteLetterAction(_prev: unknown, formData: FormData): Pr
     .from("letters")
     .select("storage_path")
     .eq("id", parsed.data.id)
+    .eq("user_id", profile.id)
     .single();
 
   // Defence-in-depth: RLS already scopes this, but pin the owner explicitly.
@@ -520,7 +529,7 @@ export async function deleteLetterAction(_prev: unknown, formData: FormData): Pr
 }
 
 export async function setCoverLetterAction(_prev: unknown, formData: FormData): Promise<ActionResult> {
-  await requireProfile();
+  const profile = await requireProfile();
   const parsed = z
     .object({ id: z.string().uuid(), use: z.enum(["true", "false"]) })
     .safeParse(Object.fromEntries(formData));
@@ -529,11 +538,26 @@ export async function setCoverLetterAction(_prev: unknown, formData: FormData): 
   const useCover = parsed.data.use === "true";
   const supabase = await createClient();
 
+  // A cover change while a send is in flight would alter the PDF the worker
+  // submits (page count, printed address) after the job was priced and the
+  // E203 multi-recipient guard ran at confirm — block it like delete does.
+  const { data: activeItems } = await supabase
+    .from("send_job_items")
+    .select("id, send_jobs!inner(letter_id)")
+    .eq("send_jobs.letter_id", parsed.data.id)
+    .eq("user_id", profile.id)
+    .in("status", ["pending", "on_hold_funds", "submitting"])
+    .limit(1);
+  if (activeItems && activeItems.length > 0) {
+    return { ok: false, error: de.letters.activeSendJobsBlockCoverChange };
+  }
+
   // Keep sheet_count in sync with the cover choice (cover adds one sheet).
   const { data: letter } = await supabase
     .from("letters")
     .select("page_count, validation")
     .eq("id", parsed.data.id)
+    .eq("user_id", profile.id)
     .single();
 
   // Server-side invariant, not just UI copy: a letter with content in the
@@ -551,7 +575,8 @@ export async function setCoverLetterAction(_prev: unknown, formData: FormData): 
       use_cover_letter: useCover,
       sheet_count: (letter?.page_count ?? 0) + (useCover ? 1 : 0),
     })
-    .eq("id", parsed.data.id);
+    .eq("id", parsed.data.id)
+    .eq("user_id", profile.id);
   if (error) {
     console.error("letter_cover_update_failed", { error: error.message });
     return { ok: false, error: de.common.genericError };

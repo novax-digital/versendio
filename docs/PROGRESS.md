@@ -522,3 +522,36 @@ Abschlussbericht abarbeiten.
   `flex-wrap`, Dashboard-Stats `sm:grid-cols-2 lg:grid-cols-3`, Import-Wizard-Selects `w-full`
   + mobile Vorschauzeile, PDF-Vorschau mit mobilem Öffnen-Link
 - [x] DoD: Build ✅ Lint ✅ Typecheck ✅ **203 Unit-Tests** ✅
+
+## Nach Übergabe — Send-Monitor-Audit & RLS-Härtung (2026-07-28)
+- [x] **Ursachenanalyse** (Workflow, 4 Funde adversarial bestätigt): E203 = statisches Upload-PDF
+  ohne Deckblatt an 3 Empfänger (Metadaten-Vergleich DP); 0-€-Versand = Probeversand (bewusst
+  gratis, aber für alle offen); Admin-Zähler zählte nur `sent` (=abgerechnet); `OR is_admin()`
+  in 19 RLS-Policies zeigte Admins fremde Daten in User-Ansichten
+- [x] **Probeversand Admin-only**: Wizard (UI ausgeblendet), Server-Action, API v1 (403) +
+  DB-Gate in `confirm_send_job` (`test_send_forbidden`); zusätzlich `total_mismatch`-Assertion
+  (Item-Summe = Jobtotal) — Migration `20260728120000_send_hardening.sql`
+- [x] **E203-Schutz**: Quote+Confirm lehnen Upload ohne Deckblatt an >1 Empfänger ab
+  (`uploadNeedsCoverForMulti`); Cover-Toggle-Warntexte erklären den DP-Metadaten-Vergleich
+- [x] **RLS-Härtung Layer 2**: Migration `20260728121000_drop_admin_rls_widening.sql` entfernt
+  `OR is_admin()` aus allen Policies, dropt `vouchers_select_admin`; Layer 1: explizite
+  `user_id`-Pins in ~30 User-Dateien (Workflow, 5 parallele Agenten)
+- [x] **Admin-Nutzerdetail**: „Versendete Briefe (an E-POST übergeben)" nach KPI-Semantik +
+  Aufschlüsselung abgerechnet/fehlgeschlagen/Testbriefe
+- [x] **AVV erstellt** (`docs/legal/av-vertrag.md`): Art.-28-Vertrag inkl. TOMs aus realer
+  Architektur + Subdienstleister-Liste (Supabase/Vercel/DP/Anthropic; Stripe+Resend als eigene
+  Verantwortung, Canva/MOCO als Kunden-Integrationen abgegrenzt); juristische Prüfung offen
+- ⚠️ **Operator-Schritt:** beide Migrationen anwenden (`npx supabase db push` oder SQL-Editor)
+- [x] **Review-Durchgang** (Workflow, 3 Dimensionen, 11 bestätigte Funde eingearbeitet):
+  E203-Lücke über Flows geschlossen (upsert lehnt Upload ohne Deckblatt ab, Aktivierung
+  re-checkt, Scheduler hält `upload_needs_cover`, Builder filtert Auswahl); Cover-Toggle
+  blockiert bei laufender Sendung (`activeSendJobsBlockCoverChange`); API-Doku ohne
+  `test:true`-Beispiele; Admin-Zähler `failed` ohne Probeversand; Terminologie vereinheitlicht
+- [x] **AVV-Bereich in Einstellungen** (`/app/einstellungen/avv`): Vertrag ansehen
+  (public/avv/AVV_Versendio.pdf), Formular (Firma/Vertreter/Adresse, vorbefüllt aus Profil)
+  + Signatur-Canvas (Pointer-Events, PNG); Route `avv/generate` füllt die gegengezeichnete
+  Vorlage (AVV_Versendio_signed.pdf) per pdf-lib: Kundenblock S. 1 (x 83,6 / Baseline 630
+  von unten / 15,5 pt Zeilenabstand, Platzhalter-Maskierung), Datum+Unterschrift S. 8 auf
+  der Linie (x 62,4 / y 528 bzw. Bild ab x 130); nichts wird gespeichert, Download direkt;
+  Rate-Limit 10/h, `outputFileTracingIncludes` für public/avv; Platzierung visuell verifiziert
+- [x] DoD: Build ✅ Lint ✅ Typecheck ✅ **203 Unit-Tests** ✅

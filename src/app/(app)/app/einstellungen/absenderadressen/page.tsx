@@ -7,13 +7,15 @@ import { SenderAddressList, type SenderAddress } from "./sender-address-list";
 export const metadata: Metadata = { title: de.senderAddresses.title };
 
 export default async function SenderAddressesPage() {
-  await requireProfile();
+  const profile = await requireProfile();
   const supabase = await createClient();
   const { data } = await supabase
     .from("sender_addresses")
     .select(
       "id, label, company, first_name, last_name, street, zip, city, country, sender_line, is_default",
     )
+    // Explicit user scoping — the RLS policy alone must not be the only guard.
+    .eq("user_id", profile.id)
     .order("created_at", { ascending: true });
 
   return (

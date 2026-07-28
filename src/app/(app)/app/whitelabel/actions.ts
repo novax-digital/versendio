@@ -39,8 +39,9 @@ export async function upsertWlCustomerAction(
 
   const supabase = await createClient();
   const profile = await requireProfile();
+  // Explicit user scoping — the RLS policy alone must not be the only guard.
   const { error } = d.id
-    ? await supabase.from("wl_customers").update(values).eq("id", d.id)
+    ? await supabase.from("wl_customers").update(values).eq("id", d.id).eq("user_id", profile.id)
     : await supabase.from("wl_customers").insert({ ...values, user_id: profile.id });
 
   if (error) {
@@ -59,7 +60,7 @@ export async function toggleWlCustomerAction(
   _prev: unknown,
   formData: FormData,
 ): Promise<ActionResult> {
-  const { error: guard } = await requireWhitelabel();
+  const { profile, error: guard } = await requireWhitelabel();
   if (guard) return { ok: false, error: guard };
 
   const parsed = z
@@ -71,7 +72,8 @@ export async function toggleWlCustomerAction(
   const { error } = await supabase
     .from("wl_customers")
     .update({ is_active: parsed.data.active === "true" })
-    .eq("id", parsed.data.id);
+    .eq("id", parsed.data.id)
+    .eq("user_id", profile.id);
   if (error) {
     console.error("wl_customer_toggle_failed", { error: error.message });
     return { ok: false, error: de.common.genericError };
@@ -84,14 +86,18 @@ export async function deleteWlCustomerAction(
   _prev: unknown,
   formData: FormData,
 ): Promise<ActionResult> {
-  const { error: guard } = await requireWhitelabel();
+  const { profile, error: guard } = await requireWhitelabel();
   if (guard) return { ok: false, error: guard };
 
   const parsed = z.object({ id: z.string().uuid() }).safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { ok: false, error: de.common.genericError };
 
   const supabase = await createClient();
-  const { error } = await supabase.from("wl_customers").delete().eq("id", parsed.data.id);
+  const { error } = await supabase
+    .from("wl_customers")
+    .delete()
+    .eq("id", parsed.data.id)
+    .eq("user_id", profile.id);
   if (error) {
     // FK restrict: the end-customer has attributed sends — billing history
     // must survive, deactivate instead.

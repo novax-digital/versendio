@@ -9,12 +9,19 @@ import { ListDetail, type ListEntry } from "./list-detail";
 export const metadata: Metadata = { title: de.leadLists.title };
 
 export default async function LeadListDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  await requireProfile();
+  const profile = await requireProfile();
   const { id } = await params;
   const supabase = await createClient();
 
   const [{ data: list }, { data: entries }] = await Promise.all([
-    supabase.from("lead_lists").select("id, name, description, source").eq("id", id).single(),
+    // Explicit user scoping — the RLS policy alone must not be the only guard.
+    // The notFound() below then also covers the entries query for this list.
+    supabase
+      .from("lead_lists")
+      .select("id, name, description, source")
+      .eq("id", id)
+      .eq("user_id", profile.id)
+      .single(),
     supabase
       .from("lead_list_entries")
       .select(

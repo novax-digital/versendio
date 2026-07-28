@@ -28,7 +28,12 @@ export async function upsertLeadListAction(
 
   const supabase = await createClient();
   if (id) {
-    const { error } = await supabase.from("lead_lists").update(values).eq("id", id);
+    // Explicit user scoping — the RLS policy alone must not be the only guard.
+    const { error } = await supabase
+      .from("lead_lists")
+      .update(values)
+      .eq("id", id)
+      .eq("user_id", profile.id);
     if (error) {
       console.error("lead_list_save_failed", { error: error.message });
       return { ok: false, error: de.common.genericError };
@@ -50,7 +55,7 @@ export async function deleteLeadListAction(
   _prev: unknown,
   formData: FormData,
 ): Promise<ActionResult> {
-  await requireProfile();
+  const profile = await requireProfile();
   const parsed = z.object({ id: z.string().uuid() }).safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { ok: false, error: de.common.genericError };
 
@@ -61,13 +66,18 @@ export async function deleteLeadListAction(
   const { data: flowsUsing } = await supabase
     .from("flows")
     .select("id")
+    .eq("user_id", profile.id)
     .eq("list_id", parsed.data.id)
     .limit(1);
   if (flowsUsing && flowsUsing.length > 0) {
     return { ok: false, error: de.flows.listInUse };
   }
 
-  const { error } = await supabase.from("lead_lists").delete().eq("id", parsed.data.id);
+  const { error } = await supabase
+    .from("lead_lists")
+    .delete()
+    .eq("id", parsed.data.id)
+    .eq("user_id", profile.id);
   if (error) {
     console.error("lead_list_delete_failed", { error: error.message });
     return { ok: false, error: de.common.genericError };
@@ -110,17 +120,29 @@ export async function removeListEntryAction(
   _prev: unknown,
   formData: FormData,
 ): Promise<ActionResult> {
-  await requireProfile();
+  const profile = await requireProfile();
   const parsed = z
     .object({ entryId: z.string().uuid(), listId: z.string().uuid() })
     .safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { ok: false, error: de.common.genericError };
 
   const supabase = await createClient();
+
+  // lead_list_entries has no user_id column — ownership is pinned via the
+  // parent list, and the delete is then constrained to that owned list.
+  const { data: ownedList } = await supabase
+    .from("lead_lists")
+    .select("id")
+    .eq("id", parsed.data.listId)
+    .eq("user_id", profile.id)
+    .maybeSingle();
+  if (!ownedList) return { ok: false, error: de.common.genericError };
+
   const { error } = await supabase
     .from("lead_list_entries")
     .delete()
-    .eq("id", parsed.data.entryId);
+    .eq("id", parsed.data.entryId)
+    .eq("list_id", parsed.data.listId);
   if (error) {
     console.error("lead_list_entry_remove_failed", { error: error.message });
     return { ok: false, error: de.common.genericError };

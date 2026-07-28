@@ -8,9 +8,10 @@ import { sampleRecipient } from "@/lib/server/pdf/sample-recipient";
 import { parseLetterDocument } from "@/lib/shared/letter-document";
 
 /**
- * Renders a preview PDF for a letter (RLS-scoped). Editor letters are rendered
- * on demand with a sample recipient; uploads are streamed from storage (with an
- * optional sample cover page). Same render path used at send time.
+ * Renders a preview PDF for a letter owned by the requesting user. Editor
+ * letters are rendered on demand with a sample recipient; uploads are streamed
+ * from storage (with an optional sample cover page). Same render path used at
+ * send time.
  */
 export async function GET(_request: Request, ctx: { params: Promise<{ id: string }> }) {
   const profile = await requireProfile();
@@ -21,6 +22,8 @@ export async function GET(_request: Request, ctx: { params: Promise<{ id: string
     .from("letters")
     .select("id, user_id, source, storage_path, editor_document, use_cover_letter")
     .eq("id", id)
+    // Explicit own-scope: RLS alone must not be the only guard on this route.
+    .eq("user_id", profile.id)
     .single();
 
   if (error || !letter) {
@@ -53,8 +56,8 @@ export async function GET(_request: Request, ctx: { params: Promise<{ id: string
       const stored = await downloadObject(BUCKETS.letters, letter.storage_path);
       if (!stored) return NextResponse.json({ error: "not_found" }, { status: 404 });
       if (letter.use_cover_letter && recipient.addressLines.length > 0) {
-        // Preview mirrors send-time: the LETTER OWNER's footer preference
-        // (relevant when an admin previews; falls back to on if unreadable).
+        // Preview mirrors send-time: the letter owner's footer preference
+        // (falls back to on if unreadable).
         const { data: pref } = await supabase
           .from("profiles")
           .select("cover_letter_footer")

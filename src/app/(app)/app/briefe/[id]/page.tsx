@@ -14,7 +14,7 @@ import { ButtonLink } from "@/components/ui-ext/button-link";
 export const metadata: Metadata = { title: de.letters.title };
 
 export default async function LetterDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  await requireProfile();
+  const profile = await requireProfile();
   const { id } = await params;
   const supabase = await createClient();
 
@@ -24,6 +24,8 @@ export default async function LetterDetailPage({ params }: { params: Promise<{ i
       "id, title, source, page_count, sheet_count, status, validation, needs_cover_letter, use_cover_letter, updated_at",
     )
     .eq("id", id)
+    // Explicit own-scope: RLS alone must not be the only guard on this page.
+    .eq("user_id", profile.id)
     .single();
 
   if (error || !letter) notFound();

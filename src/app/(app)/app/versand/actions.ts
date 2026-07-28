@@ -38,11 +38,21 @@ class TooManyRecipientsError extends Error {}
  * they believe went out in full.
  */
 async function loadRecipients(
+  userId: string,
   selection: { source: "lead_list"; leadListId: string } | { source: "contacts"; contactIds: string[] },
 ): Promise<RecipientRow[]> {
   const supabase = await createClient();
 
   if (selection.source === "lead_list") {
+    // Explicit ownership pin — the RLS policy alone must not be the only guard.
+    const { data: list } = await supabase
+      .from("lead_lists")
+      .select("id")
+      .eq("id", selection.leadListId)
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (!list) return [];
+
     const { data, count } = await supabase
       .from("lead_list_entries")
       .select(
@@ -67,7 +77,8 @@ async function loadRecipients(
   const { data } = await supabase
     .from("contacts")
     .select("id, salutation, first_name, last_name, company, street, address_extra, zip, city, country")
-    .in("id", selection.contactIds);
+    .in("id", selection.contactIds)
+    .eq("user_id", userId);
   return (data ?? []).map((c) => toRecipient(c as ContactRow));
 }
 
@@ -104,14 +115,28 @@ function toRecipient(c: ContactRow): RecipientRow {
 }
 
 /** Estimated sheets for pricing: stored sheet_count (incl. cover), min 1. */
-async function loadLetterEstimate(letterId: string) {
+async function loadLetterEstimate(letterId: string, userId: string) {
   const supabase = await createClient();
   const { data: letter } = await supabase
     .from("letters")
     .select("id, title, status, sheet_count, page_count, source, use_cover_letter")
     .eq("id", letterId)
-    .single();
+    .eq("user_id", userId)
+    .maybeSingle();
   return letter;
+}
+
+/**
+ * An uploaded PDF without cover letter is submitted byte-for-byte, so its
+ * printed page-1 address can match at most ONE recipient's metadata — Deutsche
+ * Post compares both and rejects deviations with E203. Multi-recipient sends
+ * therefore require the cover letter (which prints each recipient's address).
+ */
+function uploadCoverConflict(
+  letter: { source: string; use_cover_letter: boolean | null },
+  recipientCount: number,
+): boolean {
+  return letter.source === "upload" && !letter.use_cover_letter && recipientCount > 1;
 }
 
 export async function quoteSendJobAction(_prev: unknown, input: unknown): Promise<QuoteResult> {
@@ -127,14 +152,14 @@ export async function quoteSendJobAction(_prev: unknown, input: unknown): Promis
   const parsed = quoteRequestSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: de.common.genericError };
 
-  const letter = await loadLetterEstimate(parsed.data.letterId);
+  const letter = await loadLetterEstimate(parsed.data.letterId, profile.id);
   if (!letter || letter.status !== "ready") {
     return { ok: false, error: de.send.letterNotReady };
   }
 
   let recipients;
   try {
-    recipients = await loadRecipients(parsed.data.recipients);
+    recipients = await loadRecipients(profile.id, parsed.data.recipients);
   } catch (err) {
     if (tooManyRecipients(err)) {
       return { ok: false, error: de.send.tooManyRecipients(MAX_RECIPIENTS_PER_JOB) };
@@ -142,6 +167,9 @@ export async function quoteSendJobAction(_prev: unknown, input: unknown): Promis
     throw err;
   }
   if (recipients.length === 0) return { ok: false, error: de.send.noRecipients };
+  if (uploadCoverConflict(letter, recipients.length)) {
+    return { ok: false, error: de.send.uploadNeedsCoverForMulti };
+  }
 
   const sheets = Math.max(1, letter.sheet_count ?? 1);
 
@@ -192,21 +220,28 @@ export async function confirmSendJobAction(_prev: unknown, input: unknown): Prom
     return { ok: false, error: parsed.error.issues[0]?.message ?? de.common.genericError };
   }
 
+  // Test sends submit real letters to E-Post (testFlag, unbilled) without any
+  // credit debit — admin-only so the free path cannot be abused.
+  if (parsed.data.isTest && profile.role !== "admin") {
+    return { ok: false, error: de.send.testSendAdminOnly };
+  }
+
   const ip = await clientIp();
   if (!(await checkRateLimit("send", `${profile.id}:${ip}`))) {
     return { ok: false, error: de.common.rateLimited };
   }
 
-  const letter = await loadLetterEstimate(parsed.data.letterId);
+  const letter = await loadLetterEstimate(parsed.data.letterId, profile.id);
   if (!letter || letter.status !== "ready") {
     return { ok: false, error: de.send.letterNotReady };
   }
 
-  // Sender address snapshot (default or explicitly chosen).
+  // Sender address snapshot (default or explicitly chosen), pinned to owner.
   const supabase = await createClient();
   let senderQuery = supabase
     .from("sender_addresses")
-    .select("id, label, company, first_name, last_name, street, zip, city, country, sender_line");
+    .select("id, label, company, first_name, last_name, street, zip, city, country, sender_line")
+    .eq("user_id", profile.id);
   senderQuery = parsed.data.senderAddressId
     ? senderQuery.eq("id", parsed.data.senderAddressId)
     : senderQuery.eq("is_default", true);
@@ -215,7 +250,7 @@ export async function confirmSendJobAction(_prev: unknown, input: unknown): Prom
 
   let recipients;
   try {
-    recipients = await loadRecipients(parsed.data.recipients);
+    recipients = await loadRecipients(profile.id, parsed.data.recipients);
   } catch (err) {
     if (tooManyRecipients(err)) {
       return { ok: false, error: de.send.tooManyRecipients(MAX_RECIPIENTS_PER_JOB) };
@@ -223,6 +258,9 @@ export async function confirmSendJobAction(_prev: unknown, input: unknown): Prom
     throw err;
   }
   if (recipients.length === 0) return { ok: false, error: de.send.noRecipients };
+  if (uploadCoverConflict(letter, recipients.length)) {
+    return { ok: false, error: de.send.uploadNeedsCoverForMulti };
+  }
 
   const sheets = Math.max(1, letter.sheet_count ?? 1);
   const [rows, discountPercent] = await Promise.all([
@@ -286,6 +324,9 @@ export async function confirmSendJobAction(_prev: unknown, input: unknown): Prom
   if (error) {
     if (error.message.includes("insufficient_funds")) {
       return { ok: false, error: de.send.insufficientFunds };
+    }
+    if (error.message.includes("test_send_forbidden")) {
+      return { ok: false, error: de.send.testSendAdminOnly };
     }
     console.error("confirm_send_job_failed", { error: error.message });
     return { ok: false, error: de.common.genericError };

@@ -20,7 +20,7 @@ function contactName(c: { first_name: string | null; last_name: string | null; c
 }
 
 export default async function FlowDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  await requireProfile();
+  const profile = await requireProfile();
   const { id } = await params;
   const supabase = await createClient();
 
@@ -30,6 +30,8 @@ export default async function FlowDetailPage({ params }: { params: Promise<{ id:
       "id, name, source, moco_trigger, moco_invoice_status, list_id, letter_id, delay_minutes, is_color, is_duplex, registered, sender_address_id, lead_lists(name)",
     )
     .eq("id", id)
+    // Explicit user scoping — the RLS policy alone must not be the only guard.
+    .eq("user_id", profile.id)
     .maybeSingle();
   if (!flow) notFound();
 
@@ -40,6 +42,7 @@ export default async function FlowDetailPage({ params }: { params: Promise<{ id:
         .from("flow_enrollments")
         .select("id, status, enrolled_at, scheduled_send_at, send_job_id, contacts(first_name, last_name, company)")
         .eq("flow_id", id)
+        .eq("user_id", profile.id)
         .order("scheduled_send_at", { ascending: true })
         .limit(200),
     ]);

@@ -161,9 +161,17 @@ export async function POST(request: Request) {
   const sheets = Math.max(1, letter.sheet_count ?? 1);
   const { data: profile } = await admin
     .from("profiles")
-    .select("plan_id")
+    .select("plan_id, role")
     .eq("id", userId)
     .maybeSingle();
+
+  // Test sends bypass the credit debit entirely — admin-only, also via API.
+  if (parsed.data.test && profile?.role !== "admin") {
+    return apiJson(
+      { error: "test_send_forbidden", message: "Der Probeversand ist nur für Administratoren verfügbar." },
+      403,
+    );
+  }
   const [rows, discountPercent] = await Promise.all([
     loadPricingRows(),
     loadDiscountPercent(profile?.plan_id ?? null),

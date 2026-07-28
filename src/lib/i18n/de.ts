@@ -321,10 +321,10 @@ export const de = {
     showZones: "Adresszonen einblenden",
     coverLetter: "Deckblatt voranstellen",
     coverLetterHint:
-      "Stellt ein Deckblatt mit der Empfängeranschrift voran – Ihr PDF muss die Adresszonen dann nicht selbst einhalten. Empfohlen, wenn Ihr PDF keine sichtbare Adresse im Anschriftenfeld enthält.",
+      "Stellt ein Deckblatt mit der Empfängeranschrift voran – Ihr PDF muss die Adresszonen dann nicht selbst einhalten. Empfohlen: Die Deutsche Post vergleicht die im PDF aufgedruckte Anschrift mit den übermittelten Empfängerdaten und lehnt Abweichungen ab (Fehler E203). Ohne Deckblatt ist daher nur der Versand an einen einzelnen Empfänger möglich, dessen Anschrift exakt im PDF steht.",
     coverDisableTitle: "Deckblatt wirklich deaktivieren?",
     coverDisableWarning:
-      "Ohne Deckblatt muss Ihr PDF der Deutsche-Post-Schablone exakt entsprechen: Empfängeradresse im Anschriftenfeld auf Seite 1, Frankier-Sperrbereich vollständig frei, druckfreie Ränder (12 mm links, 2 mm umlaufend). Die automatische Prüfung konnte das für dieses PDF nicht bestätigen – der Versand kann von der Deutschen Post abgelehnt werden.",
+      "Ohne Deckblatt muss Ihr PDF der Deutsche-Post-Schablone exakt entsprechen: Empfängeradresse im Anschriftenfeld auf Seite 1, Frankier-Sperrbereich vollständig frei, druckfreie Ränder (12 mm links, 2 mm umlaufend). Zusätzlich vergleicht die Deutsche Post die aufgedruckte Anschrift mit den beim Versand übermittelten Empfängerdaten – bei Abweichungen wird der Brief abgelehnt (Fehler E203). Der Versand ist ohne Deckblatt daher nur an einen einzelnen, exakt passenden Empfänger möglich.",
     coverDisableConfirm: "Ohne Deckblatt fortfahren",
     coverRequiredDvf:
       "Das Deckblatt kann für diesen Brief nicht deaktiviert werden: Im Frankier-Sperrbereich Ihres PDFs befindet sich Inhalt. Ohne Deckblatt würde die Deutsche Post den Brief ablehnen.",
@@ -459,6 +459,8 @@ export const de = {
       "Dieser Brief ist Teil einer laufenden Sendung und kann erst nach deren Abschluss oder Storno geändert werden.",
     activeSendJobsBlockDelete:
       "Dieser Brief ist Teil einer laufenden Sendung und kann erst nach deren Abschluss oder Storno gelöscht werden.",
+    activeSendJobsBlockCoverChange:
+      "Dieser Brief ist Teil einer laufenden Sendung – das Deckblatt kann erst nach deren Abschluss oder Storno geändert werden.",
     marginUpgradeNotice:
       "Dieser Brief wurde auf den neuen DIN-5008-Satzspiegel aktualisiert. Der Umbruch und die Seitenzahl können sich ändern – speichern Sie, um die Aktualisierung zu übernehmen.",
     letterheadHint:
@@ -580,7 +582,7 @@ export const de = {
     docsContactsList: "Kontakte auflisten",
     docsLetterSend: "Brief versenden (an einen Empfänger)",
     docsSendNote:
-      "Der Brief muss versandbereit sein. Ohne test:true wird Guthaben belastet. Mit idempotencyKey (UUID) ist ein wiederholter Aufruf gefahrlos.",
+      "Der Brief muss versandbereit sein. Der Versand ist kostenpflichtig und wird vom Guthaben abgebucht. Mit idempotencyKey (UUID) ist ein wiederholter Aufruf gefahrlos.",
     // Whitelabel-Endpunkte (nur für freigeschaltete Konten sichtbar)
     docsWlTitle: "Whitelabel: Endkunden",
     docsWlIntro:
@@ -977,6 +979,7 @@ export const de = {
     mockNotice:
       "Testmodus: Es wird kein echter Brief versendet und kein Guthaben belastet.",
     testSend: "Probeversand (kostenlos)",
+    testSendAdminOnly: "Der Probeversand ist nur für Administratoren verfügbar.",
     testSendHint:
       "Der Brief wird bis zur Prüfung verarbeitet, aber nicht gedruckt oder versendet. Sie sehen, ob alle Anforderungen erfüllt sind – kostenlos.",
     confirmButton: "Kostenpflichtig versenden",
@@ -989,8 +992,37 @@ export const de = {
     noSenderAddress: "Bitte legen Sie zuerst eine Absenderadresse an.",
     pricingUnavailable: "Die Preisberechnung ist derzeit nicht verfügbar. Bitte versuchen Sie es später erneut.",
     jobCreated: "Ihre Sendung wurde angelegt und wird verarbeitet.",
+    uploadNeedsCoverForMulti:
+      "Dieses hochgeladene PDF wird ohne Deckblatt unverändert eingereicht – die aufgedruckte Anschrift kann daher nur zu einem einzigen Empfänger passen. Die Deutsche Post vergleicht die aufgedruckte Anschrift mit den übermittelten Empfängerdaten und lehnt Abweichungen ab (Fehler E203). Öffnen Sie den Brief unter „Briefe“ und aktivieren Sie „Deckblatt voranstellen“, um an mehrere Empfänger zu senden.",
     serienbriefNote: (n: number) =>
       `Serienbrief: Platzhalter werden für jeden der ${n} Empfänger individuell ersetzt.`,
+  },
+  avv: {
+    title: "AV-Vertrag",
+    subtitle:
+      "Auftragsverarbeitungsvertrag (AVV) gemäß Art. 28 DSGVO – ansehen, ausfüllen und unterschrieben herunterladen.",
+    viewTitle: "Vertrag ansehen",
+    viewText:
+      "Lesen Sie zunächst den Auftragsverarbeitungsvertrag der Plattform. Wenn Sie einverstanden sind, können Sie ihn unten ausfüllen und unterschreiben.",
+    viewButton: "AV-Vertrag öffnen (PDF)",
+    fillTitle: "Ausfüllen und unterschreiben",
+    fillText:
+      "Geben Sie Ihre Unternehmensdaten ein und unterschreiben Sie im Feld unten. Sie erhalten den fertigen Vertrag – bereits von uns gegengezeichnet – direkt als PDF zum Download. Ihre Unterschrift wird nur für die Erstellung verwendet und nicht gespeichert.",
+    company: "Unternehmen / Firma",
+    representative: "Vertretungsberechtigte Person",
+    street: "Straße und Hausnummer",
+    zip: "PLZ",
+    city: "Ort",
+    signatureLabel: "Unterschrift",
+    signatureHint: "Unterschreiben Sie mit Maus, Trackpad oder Finger im Feld.",
+    signatureClear: "Feld leeren",
+    signatureMissing: "Bitte unterschreiben Sie im Unterschriftsfeld.",
+    generateButton: "Vertrag erstellen und herunterladen",
+    generating: "Vertrag wird erstellt …",
+    generated: "Ihr AV-Vertrag wurde erstellt und heruntergeladen.",
+    generateError:
+      "Der Vertrag konnte nicht erstellt werden. Bitte versuchen Sie es später erneut.",
+    downloadName: "AVV_Versendio_unterzeichnet.pdf",
   },
   sendJobs: {
     title: "Sendungen",
@@ -1131,6 +1163,8 @@ export const de = {
     // action errors
     letterNotFound: "Der gewählte Brief wurde nicht gefunden.",
     letterNotReady: "Der gewählte Brief ist nicht versandbereit.",
+    uploadNeedsCover:
+      "Dieses hochgeladene PDF hat kein Deckblatt und trägt eine feste Anschrift – ein Flow versendet aber an wechselnde Empfänger. Öffnen Sie den Brief unter „Briefe“ und aktivieren Sie „Deckblatt voranstellen“, um ihn in Flows zu nutzen.",
     senderNotFound: "Die gewählte Absenderadresse wurde nicht gefunden.",
     listNotFound: "Die gewählte Kontaktliste wurde nicht gefunden.",
     noLetters: "Sie haben noch keinen versandbereiten Brief. Bitte erstellen Sie zuerst einen Brief.",
@@ -1282,6 +1316,9 @@ export const de = {
     role: "Rolle",
     joined: "Registriert",
     userDetail: "Nutzerdetails",
+    lettersHandedOver: "Versendete Briefe (an E-POST übergeben)",
+    lettersBreakdown: (billed: number, failed: number, tests: number) =>
+      `${billed} abgerechnet · ${failed} fehlgeschlagen · Probeversand: ${tests}`,
     adjustCredits: "Guthaben buchen",
     adjustAmount: "Betrag in Cent (negativ = Abbuchung)",
     adjustComment: "Kommentar (Pflicht)",

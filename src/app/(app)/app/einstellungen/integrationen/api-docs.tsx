@@ -64,7 +64,6 @@ export function ApiDocs({
     "letterId": "<UUID des versandbereiten Briefs>",
     "recipient": { "contactId": "<UUID>" },
     "options": { "color": false, "duplex": false, "registered": "none" },
-    "test": true,
     "idempotencyKey": "<optional, UUID>"
   }'`}</Code>
         <p className="text-muted-foreground text-xs">{de.integrations.docsSendNote}</p>
@@ -102,8 +101,7 @@ export function ApiDocs({
   -d '{
     "letterId": "<UUID>",
     "recipient": { "contactId": "<UUID>" },
-    "customerId": "<UUID des Endkunden>",
-    "test": true
+    "customerId": "<UUID des Endkunden>"
   }'`}</Code>
           </div>
 

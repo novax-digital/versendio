@@ -212,13 +212,19 @@ async function processEnrollment(ctx: TickContext, e: DueEnrollment): Promise<Ou
 
   const { data: letter, error: letterErr } = await admin
     .from("letters")
-    .select("id, status, sheet_count")
+    .select("id, status, sheet_count, source, use_cover_letter")
     .eq("id", e.letter_id)
     .eq("user_id", e.user_id)
     .maybeSingle();
   if (letterErr || !letter) return hold(ctx, e, "letter_read_error");
   // Not ready is treated as transient (user may be editing) → retried, bounded.
   if (letter.status !== "ready") return hold(ctx, e, "letter_not_ready");
+  // Upload without cover letter: the static printed address cannot match this
+  // enrollment's recipient — DP would reject with E203. Held (not canceled):
+  // enabling the cover lets held enrollments resume on the next tick.
+  if (letter.source === "upload" && !letter.use_cover_letter) {
+    return hold(ctx, e, "upload_needs_cover");
+  }
 
   // Sender: the flow's chosen address, else the user's default.
   let senderQuery = admin

@@ -165,24 +165,30 @@ export async function deleteSenderAddressAction(
   _prev: unknown,
   formData: FormData,
 ): Promise<ActionResult> {
-  await requireProfile();
+  const profile = await requireProfile();
   const parsed = senderAddressIdSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) {
     return { ok: false, error: de.common.genericError };
   }
 
   const supabase = await createClient();
+  // Explicit user scoping — the RLS policy alone must not be the only guard.
   const { data: address } = await supabase
     .from("sender_addresses")
     .select("id, is_default")
     .eq("id", parsed.data.id)
+    .eq("user_id", profile.id)
     .single();
 
   if (address?.is_default) {
     return { ok: false, error: de.senderAddresses.cannotDeleteDefault };
   }
 
-  const { error } = await supabase.from("sender_addresses").delete().eq("id", parsed.data.id);
+  const { error } = await supabase
+    .from("sender_addresses")
+    .delete()
+    .eq("id", parsed.data.id)
+    .eq("user_id", profile.id);
   if (error) {
     console.error("sender_address_delete_failed", { error: error.message });
     return { ok: false, error: de.common.genericError };

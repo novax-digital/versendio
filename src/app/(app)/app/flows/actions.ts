@@ -27,14 +27,21 @@ export async function upsertFlowAction(_prev: unknown, input: unknown): Promise<
   const data = parsed.data;
   const supabase = await createClient();
 
-  // Letter must exist, be owned (RLS) and be ready to send.
+  // Letter must exist, be owned and be ready to send. Ownership is pinned
+  // explicitly — the RLS policy alone must not be the only guard.
   const { data: letter } = await supabase
     .from("letters")
-    .select("id, status")
+    .select("id, status, source, use_cover_letter")
     .eq("id", data.letterId)
+    .eq("user_id", profile.id)
     .maybeSingle();
   if (!letter) return { ok: false, error: de.flows.letterNotFound };
   if (letter.status !== "ready") return { ok: false, error: de.flows.letterNotReady };
+  // A static upload without cover letter can match at most one printed
+  // address, but a flow targets arbitrary future recipients (E203 guard).
+  if (letter.source === "upload" && !letter.use_cover_letter) {
+    return { ok: false, error: de.flows.uploadNeedsCover };
+  }
 
   // Sender (optional): must be owned if given.
   if (data.senderAddressId) {
@@ -42,6 +49,7 @@ export async function upsertFlowAction(_prev: unknown, input: unknown): Promise<
       .from("sender_addresses")
       .select("id")
       .eq("id", data.senderAddressId)
+      .eq("user_id", profile.id)
       .maybeSingle();
     if (!sender) return { ok: false, error: de.flows.senderNotFound };
   }
@@ -77,6 +85,7 @@ export async function upsertFlowAction(_prev: unknown, input: unknown): Promise<
       .from("flows")
       .select("source, is_active, moco_trigger, moco_invoice_status")
       .eq("id", id)
+      .eq("user_id", profile.id)
       .maybeSingle();
     if (!currentFlow) return { ok: false, error: de.common.genericError };
 
@@ -99,7 +108,11 @@ export async function upsertFlowAction(_prev: unknown, input: unknown): Promise<
         editable.activated_at = new Date().toISOString();
       }
     }
-    const { error } = await supabase.from("flows").update(editable).eq("id", id);
+    const { error } = await supabase
+      .from("flows")
+      .update(editable)
+      .eq("id", id)
+      .eq("user_id", profile.id);
     if (error) {
       console.error("flow_update_failed", { error: error.message });
       return { ok: false, error: de.common.genericError };
@@ -118,6 +131,7 @@ export async function upsertFlowAction(_prev: unknown, input: unknown): Promise<
       .from("lead_lists")
       .select("id")
       .eq("id", data.listId!)
+      .eq("user_id", profile.id)
       .maybeSingle();
     if (!list) return { ok: false, error: de.flows.listNotFound };
     listId = list.id;
@@ -177,12 +191,29 @@ export async function toggleFlowActiveAction(
 
   const activate = parsed.data.active === "true";
   const supabase = await createClient();
+
+  // Activation re-checks the letter's cover invariant — the cover may have
+  // been switched off after the flow was created (E203 guard).
+  if (activate) {
+    const { data: flow } = await supabase
+      .from("flows")
+      .select("letter_id, letters(source, use_cover_letter)")
+      .eq("id", parsed.data.id)
+      .eq("user_id", profile.id)
+      .maybeSingle();
+    const letter = (flow?.letters as unknown as { source: string; use_cover_letter: boolean | null } | null);
+    if (letter && letter.source === "upload" && !letter.use_cover_letter) {
+      return { ok: false, error: de.flows.uploadNeedsCover };
+    }
+  }
+
   // Only NEW contacts are enrolled (no backfill): activating just flips the flag;
   // the enrollment trigger picks up contacts added from now on.
   const { error } = await supabase
     .from("flows")
     .update({ is_active: activate, activated_at: activate ? new Date().toISOString() : null })
-    .eq("id", parsed.data.id);
+    .eq("id", parsed.data.id)
+    .eq("user_id", profile.id);
   if (error) {
     console.error("flow_toggle_failed", { error: error.message });
     return { ok: false, error: de.common.genericError };
@@ -203,7 +234,11 @@ export async function deleteFlowAction(_prev: unknown, formData: FormData): Prom
   // Enrollments cascade; the (possibly auto-created) list is kept so its contacts
   // and any send history remain intact.
   const supabase = await createClient();
-  const { error } = await supabase.from("flows").delete().eq("id", parsed.data.id);
+  const { error } = await supabase
+    .from("flows")
+    .delete()
+    .eq("id", parsed.data.id)
+    .eq("user_id", profile.id);
   if (error) {
     console.error("flow_delete_failed", { error: error.message });
     return { ok: false, error: de.common.genericError };

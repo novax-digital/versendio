@@ -10,11 +10,13 @@ import { ButtonLink } from "@/components/ui-ext/button-link";
 export const metadata: Metadata = { title: de.letters.title };
 
 export default async function LettersPage() {
-  await requireProfile();
+  const profile = await requireProfile();
   const supabase = await createClient();
   const { data: letters } = await supabase
     .from("letters")
     .select("id, title, source, page_count, sheet_count, status, has_placeholders, created_at")
+    // Explicit own-scope: RLS alone must not be the only guard on this list.
+    .eq("user_id", profile.id)
     .order("created_at", { ascending: false });
 
   return (

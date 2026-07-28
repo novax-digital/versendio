@@ -15,19 +15,27 @@ export default async function EditEditorLetterPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await requireProfile();
+  const profile = await requireProfile();
   const { id } = await params;
   const supabase = await createClient();
 
+  // Explicit user scoping — the RLS policy alone must not be the only guard.
   const [{ data: letter }, { data: senderAddresses }, { data: letterheads }] = await Promise.all([
-    supabase.from("letters").select("id, title, source, editor_document").eq("id", id).single(),
+    supabase
+      .from("letters")
+      .select("id, title, source, editor_document")
+      .eq("id", id)
+      .eq("user_id", profile.id)
+      .single(),
     supabase
       .from("sender_addresses")
       .select("id, label, sender_line, city, is_default")
+      .eq("user_id", profile.id)
       .order("is_default", { ascending: false }),
     supabase
       .from("letter_templates")
       .select("id, name, editor_document, kind")
+      .eq("user_id", profile.id)
       .eq("kind", "letterhead")
       .order("created_at", { ascending: false }),
   ]);

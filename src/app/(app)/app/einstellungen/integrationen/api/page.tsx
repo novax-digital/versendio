@@ -17,6 +17,8 @@ export default async function RestApiIntegrationPage() {
   const { data: keys } = await supabase
     .from("api_keys")
     .select("id, name, key_prefix, last_used_at, revoked_at, created_at")
+    // Explicit user scoping — the RLS policy alone must not be the only guard.
+    .eq("user_id", profile.id)
     .order("created_at", { ascending: false });
 
   const base = (serverEnv().APP_URL ?? "https://app.versendio.de").replace(/\/$/, "");

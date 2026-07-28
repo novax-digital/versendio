@@ -18,13 +18,15 @@ const statusVariant: Record<string, "default" | "secondary" | "outline" | "destr
 };
 
 export default async function SendJobsPage() {
-  await requireProfile();
+  const profile = await requireProfile();
   const supabase = await createClient();
   const { data: jobs } = await supabase
     .from("send_jobs")
     .select(
       "id, status, is_test, total_items, total_vk_cents, scheduled_release_at, created_at, letters(title)",
     )
+    // Explicit user scoping — the RLS policy alone must not be the only guard.
+    .eq("user_id", profile.id)
     .order("created_at", { ascending: false })
     .limit(100);
 

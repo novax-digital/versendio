@@ -10,12 +10,14 @@ import { FlowList, type FlowRow } from "./flow-list";
 export const metadata: Metadata = { title: de.flows.title };
 
 export default async function FlowsPage() {
-  await requireProfile();
+  const profile = await requireProfile();
   const supabase = await createClient();
 
   const { data } = await supabase
     .from("flows")
     .select("id, name, is_active, delay_minutes, source, moco_trigger, lead_lists(name), letters(title), flow_enrollments(count)")
+    // Explicit user scoping — the RLS policy alone must not be the only guard.
+    .eq("user_id", profile.id)
     .order("created_at", { ascending: false });
 
   const flows: FlowRow[] = (data ?? []).map((f) => ({

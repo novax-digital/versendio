@@ -21,6 +21,11 @@ export async function loadFlowBuilderOptions(): Promise<{
       .from("letters")
       .select("id, title, sheet_count")
       .eq("status", "ready")
+      // Explicit user scoping — the RLS policy alone must not be the only guard.
+      .eq("user_id", profile.id)
+      // Uploads without cover letter carry one fixed printed address and can
+      // never serve a flow's changing recipients (E203 guard in upsert too).
+      .or("source.neq.upload,use_cover_letter.eq.true")
       .order("created_at", { ascending: false })
       .then((r) => r.data ?? []),
     supabase
@@ -30,11 +35,13 @@ export async function loadFlowBuilderOptions(): Promise<{
       // the MOCO scanner) — offering them as targets for OTHER flows would
       // double every recipient's charged letters.
       .neq("source", "flow")
+      .eq("user_id", profile.id)
       .order("created_at", { ascending: false })
       .then((r) => r.data ?? []),
     supabase
       .from("sender_addresses")
       .select("id, label, is_default")
+      .eq("user_id", profile.id)
       .order("is_default", { ascending: false })
       .then((r) => r.data ?? []),
     loadActiveRegisteredOptions(),

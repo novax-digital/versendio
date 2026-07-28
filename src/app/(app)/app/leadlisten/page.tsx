@@ -11,11 +11,13 @@ import { LeadListHeader } from "./lead-list-header";
 export const metadata: Metadata = { title: de.leadLists.title };
 
 export default async function LeadListsPage() {
-  await requireProfile();
+  const profile = await requireProfile();
   const supabase = await createClient();
   const { data: lists } = await supabase
     .from("lead_lists")
     .select("id, name, description, source, lead_list_entries(count)")
+    // Explicit user scoping — the RLS policy alone must not be the only guard.
+    .eq("user_id", profile.id)
     .order("created_at", { ascending: false });
 
   return (

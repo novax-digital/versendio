@@ -14,17 +14,20 @@ export default async function NewEditorLetterPage({
 }: {
   searchParams: Promise<{ vorlage?: string }>;
 }) {
-  await requireProfile();
+  const profile = await requireProfile();
   const { vorlage } = await searchParams;
   const supabase = await createClient();
+  // Explicit user scoping — the RLS policy alone must not be the only guard.
   const [{ data: senderAddresses }, { data: allTemplates }] = await Promise.all([
     supabase
       .from("sender_addresses")
       .select("id, label, sender_line, city, is_default")
+      .eq("user_id", profile.id)
       .order("is_default", { ascending: false }),
     supabase
       .from("letter_templates")
       .select("id, name, editor_document, kind")
+      .eq("user_id", profile.id)
       .order("created_at", { ascending: false }),
   ]);
 

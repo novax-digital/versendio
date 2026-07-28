@@ -10,12 +10,14 @@ import { TemplateRow } from "./template-row";
 export const metadata: Metadata = { title: de.letters.templatesTitle };
 
 export default async function TemplatesPage() {
-  await requireProfile();
+  const profile = await requireProfile();
   const supabase = await createClient();
   const { data: templates } = await supabase
     .from("letter_templates")
     .select("id, name, updated_at")
     .eq("kind", "template")
+    // Explicit own-scope: RLS alone must not be the only guard on this list.
+    .eq("user_id", profile.id)
     .order("updated_at", { ascending: false });
 
   const dateFmt = new Intl.DateTimeFormat("de-DE", { dateStyle: "short" });

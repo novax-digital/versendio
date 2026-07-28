@@ -17,10 +17,11 @@ export default async function SendJobDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await requireProfile();
+  const profile = await requireProfile();
   const { id } = await params;
   const supabase = await createClient();
 
+  // Explicit user scoping — the RLS policy alone must not be the only guard.
   const [{ data: job }, { data: items }] = await Promise.all([
     supabase
       .from("send_jobs")
@@ -28,6 +29,7 @@ export default async function SendJobDetailPage({
         "id, letter_id, status, is_test, is_color, is_duplex, registered, total_items, total_vk_cents, scheduled_release_at, created_at, completed_at, letters(title)",
       )
       .eq("id", id)
+      .eq("user_id", profile.id)
       .single(),
     supabase
       .from("send_job_items")
@@ -35,6 +37,7 @@ export default async function SendJobDetailPage({
         "id, status, recipient_snapshot, vk_cents, sheet_count, error_message, refunded_at, frankier_id, provider_letter_id",
       )
       .eq("job_id", id)
+      .eq("user_id", profile.id)
       .order("created_at", { ascending: true })
       .limit(500),
   ]);
