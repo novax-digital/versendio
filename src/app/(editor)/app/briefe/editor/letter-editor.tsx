@@ -145,6 +145,7 @@ export function LetterEditor({
   // The id of the persisted record for the current mode (letter or template).
   const persistedId = templateMode ? savedTemplateId : savedId;
   const [previewVersion, setPreviewVersion] = useState(0);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const [isSaving, startSaving] = useTransition();
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
   const [templateName, setTemplateName] = useState("");
@@ -864,8 +865,18 @@ export function LetterEditor({
                 className="inline-flex"
                 title={!savedId ? de.letters.firstSaveRequired : undefined}
               >
-                <Dialog>
-                  <DialogTrigger render={<Button variant="ghost" disabled={!savedId} />}>
+                <Dialog
+                  open={previewOpen}
+                  onOpenChange={(open) => {
+                    // The PDF renders the saved version — persist pending edits
+                    // first so the preview matches what the editor shows.
+                    if (open && dirty && hasSender) save(() => setPreviewOpen(true));
+                    else setPreviewOpen(open);
+                  }}
+                >
+                  <DialogTrigger
+                    render={<Button variant="ghost" disabled={!savedId || isSaving} />}
+                  >
                     <Eye className="size-4" aria-hidden />
                     <span className="hidden xl:inline">{de.letters.pdfPreviewButton}</span>
                   </DialogTrigger>

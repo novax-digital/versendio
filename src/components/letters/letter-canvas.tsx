@@ -135,6 +135,9 @@ export function LetterCanvas({
   // pushed onto each block that starts a new page so content lands on its sheet.
   const [pageCount, setPageCount] = useState(1);
   const [blockOffsets, setBlockOffsets] = useState<Record<string, number>>({});
+  // True when a single oversized block runs past page 1's body bottom and so
+  // covers the page-1 footer band (the PDF splits such a block; the canvas can't).
+  const [firstPageOverflow, setFirstPageOverflow] = useState(false);
   // Bumped when @font-face letter fonts finish loading so textarea heights
   // and the page estimate re-measure with real metrics.
   const [fontTick, setFontTick] = useState(0);
@@ -185,6 +188,7 @@ export function LetterCanvas({
     let o = 0; // column-offset of the current block's top (offsets applied)
     let cardTopO = 0; // column-offset of the current sheet's content top
     let pendingBreak = false;
+    let overflowsFirstPage = false;
     const offsets: Record<string, number> = {};
 
     for (const child of children) {
@@ -202,6 +206,7 @@ export function LetterCanvas({
         pendingBreak = false;
       }
       // A single block taller than a page: add sheets to cover it.
+      if (page === 0 && o + h > pageBottomO(0)) overflowsFirstPage = true;
       while (o + h > pageBottomO(page)) page += 1;
 
       o += h + mb;
@@ -211,6 +216,7 @@ export function LetterCanvas({
     const nextCount = page + 1;
     setPageCount((prev) => (prev === nextCount ? prev : nextCount));
     setBlockOffsets((prev) => (sameOffsets(prev, offsets) ? prev : offsets));
+    setFirstPageOverflow(overflowsFirstPage);
     onEstimate?.(nextCount);
   }, [onEstimate, frame]);
 
@@ -299,10 +305,10 @@ export function LetterCanvas({
             </div>
           ) : null}
 
-          {/* Footer small print (page 1, fixed band below the body flow).
-              Hidden once the sheet grows past page 1 — the band belongs to
-              page 1 and would otherwise overlay flowing body text. */}
-          {doc.footer.text.trim() && pageCount <= 1 ? (
+          {/* Footer small print (page 1, fixed band below the body flow) —
+              shown on multi-page letters too, exactly like the PDF. Only
+              hidden while an oversized block would overlay the band. */}
+          {doc.footer.text.trim() && !firstPageOverflow ? (
             <div
               className="absolute overflow-hidden text-center whitespace-pre-wrap"
               style={{
@@ -458,7 +464,7 @@ export function LetterCanvas({
                   {de.letters.editHeaderZone}
                 </span>
               </button>
-              {pageCount <= 1 ? (
+              {!firstPageOverflow ? (
                 <button
                   type="button"
                   aria-label={de.letters.editFooterZone}

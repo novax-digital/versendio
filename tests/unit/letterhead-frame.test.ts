@@ -21,6 +21,23 @@ const recipient = () => ({
   placeholders: { nachname: "Mustermann", firma: "Muster GmbH" },
 });
 
+async function extractPageText(bytes: Uint8Array, pageNumber: number): Promise<string> {
+  const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+  // @ts-expect-error -- no type declarations for the worker entry; imported
+  // solely for its globalThis.pdfjsWorker side effect (see analyze-zones.ts).
+  await import("pdfjs-dist/legacy/build/pdf.worker.mjs");
+  const pdf = await pdfjs.getDocument({
+    data: new Uint8Array(bytes),
+    isEvalSupported: false,
+    useSystemFonts: false,
+  }).promise;
+  const page = await pdf.getPage(pageNumber);
+  const content = await page.getTextContent();
+  const text = content.items.map((item) => ("str" in item ? item.str : "")).join(" ");
+  await pdf.destroy();
+  return text;
+}
+
 const render = (document: LetterDocument) =>
   renderEditorLetter({
     document,
@@ -138,6 +155,28 @@ describe("header/footer (Briefpapier)", () => {
     const withChrome = await validateLetterPdf(await render(decorated));
     expect(withChrome.pageCount).toBe(plain.pageCount);
     expect(withChrome.sheetCountSimplex).toBe(plain.sheetCountSimplex);
+  });
+
+  it("a multi-page letter keeps the footer on page 1 (embedded font)", async () => {
+    const doc = emptyLetterDocument();
+    doc.theme.fontFamily = "poppins";
+    doc.footer = {
+      text: "Muster GmbH - Lindenstr. 7, 39264 Prödel\nTel.: 0123 456789 / E-Mail info@muster.de\nwww.muster.de",
+    };
+    doc.blocks = Array.from({ length: 90 }, (_, i) => ({
+      type: "text" as const,
+      id: `p${i}`,
+      text: `Absatz ${i + 1}`,
+      align: "left" as const,
+      sizeDeltaPt: 0,
+      color: "default" as const,
+    }));
+    const bytes = await render(doc);
+    const validation = await validateLetterPdf(bytes);
+    expect(validation.pageCount).toBeGreaterThan(1);
+    expect(validation.rules.filter((r) => r.severity === "error")).toEqual([]);
+    expect(await extractPageText(bytes, 1)).toContain("www.muster.de");
+    expect(await extractPageText(bytes, 2)).not.toContain("www.muster.de");
   });
 
   it("date line: formats, place prefix, and backward-compatible defaults", () => {
