@@ -561,3 +561,22 @@ Abschlussbericht abarbeiten.
   `avv/download`, Anzeige „Unterzeichnet am …" via `profiles.avv_signed_at`
   (Migration `20260728220000`, angewendet); S. 8 ergänzt: Datum auch bei der
   Plattform-Unterschrift + Namenszusatz des Unterzeichners beim Kunden (visuell verifiziert)
+
+## Vorfall — Phishing-Kampagne mit gestohlenen Zahlungsmitteln (2026-10-27/28)
+
+- [x] **Diagnose** „Aufladungen, aber keine Versände" + „viele gescheiterte Zahlungen": Pipeline
+  technisch intakt (Queue-Cron, E-Post-Login, letzte Briefe Status 4). Fehlzahlungen = Kartentest
+  am 15.10. (≈25 Radar-Blocks, ein Konto). Erfolgreiche Aufladungen 15.–28.10. stammten von drei
+  zusammengehörigen Betrugskonten; eines versandte am 28.10. 192 Phishing-Briefe im Namen der
+  apoBank (QR → `apobank-de.net`), ein weiterer Entwurf (QR → `personendatendienst.xyz`)
+- [x] **Sofortmaßnahmen (Prod)**: 3 Konten gesperrt, API-Key widerrufen, 6 Zahlungen
+  (452,20 € brutto) als `fraudulent` erstattet + Stripe-Gutschriften (CN-01 zu RM8G5RZB-0007…0012),
+  Restguthaben per `admin_adjust` auf 0, gespeichertes PayPal-Mandat getrennt, Auto-Aufladung aus
+- [x] **Härtung (Code)**: Rate-Limit `checkout` (6/h je Nutzer) auf Top-up- und Setup-Session;
+  3-D-Secure `any` für Kartenzahlungen in beiden Checkout-Modi (Parameter live gegen Stripe validiert)
+- [ ] **Operator**: E-Post-Support um Produktionsstopp bitten (Batch 617229164, 192 Briefe; ein
+  API-Rückruf ist laut Swagger v2.6.1 nicht möglich, `CancelQueued` gilt nur für terminierte
+  Sendungen); apoBank-Sicherheit + Polizei informieren; DP-Kosten (EK 238,08 €) einkalkulieren
+- ⚠️ Falls die E-Post die Briefe storniert (Status 99), schreibt die Auto-Erstattung 336 € auf
+  das gesperrte Konto 6c65f892 zurück → danach erneut per `admin_adjust` auf 0 setzen
+- [x] DoD: Build ✅ Lint ✅ Typecheck ✅ **204 Unit-Tests** ✅

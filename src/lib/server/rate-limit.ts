@@ -10,7 +10,8 @@ export type RateLimitScope =
   | "send"
   | "ai"
   | "api"
-  | "voucher";
+  | "voucher"
+  | "checkout";
 
 const LIMITS: Record<RateLimitScope, { limit: number; windowSeconds: number }> = {
   login: { limit: 10, windowSeconds: 300 },
@@ -26,6 +27,9 @@ const LIMITS: Record<RateLimitScope, { limit: number; windowSeconds: number }> =
   api: { limit: 120, windowSeconds: 60 },
   // Codes are the security boundary — throttle guessing hard.
   voucher: { limit: 10, windowSeconds: 3600 },
+  // Stripe Checkout sessions (top-up + payment-method setup), keyed per user:
+  // card testers burn through stolen cards one session after another.
+  checkout: { limit: 6, windowSeconds: 3600 },
 };
 
 /**

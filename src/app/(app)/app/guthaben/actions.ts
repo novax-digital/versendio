@@ -60,6 +60,9 @@ export async function startTopupAction(_prev: unknown, formData: FormData): Prom
   if (!billingAddressComplete(profile)) {
     return { ok: false, error: de.credits.billingAddressRequired };
   }
+  if (!(await checkRateLimit("checkout", profile.id))) {
+    return { ok: false, error: de.common.rateLimited };
+  }
 
   const stripe = getStripe();
   const customerId = await getOrCreateCustomer(profile.id, profile.email);
@@ -87,6 +90,9 @@ export async function startTopupAction(_prev: unknown, formData: FormData): Prom
         },
       },
     ],
+    // Liability shift on every card payment — prepaid credit is a magnet for
+    // stolen cards, and a 3DS-less fraud chargeback is ours to eat.
+    payment_method_options: { card: { request_three_d_secure: "any" } },
     metadata: { user_id: profile.id, amount_cents: String(amount), purpose: "topup" },
     payment_intent_data: {
       metadata: { user_id: profile.id, amount_cents: String(amount), purpose: "topup" },
@@ -114,6 +120,10 @@ export async function createSetupSessionAction(): Promise<
   const blocked = blockedActionError(profile);
   if (blocked) return { ok: false, error: blocked };
   if (!stripeEnabled()) return { ok: false, error: de.credits.stripeDisabled };
+  // Shares the top-up budget: a setup session is a free card-validity check.
+  if (!(await checkRateLimit("checkout", profile.id))) {
+    return { ok: false, error: de.common.rateLimited };
+  }
 
   const stripe = getStripe();
   const customerId = await getOrCreateCustomer(profile.id, profile.email);
@@ -131,6 +141,8 @@ export async function createSetupSessionAction(): Promise<
       currency: "eur",
       customer: customerId,
       payment_method_types: ["card", "paypal"],
+      // Authenticated setup also earns off-session auto top-ups the SCA exemption.
+      payment_method_options: { card: { request_three_d_secure: "any" } },
       redirect_on_completion: "if_required",
       return_url: `${base}/app/guthaben?setup=erfolgreich`,
       metadata: { user_id: profile.id, purpose: "auto_topup_setup" },
