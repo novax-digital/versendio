@@ -68,7 +68,7 @@ export async function processSubmitItem(itemId: string): Promise<ProcessResult> 
   const { data: job, error: jobError } = await admin
     .from("send_jobs")
     .select(
-      "id, user_id, letter_id, sender_snapshot, is_color, is_duplex, registered, is_test, provider_batch_id, status, scheduled_release_at, review_hold_until, review_released_at, review_stopped_at, review_content_hash, review_restarts",
+      "id, user_id, letter_id, sender_snapshot, is_color, is_duplex, registered, is_test, provider_batch_id, status, scheduled_release_at, review_hold_until, review_released_at, review_stopped_at, review_content_hash, review_restarts, review_manual_required",
     )
     .eq("id", item.job_id)
     .maybeSingle();
@@ -97,13 +97,15 @@ export async function processSubmitItem(itemId: string): Promise<ProcessResult> 
 
   // Review hold / customer schedule: the queue run_at already waits for both,
   // but any path that enqueues submit_item early (funds release, maintenance
-  // sweep, retry clone) must not shortcut them — re-park until they end.
+  // sweep, retry clone) must not shortcut them — re-park until they end. Jobs
+  // with high review warnings have no end: they re-park hourly until an admin
+  // releases them (admin_release_send_job pulls their queue rows forward).
   const deferUntil = reviewDeferUntil(job, Date.now());
   if (deferUntil) {
     // An admin release racing this attempt must not be undone by the re-park.
     const { data: fresh } = await admin
       .from("send_jobs")
-      .select("review_released_at, scheduled_release_at, review_hold_until")
+      .select("review_released_at, scheduled_release_at, review_hold_until, review_manual_required")
       .eq("id", job.id)
       .maybeSingle();
     const recheck = fresh ? reviewDeferUntil(fresh, Date.now()) : deferUntil;

@@ -1054,6 +1054,8 @@ export const de = {
     scheduledFor: "Geplanter Versand",
     reviewHold: (when: string) =>
       `Wird vor dem Versand geprüft – geht spätestens am ${when} an die Deutsche Post. Bis dahin können Sie die Sendung kostenfrei stornieren.`,
+    reviewManual:
+      "Wird vor dem Versand von unserem Team geprüft und nach der Freigabe an die Deutsche Post übergeben. Bis dahin können Sie die Sendung kostenfrei stornieren.",
     cancelJob: "Sendung stornieren",
     cancelConfirm:
       "Noch nicht eingelieferte Briefe werden storniert und erstattet. Bereits eingelieferte Briefe können nicht mehr zurückgerufen werden.",
@@ -1469,7 +1471,7 @@ export const de = {
     review: {
       navLabel: "Prüfung",
       title: "Sendungen in Prüfung",
-      hint: "Jeder Auftrag wartet vor der Einlieferung bei der Deutschen Post. In dieser Zeit können Sie ihn vorzeitig freigeben oder stoppen; danach geht er automatisch raus.",
+      hint: "Jeder Auftrag wartet vor der Einlieferung bei der Deutschen Post. In dieser Zeit können Sie ihn vorzeitig freigeben oder stoppen; danach geht er automatisch raus – außer bei roten Warnungen: Diese Aufträge warten, bis Sie sie freigeben.",
       empty: "Zurzeit wartet keine Sendung auf Prüfung.",
       received: "Eingang",
       account: "Konto",
@@ -1520,6 +1522,9 @@ export const de = {
       mailIntro: (when: string) =>
         `eine Sendung wartet auf Prüfung. Ohne Ihr Eingreifen geht sie am <strong>${when}</strong> automatisch an die Deutsche Post.`,
       mailIntroReleased: "eine Sendung wurde bereits freigegeben.",
+      mailIntroManual:
+        "eine Sendung wartet auf Prüfung. <strong>Wegen roter Warnungen geht sie nicht automatisch raus</strong> – sie wartet, bis Sie sie in der Admin-Konsole freigeben oder stoppen.",
+      manualOnly: "Nur nach Freigabe",
       mailIntroNoHold: "eine Sendung wurde angelegt. Die Prüf-Wartezeit ist ausgeschaltet – sie geht ohne Verzögerung an die Deutsche Post.",
       companyLabel: "Firma im Konto",
       registeredLabel: "Registriert",

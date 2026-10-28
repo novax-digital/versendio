@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   computeReviewFlags,
   findTerms,
+  MANUAL_RECHECK_MS,
   normalize,
   reviewDeferUntil,
   reviewFlagsSchema,
@@ -155,6 +156,25 @@ describe("reviewDeferUntil", () => {
     expect(
       reviewDeferUntil({ ...base, review_hold_until: hold, review_released_at: "2026-10-28T07:30:00Z" }, now),
     ).toBeNull();
+  });
+
+  it("keeps a manual-release job parked past the hold until it is released", () => {
+    const expiredHold = { ...base, review_hold_until: "2026-10-28T07:00:00Z", review_manual_required: true };
+    const until = reviewDeferUntil(expiredHold, now);
+    expect(until).toBe(new Date(now + MANUAL_RECHECK_MS).toISOString());
+    // A real, finite timestamp — never 'infinity' (NaN would slip through a date check).
+    expect(Number.isFinite(Date.parse(until ?? ""))).toBe(true);
+
+    expect(
+      reviewDeferUntil({ ...expiredHold, review_released_at: "2026-10-28T07:30:00Z" }, now),
+    ).toBeNull();
+  });
+
+  it("lets the longer of hold and manual re-check win while the hold runs", () => {
+    const hold = "2026-10-28T16:00:00Z";
+    expect(
+      reviewDeferUntil({ ...base, review_hold_until: hold, review_manual_required: true }, now),
+    ).toBe(hold);
   });
 
   it("never goes before the customer's own schedule, even after a release", () => {

@@ -42,22 +42,30 @@ export const reviewFlagsSchema = z.array(
   }),
 );
 
+/** Re-check interval for jobs that wait for a manual release (no end time). */
+export const MANUAL_RECHECK_MS = 60 * 60 * 1000;
+
 /**
  * When a submit attempt must wait instead of going to the provider: the end
- * of an unreleased review hold or the customer's own scheduled release,
- * whichever is later. Null = may submit now.
+ * of an unreleased review hold, the customer's own scheduled release, or —
+ * for jobs flagged for manual release — the next re-check, whichever is
+ * latest. Null = may submit now.
  */
 export function reviewDeferUntil(
   job: {
     review_hold_until: string | null;
     review_released_at: string | null;
     scheduled_release_at: string | null;
+    review_manual_required?: boolean | null;
   },
   now: number,
 ): string | null {
   const candidates: string[] = [];
   if (job.review_hold_until && !job.review_released_at && Date.parse(job.review_hold_until) > now) {
     candidates.push(job.review_hold_until);
+  }
+  if (job.review_manual_required && !job.review_released_at) {
+    candidates.push(new Date(now + MANUAL_RECHECK_MS).toISOString());
   }
   if (job.scheduled_release_at && Date.parse(job.scheduled_release_at) > now) {
     candidates.push(job.scheduled_release_at);

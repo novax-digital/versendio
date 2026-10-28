@@ -25,18 +25,21 @@ export default async function AdminReviewPage() {
   const t = de.admin.review;
 
   // Everything not yet released or stopped that still waits — on the review
-  // hold or on a later customer schedule (stoppable until it goes out).
+  // hold, on a manual release (high warnings) or on a later customer schedule
+  // (stoppable until it goes out).
   const now = new Date().toISOString();
   const { data: jobs } = await admin
     .from("send_jobs")
     .select(
-      "id, user_id, total_items, total_vk_cents, created_at, scheduled_release_at, review_hold_until, review_flags, letters(title), profiles(email, display_name, company)",
+      "id, user_id, total_items, total_vk_cents, created_at, scheduled_release_at, review_hold_until, review_manual_required, review_flags, letters(title), profiles(email, display_name, company)",
     )
     .is("review_released_at", null)
     .is("review_stopped_at", null)
     .not("review_hold_until", "is", null)
     .eq("status", "queued")
-    .or(`review_hold_until.gt.${now},scheduled_release_at.gt.${now}`)
+    .or(
+      `review_hold_until.gt.${now},scheduled_release_at.gt.${now},review_manual_required.eq.true`,
+    )
     .order("created_at", { ascending: true })
     .limit(200);
 
@@ -129,7 +132,13 @@ export default async function AdminReviewPage() {
                       )}
                     </TableCell>
                     <TableCell className="text-xs whitespace-nowrap">
-                      {releaseAt ? formatBerlin(releaseAt) : "–"}
+                      {job.review_manual_required ? (
+                        <Badge variant="destructive">{t.manualOnly}</Badge>
+                      ) : releaseAt ? (
+                        formatBerlin(releaseAt)
+                      ) : (
+                        "–"
+                      )}
                     </TableCell>
                     <TableCell className="text-right">
                       <ReviewActions jobId={job.id} />

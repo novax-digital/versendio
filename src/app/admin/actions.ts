@@ -418,6 +418,7 @@ const SETTING_SCHEMAS = {
   flows_max_hold_days: z.number().int().min(1).max(90),
   // Versandprüfung: Wartezeit vor Einlieferung (0 = aus) und Empfänger der Prüf-Mails.
   send_review_hold_hours: z.number().min(0).max(72),
+  send_review_manual_on_high: z.boolean(),
   admin_notification_email: z.string().email(),
 } as const;
 

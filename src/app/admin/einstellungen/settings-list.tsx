@@ -24,6 +24,7 @@ const LABELS: Record<string, string> = {
   low_credit_threshold_cents: "Schwellwert „Guthaben niedrig“ (Cent)",
   queue_batch_size: "Queue-Batchgröße je Lauf",
   send_review_hold_hours: "Prüf-Wartezeit vor Einlieferung in Stunden (0 = aus)",
+  send_review_manual_on_high: "Sendungen mit roten Warnungen nur nach manueller Freigabe",
   admin_notification_email: "E-Mail-Adresse für Prüf- und Betrugsmeldungen",
   status_sync_interval_minutes: "Status-Sync-Intervall (Minuten)",
   status_sync_max_queries_per_run: "Max. Einzelabfragen je Sync-Lauf",

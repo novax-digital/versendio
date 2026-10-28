@@ -144,10 +144,19 @@ export async function processAdminSendReview(jobId: string, restart = false): Pr
     contentPages: extracted?.pages ?? 0,
     contentChanged: restart,
   });
-  // The hash is what the worker later compares against what it sends.
+  // High warnings ⇒ no automatic release when the hold ends (I-035), unless
+  // switched off. Only ever raised here, never cleared: a later re-review of
+  // the same job keeps it manual. The hash is what the worker compares
+  // against what it is about to send.
+  const high = flags.some((f) => f.level === "high");
+  const manual = high && (await getJsonSetting<unknown>("send_review_manual_on_high", true)) !== false;
   await admin
     .from("send_jobs")
-    .update({ review_flags: flags, review_content_hash: rendered?.contentHash ?? null })
+    .update({
+      review_flags: flags,
+      review_content_hash: rendered?.contentHash ?? null,
+      ...(manual ? { review_manual_required: true } : {}),
+    })
     .eq("id", jobId);
 
   const to = await adminNotificationEmail();
@@ -161,7 +170,6 @@ export async function processAdminSendReview(jobId: string, restart = false): Pr
     .filter((v): v is string => Boolean(v))
     .sort()
     .at(-1);
-  const high = flags.some((f) => f.level === "high");
   const amount = formatCents(job.total_vk_cents);
   const source = letter?.source === "editor" ? t.sourceEditor : t.sourceUpload;
 
@@ -190,9 +198,11 @@ export async function processAdminSendReview(jobId: string, restart = false): Pr
 
   const intro = job.review_released_at
     ? t.mailIntroReleased
-    : !job.review_hold_until
-      ? t.mailIntroNoHold
-      : t.mailIntro(releaseAt ? formatBerlin(releaseAt) : "–");
+    : manual
+      ? t.mailIntroManual
+      : !job.review_hold_until
+        ? t.mailIntroNoHold
+        : t.mailIntro(releaseAt ? formatBerlin(releaseAt) : "–");
   const appUrl = (serverEnv().APP_URL ?? "").replace(/\/$/, "");
   const { html, text } = renderBrandedEmail({
     paragraphs: [

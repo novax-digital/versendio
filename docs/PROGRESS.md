@@ -590,6 +590,9 @@ Abschlussbericht abarbeiten.
   `pending`-Items. Migration `20261028120000_send_review_hold.sql` vorab per Rollback-Transaktion
   gegen Prod verifiziert (Frist, Mail-Job, Freigabe idempotent, Neustart einmalig, Stopp sperrt
   Freigabe, doppeltes Storno mit Betrag, Anonymisierung leert Flags, Rechte)
-- [x] Reviews: security-auditor + code-reviewer (je REVISE) — alle HIGH/MEDIUM behoben, offen als
-  Betreiberentscheidung: Sendungen mit hohen Warnungen trotzdem automatisch nach Fristende (I-035)
-- [x] DoD: Build ✅ Lint ✅ Typecheck ✅ **223 Unit-Tests** ✅
+- [x] Reviews: security-auditor + code-reviewer (je REVISE) — alle HIGH/MEDIUM behoben; live seit
+  2026-10-28 (Commit 3faa645, Migration angewendet, Stripe-Webhook um 2 Events erweitert)
+- [x] **Rote Warnungen ⇒ nur manuelle Freigabe** (I-035, Betreiberentscheidung): `review_manual_required`
+  (Migration `20261028150000`), Worker parkt stündlich bis zur Freigabe, Konsole „Nur nach Freigabe",
+  Kundensicht ohne Zeitversprechen, Schalter `send_review_manual_on_high`
+- [x] DoD: Build ✅ Lint ✅ Typecheck ✅ **225 Unit-Tests** ✅
