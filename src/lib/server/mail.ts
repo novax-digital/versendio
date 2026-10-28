@@ -7,6 +7,7 @@ export type MailMessage = {
   subject: string;
   html: string;
   text?: string;
+  attachments?: { filename: string; content: Buffer }[];
 };
 
 /**
@@ -26,7 +27,9 @@ export function escapeHtml(value: string): string {
  * Transactional mail with graceful degradation: Resend when configured,
  * otherwise structured console log (dev/mock). SMTP fallback can be added
  * behind SMTP_URL without touching call sites.
- * Never include letter contents or recipient addresses in mails/logs.
+ * Never include letter contents or recipient addresses in mails/logs. Sole
+ * exception: the admin review mail attaches the letter rendered for a SAMPLE
+ * recipient (send/admin-review.ts) — content, never real addresses.
  */
 export async function sendMail(message: MailMessage): Promise<{ ok: boolean; error?: string }> {
   const env = serverEnv();
@@ -40,6 +43,7 @@ export async function sendMail(message: MailMessage): Promise<{ ok: boolean; err
         subject: message.subject,
         html: message.html,
         text: message.text,
+        attachments: message.attachments,
       });
       if (error) {
         console.error("mail_send_failed", { subject: message.subject, error: error.message });

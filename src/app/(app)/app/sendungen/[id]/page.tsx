@@ -12,6 +12,24 @@ import { ButtonLink } from "@/components/ui-ext/button-link";
 
 export const metadata: Metadata = { title: de.sendJobs.title };
 
+/**
+ * True while the review hold is what delays the job (a later customer
+ * schedule is already displayed as "Geplanter Versand").
+ */
+function reviewHoldShown(job: {
+  status: string;
+  scheduled_release_at: string | null;
+  review_hold_until: string | null;
+  review_released_at: string | null;
+}): boolean {
+  if (job.status !== "queued" || job.review_released_at || !job.review_hold_until) return false;
+  const holdUntil = Date.parse(job.review_hold_until);
+  return (
+    holdUntil > Date.now() &&
+    (!job.scheduled_release_at || Date.parse(job.scheduled_release_at) <= holdUntil)
+  );
+}
+
 export default async function SendJobDetailPage({
   params,
 }: {
@@ -26,7 +44,7 @@ export default async function SendJobDetailPage({
     supabase
       .from("send_jobs")
       .select(
-        "id, letter_id, status, is_test, is_color, is_duplex, registered, total_items, total_vk_cents, scheduled_release_at, created_at, completed_at, letters(title)",
+        "id, letter_id, status, is_test, is_color, is_duplex, registered, total_items, total_vk_cents, scheduled_release_at, review_hold_until, review_released_at, created_at, completed_at, letters(title)",
       )
       .eq("id", id)
       .eq("user_id", profile.id)
@@ -49,6 +67,7 @@ export default async function SendJobDetailPage({
     !["completed", "completed_with_errors", "canceled"].includes(job.status) &&
     (items ?? []).some((i) => ["pending", "on_hold_funds"].includes(i.status));
   const hasFailures = (items ?? []).some((i) => i.status === "failed");
+  const inReview = reviewHoldShown(job);
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -84,6 +103,17 @@ export default async function SendJobDetailPage({
                   dateStyle: "medium",
                   timeStyle: "short",
                 }).format(new Date(job.scheduled_release_at))}
+              </p>
+            ) : null}
+            {inReview && job.review_hold_until ? (
+              <p className="text-muted-foreground mt-2 text-xs">
+                {de.sendJobs.reviewHold(
+                  new Intl.DateTimeFormat("de-DE", {
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                    timeZone: "Europe/Berlin", // server renders in UTC on Vercel
+                  }).format(new Date(job.review_hold_until)),
+                )}
               </p>
             ) : null}
           </CardContent>

@@ -2,6 +2,8 @@
  * Central German UI strings (Sie-Form). Single source for all user-facing
  * copy so a future locale can be added without touching components.
  */
+import type { ReviewFlagCode } from "@/lib/shared/send-review";
+
 export const de = {
   common: {
     appName: "Versendio",
@@ -1050,6 +1052,8 @@ export const de = {
     } as Record<string, string>,
     testBadge: "Probeversand",
     scheduledFor: "Geplanter Versand",
+    reviewHold: (when: string) =>
+      `Wird vor dem Versand geprüft – geht spätestens am ${when} an die Deutsche Post. Bis dahin können Sie die Sendung kostenfrei stornieren.`,
     cancelJob: "Sendung stornieren",
     cancelConfirm:
       "Noch nicht eingelieferte Briefe werden storniert und erstattet. Bereits eingelieferte Briefe können nicht mehr zurückgerufen werden.",
@@ -1461,6 +1465,84 @@ export const de = {
     openMenu: "Menü öffnen",
     userMenu: "Benutzermenü",
     settingsNav: "Einstellungen",
+    // Versandprüfung (Wartezeit vor Einlieferung)
+    review: {
+      navLabel: "Prüfung",
+      title: "Sendungen in Prüfung",
+      hint: "Jeder Auftrag wartet vor der Einlieferung bei der Deutschen Post. In dieser Zeit können Sie ihn vorzeitig freigeben oder stoppen; danach geht er automatisch raus.",
+      empty: "Zurzeit wartet keine Sendung auf Prüfung.",
+      received: "Eingang",
+      account: "Konto",
+      letter: "Brief",
+      recipients: "Empfänger",
+      amount: "Betrag",
+      warnings: "Warnungen",
+      autoRelease: "Automatischer Versand",
+      preview: "Vorschau (PDF)",
+      release: "Jetzt freigeben",
+      stop: "Stoppen",
+      stopAndBlock: "Stoppen + Konto sperren",
+      stopConfirm:
+        "Alle noch nicht eingelieferten Briefe dieser Sendung werden storniert und dem Konto erstattet.",
+      stopAndBlockConfirm:
+        "Die Sendung wird gestoppt und erstattet, das Konto wird gesperrt, die automatische Aufladung abgeschaltet und alle weiteren offenen Sendungen des Kontos werden storniert.",
+      released: "Die Sendung ist freigegeben.",
+      stopped: (canceled: number, inFlight: number, submitted: number) =>
+        [
+          `Gestoppt: ${canceled} Brief(e) storniert und erstattet.`,
+          inFlight > 0 ? `${inFlight} Brief(e) in Verarbeitung werden vor der Einlieferung abgefangen.` : "",
+          submitted > 0 ? `${submitted} Brief(e) waren bereits eingeliefert und lassen sich nicht zurückholen.` : "",
+        ]
+          .filter(Boolean)
+          .join(" "),
+      blockedSuffix: " Das Konto ist gesperrt.",
+      nothingToStop: "Diese Sendung hat keine Briefe mehr, die gestoppt werden könnten.",
+      notReleasable: "Diese Sendung kann nicht mehr freigegeben werden.",
+      noWarnings: "keine",
+      at: (formatted: string) => `${formatted} Uhr`,
+      pages: (n: number | null) => `${n ?? "?"} S.`,
+      flag: {
+        content_changed: () =>
+          "Briefinhalt wurde nach der Prüfung geändert – erneute Prüfung, bisherige Freigabe aufgehoben",
+        sender_brand: (d?: string) => `Absender nennt eine bekannte Marke/Bank: ${d ?? ""}`,
+        sender_mismatch: (d?: string) => `Absenderfirma passt nicht zur Firma im Konto: ${d ?? ""}`,
+        image_only: (d?: string) =>
+          `Brief enthält kaum maschinenlesbaren Text (${d ?? "0"} Zeichen) – vermutlich ein Bild, bitte Vorschau ansehen`,
+        text_unchecked: () => "Brieftext konnte nicht automatisch geprüft werden",
+        phishing_terms: (d?: string) => `Typische Phishing-Begriffe: ${d ?? ""}`,
+        brand_terms: (d?: string) => `Erwähnt Marken/Banken: ${d ?? ""}`,
+        bulk_first_job: (d?: string) => `Erster Auftrag des Kontos mit ${d ?? "?"} Empfängern`,
+        first_job: () => "Erster Auftrag des Kontos",
+        new_account: (d?: string) => `Konto erst seit ${d ?? "?"} Tag(en) registriert`,
+      } satisfies Record<ReviewFlagCode, (detail?: string) => string>,
+      mailSubject: (warn: boolean, account: string, count: number, amount: string) =>
+        `${warn ? "[WARNUNG] " : ""}Prüfung: Konto ${account} – ${count} Brief(e), ${amount}`,
+      mailIntro: (when: string) =>
+        `eine Sendung wartet auf Prüfung. Ohne Ihr Eingreifen geht sie am <strong>${when}</strong> automatisch an die Deutsche Post.`,
+      mailIntroReleased: "eine Sendung wurde bereits freigegeben.",
+      mailIntroNoHold: "eine Sendung wurde angelegt. Die Prüf-Wartezeit ist ausgeschaltet – sie geht ohne Verzögerung an die Deutsche Post.",
+      companyLabel: "Firma im Konto",
+      registeredLabel: "Registriert",
+      previousJobsLabel: "Bisherige Sendungen",
+      senderLabel: "Absender",
+      sourceEditor: "Editor",
+      sourceUpload: "Upload",
+      mailPreviewNote:
+        "Den Brief sehen Sie als PDF-Vorschau in der Admin-Konsole (nach Anmeldung). Er wird bewusst nicht angehängt, weil hochgeladene Briefe echte Empfängerdaten enthalten können.",
+      mailPreviewFailed: "Die PDF-Vorschau konnte nicht erzeugt werden – bitte in der Admin-Konsole prüfen.",
+      mailCta: "In der Admin-Konsole prüfen",
+      fraudSubject: (signal: string) => `[BETRUG] ${signal}: Konto automatisch gesperrt`,
+      fraudBody: (signal: string, who: string, jobs: number) =>
+        `Stripe meldet: <strong>${signal}</strong>. Das Konto ${who} wurde automatisch gesperrt, die automatische Aufladung abgeschaltet und ${jobs} offene Sendung(en) storniert. Bitte prüfen Sie die Zahlung im Stripe-Dashboard und erstatten Sie sie gegebenenfalls.`,
+      fraudNoUser: (signal: string) =>
+        `Stripe meldet: <strong>${signal}</strong>. Die Zahlung ließ sich keinem Konto zuordnen – bitte im Stripe-Dashboard prüfen.`,
+      disputeSubject: (signal: string) => `[STRIPE] ${signal}: bitte prüfen`,
+      disputeBody: (signal: string, who: string) =>
+        `Stripe meldet: <strong>${signal}</strong> für das Konto ${who}. Der Grund deutet nicht auf Betrug hin, das Konto bleibt daher aktiv. Bitte prüfen Sie den Fall im Stripe-Dashboard.`,
+      fraudCta: "Zahlung in Stripe öffnen",
+      signalEfw: "Frühwarnung wegen Betrugs (Early Fraud Warning)",
+      signalDispute: "Rückbuchung/Zahlungsanfechtung (Dispute)",
+    },
   },
   mail: {
     welcomeSubject: "Willkommen bei Versendio",

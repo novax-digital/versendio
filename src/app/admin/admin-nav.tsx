@@ -7,6 +7,7 @@ import { de } from "@/lib/i18n/de";
 
 const tabs = [
   { href: "/admin", label: de.admin.dashboard, exact: true },
+  { href: "/admin/pruefung", label: de.admin.review.navLabel, exact: false },
   { href: "/admin/nutzer", label: de.admin.users, exact: false },
   { href: "/admin/sendungen", label: de.admin.jobMonitor, exact: false },
   { href: "/admin/aufladungen", label: de.credits.topupsTitle, exact: false },

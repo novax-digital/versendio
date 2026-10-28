@@ -10,6 +10,8 @@ import { createVoucherSchema, VOUCHER_CODE_RE } from "@/lib/shared/schemas/vouch
 import { writeAuditLog } from "@/lib/server/audit";
 import { enqueueJob } from "@/lib/server/queue/enqueue";
 import { serverEnv } from "@/lib/server/env";
+import { blockAccountAndStopSends } from "@/lib/server/send/block-account";
+import { renderReviewPreview } from "@/lib/server/send/admin-review";
 import type { ActionResult } from "@/lib/server/action-result";
 import { de } from "@/lib/i18n/de";
 
@@ -98,14 +100,26 @@ export async function setUserStatusAction(
     return { ok: false, error: de.admin.cannotBlockSelf };
   }
 
-  const admin = createAdminClient();
-  const { error } = await admin
-    .from("profiles")
-    .update({ status: parsed.data.status })
-    .eq("id", parsed.data.userId);
-  if (error) {
-    console.error("admin_set_status_failed", { error: error.message });
-    return { ok: false, error: de.common.genericError };
+  // Blocking also stops the account's unsent letters and auto top-up (same
+  // fraud response as the review console and the Stripe fraud webhooks).
+  let jobsStopped: number | undefined;
+  if (parsed.data.status === "blocked") {
+    try {
+      jobsStopped = await blockAccountAndStopSends(parsed.data.userId, `admin:${actor.id}`);
+    } catch (err) {
+      console.error("admin_set_status_failed", { error: err instanceof Error ? err.message : "?" });
+      return { ok: false, error: de.common.genericError };
+    }
+  } else {
+    const admin = createAdminClient();
+    const { error } = await admin
+      .from("profiles")
+      .update({ status: parsed.data.status })
+      .eq("id", parsed.data.userId);
+    if (error) {
+      console.error("admin_set_status_failed", { error: error.message });
+      return { ok: false, error: de.common.genericError };
+    }
   }
 
   await writeAuditLog({
@@ -113,6 +127,7 @@ export async function setUserStatusAction(
     action: parsed.data.status === "blocked" ? "user_block" : "user_unblock",
     targetType: "user",
     targetId: parsed.data.userId,
+    details: jobsStopped !== undefined ? { jobs_stopped: jobsStopped } : undefined,
   });
   revalidatePath(`/admin/nutzer/${parsed.data.userId}`);
   return { ok: true };
@@ -401,6 +416,9 @@ const SETTING_SCHEMAS = {
   flows_enabled: z.boolean(),
   flows_scan_batch_size: z.number().int().min(1).max(1000),
   flows_max_hold_days: z.number().int().min(1).max(90),
+  // Versandprüfung: Wartezeit vor Einlieferung (0 = aus) und Empfänger der Prüf-Mails.
+  send_review_hold_hours: z.number().min(0).max(72),
+  admin_notification_email: z.string().email(),
 } as const;
 
 const settingsSchema = z.object({
@@ -487,6 +505,149 @@ export async function retryItemAction(_prev: unknown, formData: FormData): Promi
   });
   revalidatePath("/admin/sendungen");
   return { ok: true };
+}
+
+// --- send review (hold before submission) -----------------------------------
+
+const reviewJobSchema = z.object({ jobId: z.string().uuid() });
+
+/** Ends the review hold early; the job's letters go to the provider now. */
+export async function releaseSendJobAction(
+  _prev: unknown,
+  formData: FormData,
+): Promise<ActionResult> {
+  const actor = await requireAdmin();
+  const parsed = reviewJobSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { ok: false, error: de.common.genericError };
+
+  const admin = createAdminClient();
+  // Released before the review mail ran: fingerprint what is releasable now,
+  // otherwise the worker would read the missing hash as a content change.
+  const { data: job } = await admin
+    .from("send_jobs")
+    .select("letter_id, sender_snapshot, review_content_hash")
+    .eq("id", parsed.data.jobId)
+    .maybeSingle();
+  if (job && !job.review_content_hash) {
+    try {
+      const { contentHash } = await renderReviewPreview(job.letter_id, job.sender_snapshot);
+      await admin
+        .from("send_jobs")
+        .update({ review_content_hash: contentHash })
+        .eq("id", parsed.data.jobId)
+        .is("review_content_hash", null);
+    } catch (err) {
+      console.error("admin_release_hash_failed", { error: err instanceof Error ? err.message : "?" });
+    }
+  }
+
+  const { data: moved, error } = await admin.rpc("admin_release_send_job", {
+    p_job_id: parsed.data.jobId,
+  });
+  if (error) {
+    if (error.message.includes("job_not_releasable")) {
+      return { ok: false, error: de.admin.review.notReleasable };
+    }
+    console.error("admin_release_failed", { error: error.message });
+    return { ok: false, error: de.common.genericError };
+  }
+
+  await writeAuditLog({
+    actorUserId: actor.id,
+    action: "send_job_release",
+    targetType: "send_job",
+    targetId: parsed.data.jobId,
+    details: { queue_jobs_moved: moved },
+  });
+  revalidatePath("/admin/pruefung");
+  return { ok: true };
+}
+
+const stopJobSchema = reviewJobSchema.extend({ block: z.enum(["true", "false"]) });
+
+/**
+ * Stops a job under review. The job-level stop marker comes first: items a
+ * worker already claimed (`submitting`) are beyond cancel_pending_job_items
+ * but are caught by the worker's pre-POST check. With block=true the owner
+ * is blocked too and all their other open jobs stop. Returns the outcome
+ * message (how many were stopped, intercepted or already out).
+ */
+export async function stopSendJobAction(
+  _prev: unknown,
+  formData: FormData,
+): Promise<ActionResult<{ message: string }>> {
+  const actor = await requireAdmin();
+  const parsed = stopJobSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { ok: false, error: de.common.genericError };
+
+  const admin = createAdminClient();
+  const { data: job } = await admin
+    .from("send_jobs")
+    .select("user_id, status")
+    .eq("id", parsed.data.jobId)
+    .maybeSingle();
+  if (!job) return { ok: false, error: de.common.genericError };
+  const block = parsed.data.block === "true";
+  if (block && job.user_id === actor.id) return { ok: false, error: de.admin.cannotBlockSelf };
+  if (!block && ["canceled", "completed", "completed_with_errors"].includes(job.status)) {
+    return { ok: false, error: de.admin.review.nothingToStop };
+  }
+
+  const { error: markError } = await admin
+    .from("send_jobs")
+    .update({ review_stopped_at: new Date().toISOString() })
+    .eq("id", parsed.data.jobId)
+    .is("review_stopped_at", null);
+  if (markError) {
+    console.error("admin_stop_mark_failed", { error: markError.message });
+    return { ok: false, error: de.common.genericError };
+  }
+
+  const actorLabel = `admin:${actor.id}`;
+  const { error } = await admin.rpc("cancel_pending_job_items", {
+    p_job_id: parsed.data.jobId,
+    p_actor: actorLabel,
+  });
+  if (error) {
+    console.error("admin_stop_failed", { error: error.message });
+    return { ok: false, error: de.common.genericError };
+  }
+
+  const { data: items } = await admin
+    .from("send_job_items")
+    .select("status, provider_letter_id")
+    .eq("job_id", parsed.data.jobId);
+  const canceled = (items ?? []).filter((i) => i.status === "canceled").length;
+  const inFlight = (items ?? []).filter((i) => i.status === "submitting").length;
+  const submitted = (items ?? []).filter((i) => i.provider_letter_id).length;
+  await writeAuditLog({
+    actorUserId: actor.id,
+    action: "send_job_stop",
+    targetType: "send_job",
+    targetId: parsed.data.jobId,
+    details: { canceled, in_flight: inFlight, submitted },
+  });
+
+  let message = de.admin.review.stopped(canceled, inFlight, submitted);
+  if (block) {
+    try {
+      const jobsStopped = await blockAccountAndStopSends(job.user_id, actorLabel);
+      await writeAuditLog({
+        actorUserId: actor.id,
+        action: "user_block",
+        targetType: "user",
+        targetId: job.user_id,
+        details: { reason: "send_review", jobs_stopped: jobsStopped },
+      });
+      message += de.admin.review.blockedSuffix;
+    } catch (err) {
+      console.error("admin_block_failed", { error: err instanceof Error ? err.message : "?" });
+      return { ok: false, error: de.common.genericError };
+    }
+  }
+
+  revalidatePath("/admin/pruefung");
+  return { ok: true, data: { message } };
 }
 
 // --- Gutscheine (vouchers) ---------------------------------------------------

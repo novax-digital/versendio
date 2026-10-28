@@ -23,6 +23,8 @@ const LABELS: Record<string, string> = {
   topup_bonus_tiers: "Bonus-Guthaben je Aufladehöhe",
   low_credit_threshold_cents: "Schwellwert „Guthaben niedrig“ (Cent)",
   queue_batch_size: "Queue-Batchgröße je Lauf",
+  send_review_hold_hours: "Prüf-Wartezeit vor Einlieferung in Stunden (0 = aus)",
+  admin_notification_email: "E-Mail-Adresse für Prüf- und Betrugsmeldungen",
   status_sync_interval_minutes: "Status-Sync-Intervall (Minuten)",
   status_sync_max_queries_per_run: "Max. Einzelabfragen je Sync-Lauf",
   mock_fail_percent: "Mock: Fehlerquote (%)",

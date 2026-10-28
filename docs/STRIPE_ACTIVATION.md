@@ -45,6 +45,8 @@ Stripe-Dashboard → **Developers → Webhooks → Add endpoint**:
   - `invoice.paid` (Auto-Aufladung, Invoicing-Flow — **Pflicht**, sonst wird
     eine bezahlte Auto-Aufladung nicht gutgeschrieben)
   - `invoice.payment_failed`
+  - `radar.early_fraud_warning.created` und `charge.dispute.created` (Betrugsabwehr seit
+    2026-10-28: Konto sperren, offene Sendungen stoppen, Admin-Mail — siehe A-024)
 - Signing-Secret kopieren → `STRIPE_WEBHOOK_SECRET=whsec_…`
 
 Lokal testen:

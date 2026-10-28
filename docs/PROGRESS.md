@@ -580,3 +580,16 @@ Abschlussbericht abarbeiten.
 - ⚠️ Falls die E-Post die Briefe storniert (Status 99), schreibt die Auto-Erstattung 336 € auf
   das gesperrte Konto 6c65f892 zurück → danach erneut per `admin_adjust` auf 0 setzen
 - [x] DoD: Build ✅ Lint ✅ Typecheck ✅ **204 Unit-Tests** ✅
+- [x] **Versandprüfung (A-024)**: jede bezahlte Sendung wartet 8 h vor der Einlieferung
+  (Einstellung `send_review_hold_hours`), Admin-Seite `/admin/pruefung` mit „Jetzt freigeben" /
+  „Stoppen" / „Stoppen + Konto sperren", Prüf-Mail je Sendung an `admin_notification_email`
+  (admin@novax-digital.de) mit Warnhinweisen und Link zur Vorschau (kein Anhang); Worker-Guards
+  für Wartezeit, Kundentermin, Stopp, gesperrte Konten und **nachträglich geänderten Briefinhalt**
+  (Inhalts-Hash ⇒ neue Prüfung); Stripe `radar.early_fraud_warning.created` + Betrugs-Disputes ⇒
+  Konto sperren + offene Sendungen stornieren + Admin-Alarm; Maintenance-Sweep für gestrandete
+  `pending`-Items. Migration `20261028120000_send_review_hold.sql` vorab per Rollback-Transaktion
+  gegen Prod verifiziert (Frist, Mail-Job, Freigabe idempotent, Neustart einmalig, Stopp sperrt
+  Freigabe, doppeltes Storno mit Betrag, Anonymisierung leert Flags, Rechte)
+- [x] Reviews: security-auditor + code-reviewer (je REVISE) — alle HIGH/MEDIUM behoben, offen als
+  Betreiberentscheidung: Sendungen mit hohen Warnungen trotzdem automatisch nach Fristende (I-035)
+- [x] DoD: Build ✅ Lint ✅ Typecheck ✅ **223 Unit-Tests** ✅

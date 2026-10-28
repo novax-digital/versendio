@@ -5,8 +5,11 @@ import { getStripe } from "@/lib/server/stripe";
 import { serverEnv } from "@/lib/server/env";
 import { getJsonSetting } from "@/lib/server/settings";
 import { enqueueJob } from "@/lib/server/queue/enqueue";
-import { sendMail } from "@/lib/server/mail";
+import { sendMail, escapeHtml } from "@/lib/server/mail";
 import { renderBrandedEmail } from "@/lib/server/mail-template";
+import { writeAuditLog } from "@/lib/server/audit";
+import { blockAccountAndStopSends } from "@/lib/server/send/block-account";
+import { adminNotificationEmail } from "@/lib/server/send/admin-review";
 import { computeBonusCents, type BonusTier } from "@/lib/shared/topup-bonus";
 import { de } from "@/lib/i18n/de";
 
@@ -109,6 +112,19 @@ export async function POST(request: Request) {
         if (intent.metadata?.purpose === "auto_topup" && intent.metadata.user_id) {
           await handleAutoTopupFailure(intent.metadata.user_id);
         }
+        break;
+      }
+      case "radar.early_fraud_warning.created": {
+        const warning = event.data.object as Stripe.Radar.EarlyFraudWarning;
+        await handleFraudSignal("efw", warning.charge, warning.payment_intent);
+        break;
+      }
+      case "charge.dispute.created": {
+        const dispute = event.data.object as Stripe.Dispute;
+        // Only fraud-type disputes block; "duplicate", "product_not_received"
+        // etc. come from honest customers and just alert the admin.
+        const fraud = dispute.reason === "fraudulent" || dispute.reason === "unrecognized";
+        await handleFraudSignal("dispute", dispute.charge, dispute.payment_intent, fraud);
         break;
       }
       default:
@@ -363,6 +379,101 @@ async function handleAutoTopupFailure(userId: string): Promise<void> {
     html,
     text,
   });
+}
+
+/**
+ * Issuer fraud report (early fraud warning) or dispute on one of our charges:
+ * prepaid credit bought with a stolen card is exactly what funded the
+ * 2026-10-28 phishing campaign. Block the payer and stop their unsent letters
+ * at once, then alert the admin. Blocking is idempotent, so a webhook replay
+ * is safe; a failed alert mail never fails the webhook.
+ */
+async function handleFraudSignal(
+  kind: "efw" | "dispute",
+  chargeRef: string | Stripe.Charge,
+  intentRef: string | Stripe.PaymentIntent | null | undefined,
+  block = true,
+): Promise<void> {
+  const stripe = getStripe();
+  const admin = createAdminClient();
+  const t = de.admin.review;
+  const signal = kind === "efw" ? t.signalEfw : t.signalDispute;
+
+  // Owner: our checkout metadata first, then the Stripe customer mapping. A
+  // failed intent lookup must not prevent the block — fall through.
+  const intentId = typeof intentRef === "string" ? intentRef : (intentRef?.id ?? null);
+  const charge =
+    typeof chargeRef === "string" ? await stripe.charges.retrieve(chargeRef) : chargeRef;
+  let userId: string | null = null;
+  if (intentId) {
+    try {
+      const intent = await stripe.paymentIntents.retrieve(intentId);
+      userId = intent.metadata?.user_id ?? null;
+    } catch (err) {
+      console.error("fraud_intent_lookup_failed", { error: err instanceof Error ? err.message : "?" });
+    }
+  }
+  const customerId =
+    typeof charge.customer === "string" ? charge.customer : (charge.customer?.id ?? null);
+  if (!userId && customerId) {
+    const { data } = await admin
+      .from("billing_accounts")
+      .select("user_id")
+      .eq("stripe_customer_id", customerId)
+      .maybeSingle();
+    userId = data?.user_id ?? null;
+  }
+
+  let who = customerId ?? charge.id;
+  let jobsStopped = 0;
+  if (userId && !block) {
+    const { data: profile } = await admin
+      .from("profiles")
+      .select("email")
+      .eq("id", userId)
+      .maybeSingle();
+    who = profile?.email ?? userId;
+  }
+  if (userId && block) {
+    jobsStopped = await blockAccountAndStopSends(userId, "system");
+    await writeAuditLog({
+      actorUserId: null,
+      action: "user_block",
+      targetType: "user",
+      targetId: userId,
+      details: {
+        reason: kind === "efw" ? "stripe_early_fraud_warning" : "stripe_dispute",
+        charge_id: charge.id,
+        jobs_stopped: jobsStopped,
+      },
+    });
+    const { data: profile } = await admin
+      .from("profiles")
+      .select("email")
+      .eq("id", userId)
+      .maybeSingle();
+    who = profile?.email ?? userId;
+  }
+
+  const to = await adminNotificationEmail();
+  if (!to) return;
+  const paymentUrl = `https://dashboard.stripe.com/payments/${encodeURIComponent(intentId ?? charge.id)}`;
+  const body = !userId
+    ? t.fraudNoUser(signal)
+    : block
+      ? t.fraudBody(signal, escapeHtml(who), jobsStopped)
+      : t.disputeBody(signal, escapeHtml(who));
+  const { html, text } = renderBrandedEmail({
+    paragraphs: [body],
+    cta: { label: t.fraudCta, url: paymentUrl },
+  });
+  const result = await sendMail({
+    to,
+    subject: block ? t.fraudSubject(signal) : t.disputeSubject(signal),
+    html,
+    text,
+  });
+  if (!result.ok) console.error("fraud_alert_mail_failed", { error: result.error });
 }
 
 async function resolveReceipt(

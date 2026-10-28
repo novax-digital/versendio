@@ -1,4 +1,5 @@
 import "server-only";
+import { createHash } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getLetterProvider } from "@/lib/server/providers";
 import { ProviderError, type SubmitLetterInput } from "@/lib/server/providers/types";
@@ -15,18 +16,21 @@ import {
 } from "@/lib/shared/address";
 import { calculateLetterPrice, type PricingRow } from "@/lib/shared/pricing";
 import { sheetsFromPages } from "@/lib/shared/sheets";
+import { reviewDeferUntil } from "@/lib/shared/send-review";
 import { BUCKETS } from "@/lib/server/storage";
 import { enqueueJob } from "@/lib/server/queue/enqueue";
 import { maybeCompleteJob } from "./complete-job";
 
 const SUBMIT_WINDOW_MS = 55 * 60 * 1000; // stay inside the 60-min duplicate failsafe
+const MAX_REVIEW_RESTARTS = 3; // content-change restarts per job before it proceeds
 
 export type ProcessResult =
   | { outcome: "submitted" }
   | { outcome: "skipped"; reason: string }
   | { outcome: "on_hold_funds" }
   | { outcome: "failed_permanent"; reason: string }
-  | { outcome: "retry"; reason: string };
+  | { outcome: "retry"; reason: string }
+  | { outcome: "deferred"; until: string };
 
 type PricingSnapshot = {
   discountPercent: number;
@@ -43,13 +47,17 @@ export async function processSubmitItem(itemId: string): Promise<ProcessResult> 
   const admin = createAdminClient();
   const provider = getLetterProvider();
 
-  const { data: item } = await admin
+  // A load ERROR must retry, never resolve as "not found": a skipped job is
+  // marked done and its debited item would be stranded (e.g. a deploy that
+  // lands before its migration makes every select fail).
+  const { data: item, error: itemError } = await admin
     .from("send_job_items")
     .select(
       "id, job_id, user_id, status, recipient_snapshot, sheet_count, vk_cents, ek_cents, pricing_snapshot, provider_letter_id, first_submit_attempt_at, attempts",
     )
     .eq("id", itemId)
     .maybeSingle();
+  if (itemError) return { outcome: "retry", reason: `item_load_failed: ${itemError.message}` };
   if (!item) return { outcome: "skipped", reason: "item_not_found" };
 
   // Status guard: only pending/on_hold_funds/submitting are processable.
@@ -57,15 +65,50 @@ export async function processSubmitItem(itemId: string): Promise<ProcessResult> 
     return { outcome: "skipped", reason: `status_${item.status}` };
   }
 
-  const { data: job } = await admin
+  const { data: job, error: jobError } = await admin
     .from("send_jobs")
     .select(
-      "id, user_id, letter_id, sender_snapshot, is_color, is_duplex, registered, is_test, provider_batch_id, status",
+      "id, user_id, letter_id, sender_snapshot, is_color, is_duplex, registered, is_test, provider_batch_id, status, scheduled_release_at, review_hold_until, review_released_at, review_stopped_at, review_content_hash, review_restarts",
     )
     .eq("id", item.job_id)
-    .single();
+    .maybeSingle();
+  if (jobError) return { outcome: "retry", reason: `job_load_failed: ${jobError.message}` };
   if (!job) return { outcome: "skipped", reason: "job_not_found" };
   if (job.status === "canceled") return { outcome: "skipped", reason: "job_canceled" };
+
+  // Stopped by the admin review, or the account was blocked/deleted: cancel
+  // and refund before any rendering or charging (a blocked account's item
+  // must not get parked in on_hold_funds by the sheet-count debit below).
+  const { data: owner, error: ownerError } = await admin
+    .from("profiles")
+    .select("status")
+    .eq("id", item.user_id)
+    .maybeSingle();
+  if (ownerError || !owner) return { outcome: "retry", reason: "profile_load_failed" };
+  if ((job.review_stopped_at || owner.status !== "active") && item.status !== "submitting") {
+    const { error } = await admin.rpc("cancel_pending_job_items", {
+      p_job_id: job.id,
+      p_actor: "system",
+    });
+    if (error) return { outcome: "retry", reason: `stop_cancel_failed: ${error.message}` };
+    await maybeCompleteJob(job.id);
+    return { outcome: "skipped", reason: job.review_stopped_at ? "job_stopped" : "account_inactive" };
+  }
+
+  // Review hold / customer schedule: the queue run_at already waits for both,
+  // but any path that enqueues submit_item early (funds release, maintenance
+  // sweep, retry clone) must not shortcut them — re-park until they end.
+  const deferUntil = reviewDeferUntil(job, Date.now());
+  if (deferUntil) {
+    // An admin release racing this attempt must not be undone by the re-park.
+    const { data: fresh } = await admin
+      .from("send_jobs")
+      .select("review_released_at, scheduled_release_at, review_hold_until")
+      .eq("id", job.id)
+      .maybeSingle();
+    const recheck = fresh ? reviewDeferUntil(fresh, Date.now()) : deferUntil;
+    if (recheck) return { outcome: "deferred", until: recheck };
+  }
 
   // Crash recovery: a previous attempt may have POSTed without recording the
   // letterID. NEVER blindly resubmit — reconcile via custom1 lookup first.
@@ -125,12 +168,50 @@ export async function processSubmitItem(itemId: string): Promise<ProcessResult> 
 
   // --- personalize + validate (same path as uploads, ADR-0006) --------------
   let pdfBytes: Uint8Array;
+  let contentHash: string;
   try {
-    pdfBytes = await buildItemPdf(job.letter_id, recipient, senderLine, senderCity, addressLines);
+    ({ pdf: pdfBytes, contentHash } = await renderItemPdf(
+      job.letter_id, recipient, senderLine, senderCity, addressLines,
+    ));
   } catch (err) {
     const reason = err instanceof Error ? err.message : "render_failed";
     await failItem(item.id, item.user_id, job.is_test, item.vk_cents, "render_failed", reason);
     return { outcome: "failed_permanent", reason };
+  }
+
+  // Reviewed content check: customers can edit the letter or overwrite its
+  // stored PDF/images while the job waits. If what we just rendered is not
+  // what the review saw (or the review never rendered it), un-claim the item
+  // and start a fresh review. Bounded so a review that can never render
+  // (broken mail/render path) cannot park a job forever.
+  if (
+    job.review_hold_until &&
+    contentHash !== job.review_content_hash &&
+    job.review_restarts < MAX_REVIEW_RESTARTS
+  ) {
+    await admin
+      .from("send_job_items")
+      .update({ status: "pending", first_submit_attempt_at: null })
+      .eq("id", item.id)
+      .eq("status", "submitting");
+    const { data: newHold, error } = await admin.rpc("restart_send_review", { p_job_id: job.id });
+    if (error) return { outcome: "retry", reason: `review_restart_failed: ${error.message}` };
+    // Undo the queued → processing flip unless letters already went out.
+    const { count: sent } = await admin
+      .from("send_job_items")
+      .select("id", { count: "exact", head: true })
+      .eq("job_id", job.id)
+      .not("provider_letter_id", "is", null);
+    if (sent === 0) {
+      await admin.from("send_jobs").update({ status: "queued" }).eq("id", job.id).eq("status", "processing");
+    }
+    await addEvent(item.id, "pending", null, "Briefinhalt nach der Prüfung geändert – erneute Prüfung", "system", "system_note");
+    const until = reviewDeferUntil(
+      { review_hold_until: newHold as string | null, review_released_at: null, scheduled_release_at: job.scheduled_release_at },
+      Date.now(),
+    );
+    if (until) return { outcome: "deferred", until };
+    return { outcome: "retry", reason: "review_restarted_without_hold" };
   }
 
   // dvf_zone is only a warning at UPLOAD time because the auto cover page
@@ -224,9 +305,10 @@ export async function processSubmitItem(itemId: string): Promise<ProcessResult> 
   // --- submit ------------------------------------------------------------------
   const { data: profile } = await admin
     .from("profiles")
-    .select("cost_center")
+    .select("cost_center, status")
     .eq("id", item.user_id)
     .single();
+  if (!profile) return { outcome: "retry", reason: "profile_load_failed" };
 
   await admin
     .from("send_job_items")
@@ -238,10 +320,14 @@ export async function processSubmitItem(itemId: string): Promise<ProcessResult> 
   // finalize this item ourselves (cancel + idempotent refund).
   const { data: freshJob } = await admin
     .from("send_jobs")
-    .select("status")
+    .select("status, review_stopped_at")
     .eq("id", item.job_id)
     .single();
-  if (freshJob?.status === "canceled") {
+  // A blocked/deleted account or an admin stop must not send — including
+  // items already claimed when the block/stop happened. Finalize like a
+  // cancel, then stop the rest of the job.
+  const accountInactive = profile.status !== "active" || Boolean(freshJob?.review_stopped_at);
+  if (freshJob?.status === "canceled" || accountInactive) {
     await admin.from("send_job_items").update({ status: "canceled" }).eq("id", item.id);
     if (!job.is_test && vkCents > 0) {
       const { error } = await admin.rpc("book_credit", {
@@ -256,6 +342,16 @@ export async function processSubmitItem(itemId: string): Promise<ProcessResult> 
       if (error && !error.message.includes("duplicate key")) {
         console.error("cancel_refund_failed", { itemId: item.id, error: error.message });
       }
+    }
+    if (accountInactive && freshJob?.status !== "canceled") {
+      // Cancel the job's other pending items at once instead of one by one.
+      const { error } = await admin.rpc("cancel_pending_job_items", {
+        p_job_id: item.job_id,
+        p_actor: "system",
+      });
+      if (error) console.error("blocked_cancel_rest_failed", { jobId: item.job_id, error: error.message });
+      await maybeCompleteJob(item.job_id);
+      return { outcome: "skipped", reason: "account_inactive" };
     }
     return { outcome: "skipped", reason: "job_canceled" };
   }
@@ -315,6 +411,24 @@ export async function buildItemPdf(
   senderCity: string | null,
   addressLines: string[],
 ): Promise<Uint8Array> {
+  return (await renderItemPdf(letterId, recipient, senderLine, senderCity, addressLines)).pdf;
+}
+
+/**
+ * buildItemPdf plus `contentHash`: a SHA-256 over exactly the letter content
+ * the render consumed (letter columns, stored PDF bytes or editor document,
+ * every embedded asset's bytes) — recipient-independent. The send review
+ * stores the hash of what the admin saw; the worker compares it against the
+ * bytes it is about to send, so a letter swapped after review is caught even
+ * when the swap races the render.
+ */
+export async function renderItemPdf(
+  letterId: string | null,
+  recipient: RecipientAddress,
+  senderLine: string,
+  senderCity: string | null,
+  addressLines: string[],
+): Promise<{ pdf: Uint8Array; contentHash: string }> {
   const admin = createAdminClient();
   if (!letterId) throw new Error("letter_missing");
 
@@ -325,9 +439,15 @@ export async function buildItemPdf(
     .single();
   if (!letter) throw new Error("letter_missing");
 
+  const hash = createHash("sha256");
+  hash.update(`${letter.source}|${letter.storage_path ?? ""}|${letter.use_cover_letter}|`);
+
   if (letter.source === "editor") {
     const doc = parseLetterDocument(letter.editor_document);
-    return renderEditorLetter({
+    hash.update(JSON.stringify(letter.editor_document ?? null));
+    // Assets may load concurrently: fold their digests in path order afterwards.
+    const assetDigests = new Map<string, string>();
+    const pdf = await renderEditorLetter({
       document: doc,
       senderLine,
       senderCity,
@@ -341,20 +461,28 @@ export async function buildItemPdf(
         if (!path.startsWith(`${letter.user_id}/`)) return null;
         const { data } = await admin.storage.from(BUCKETS.assets).download(path);
         if (!data) return null;
+        const bytes = new Uint8Array(await data.arrayBuffer());
+        assetDigests.set(path, createHash("sha256").update(bytes).digest("hex"));
         return {
-          bytes: new Uint8Array(await data.arrayBuffer()),
+          bytes,
           mime: path.toLowerCase().endsWith(".png") ? "image/png" : "image/jpeg",
         };
       },
     });
+    for (const path of [...assetDigests.keys()].sort()) {
+      hash.update(`|${path}:${assetDigests.get(path)}`);
+    }
+    return { pdf, contentHash: hash.digest("hex") };
   }
 
   if (!letter.storage_path) throw new Error("letter_pdf_missing");
   const { data: file } = await admin.storage.from(BUCKETS.letters).download(letter.storage_path);
   if (!file) throw new Error("letter_pdf_missing");
   const original = new Uint8Array(await file.arrayBuffer());
+  hash.update(original);
+  const contentHash = hash.digest("hex");
 
-  if (!letter.use_cover_letter) return original;
+  if (!letter.use_cover_letter) return { pdf: original, contentHash };
 
   // Owner preference for the "sent via versendio.de" footer; defaults to on
   // when the row (or column, pre-migration) is missing.
@@ -363,9 +491,10 @@ export async function buildItemPdf(
     .select("cover_letter_footer")
     .eq("id", letter.user_id)
     .maybeSingle();
-  return prependCoverLetter(original, senderLine, addressLines, {
+  const pdf = await prependCoverLetter(original, senderLine, addressLines, {
     footerNotice: pref?.cover_letter_footer ?? true,
   });
+  return { pdf, contentHash };
 }
 
 async function recordSubmitted(itemId: string, providerLetterId: string): Promise<void> {

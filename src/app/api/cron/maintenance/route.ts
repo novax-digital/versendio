@@ -88,6 +88,21 @@ export async function GET(request: Request) {
   }
   report.held_items_requeued = heldIds.length;
 
+  // 4b) Stranded pending items: debited but without a live submit job (e.g. a
+  //     job marked done by a past load error). Re-enqueue is safe — a live
+  //     row makes it a no-op, and the worker defers until the review hold /
+  //     customer schedule ends and cancels stopped or blocked jobs.
+  const { data: pendingItems } = await admin
+    .from("send_job_items")
+    .select("id")
+    .eq("status", "pending")
+    .lt("created_at", new Date(Date.now() - 3_600_000).toISOString())
+    .limit(200);
+  for (const item of pendingItems ?? []) {
+    await enqueueJob("submit_item", { itemId: item.id });
+  }
+  report.pending_items_swept = (pendingItems ?? []).length;
+
   // 5) Refund reconciliation: failed items whose refund booking was lost to a
   //    transient error (idempotent via the ledger reference index).
   const { data: unrefunded } = await admin

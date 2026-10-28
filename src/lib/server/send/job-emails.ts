@@ -10,6 +10,7 @@ import {
   NOTIFICATION_PREF_COLUMNS,
 } from "@/lib/shared/notifications";
 import { de } from "@/lib/i18n/de";
+import { processAdminSendReview } from "./admin-review";
 
 type EmailTemplate =
   | "job_completed"
@@ -46,6 +47,8 @@ export type SendEmailPayload = {
   failedCount?: number;
   /** review_reward_approved */
   platform?: string;
+  /** admin_send_review: re-review after the letter content changed */
+  restart?: boolean;
 };
 
 /**
@@ -56,6 +59,12 @@ export type SendEmailPayload = {
  * pref column are always sent (account/action-critical mail).
  */
 export async function processSendEmail(payload: SendEmailPayload): Promise<void> {
+  // Admin-addressed, not user-addressed: bypasses profile lookup and prefs.
+  if (payload.template === "admin_send_review") {
+    if (payload.jobId) await processAdminSendReview(payload.jobId, payload.restart === true);
+    return;
+  }
+
   const admin = createAdminClient();
   const first = await admin
     .from("profiles")
@@ -243,8 +252,8 @@ function buildMocoSummary(
   if (sent > 0) {
     paragraphs.push(
       sent === 1
-        ? "Ihre MOCO-Integration hat soeben 1 Dokument automatisch als Brief versendet."
-        : `Ihre MOCO-Integration hat soeben ${sent} Dokumente automatisch als Briefe versendet.`,
+        ? "Ihre MOCO-Integration hat soeben 1 Dokument automatisch als Brief zum Versand angelegt."
+        : `Ihre MOCO-Integration hat soeben ${sent} Dokumente automatisch als Briefe zum Versand angelegt.`,
     );
   }
   if (held > 0) {
@@ -281,8 +290,8 @@ function buildFlowSummary(
   if (sent > 0) {
     paragraphs.push(
       sent === 1
-        ? `Ihr Flow „${name}“ hat soeben 1 Brief automatisch versendet.`
-        : `Ihr Flow „${name}“ hat soeben ${sent} Briefe automatisch versendet.`,
+        ? `Ihr Flow „${name}“ hat soeben 1 Brief automatisch zum Versand angelegt.`
+        : `Ihr Flow „${name}“ hat soeben ${sent} Briefe automatisch zum Versand angelegt.`,
     );
   }
   if (held > 0) {

@@ -9,6 +9,7 @@ import { processSendEmail, type SendEmailPayload } from "@/lib/server/send/job-e
 export const maxDuration = 60;
 
 const TIME_BUDGET_MS = 45_000;
+const HEAVY_JOB_START_MS = 20_000;
 // Submit retries stay short so all attempts land inside the 60-min duplicate
 // failsafe window (ADR-0004 §5); other job types back off wider. With
 // max_attempts=5 (DB default) attempts 1-4 consume these delays, the 5th dies.
@@ -55,7 +56,11 @@ export async function GET(request: Request) {
   let requeued = 0;
 
   for (const job of (jobs ?? []) as QueueJob[]) {
-    if (Date.now() - started > TIME_BUDGET_MS) {
+    // The admin review job renders + parses a whole letter: only start it
+    // early in the run, so it cannot overrun maxDuration after mailing (a
+    // killed run would re-send the mail after reset_stuck_jobs).
+    const heavy = job.type === "send_email" && job.payload.template === "admin_send_review";
+    if (Date.now() - started > (heavy ? HEAVY_JOB_START_MS : TIME_BUDGET_MS)) {
       // Out of budget: release unprocessed job back to pending (attempt not consumed).
       await admin
         .from("job_queue")
@@ -67,7 +72,20 @@ export async function GET(request: Request) {
 
     try {
       const outcome = await processJob(job);
-      if (outcome === "retry") {
+      if (typeof outcome === "object") {
+        // Deferred (review hold): re-park without consuming an attempt.
+        await admin
+          .from("job_queue")
+          .update({
+            status: "pending",
+            run_at: outcome.deferUntil,
+            locked_at: null,
+            locked_by: null,
+            attempts: job.attempts - 1,
+          })
+          .eq("id", job.id);
+        requeued++;
+      } else if (outcome === "retry") {
         await scheduleRetry(job, "retry_requested");
         requeued++;
       } else {
@@ -84,12 +102,13 @@ export async function GET(request: Request) {
   return NextResponse.json({ claimed: jobs?.length ?? 0, done, failed, requeued });
 }
 
-async function processJob(job: QueueJob): Promise<"done" | "retry"> {
+async function processJob(job: QueueJob): Promise<"done" | "retry" | { deferUntil: string }> {
   switch (job.type) {
     case "submit_item": {
       const itemId = String(job.payload.itemId ?? "");
       if (!itemId) return "done";
       const result = await processSubmitItem(itemId);
+      if (result.outcome === "deferred") return { deferUntil: result.until };
       // retry → backoff; every other outcome is handled domain-side already.
       return result.outcome === "retry" ? "retry" : "done";
     }
